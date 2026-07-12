@@ -23,12 +23,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: 'pnpm'
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@11.0.0 --activate
+          cache: 'npm'
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -37,13 +32,13 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: pnpm install
+        run: npm install
 
       - name: Build frontend
-        run: pnpm run build
+        run: npm run build
 
       - name: Build Tauri bundle
-        run: pnpm exec tauri build
+        run: npm exec tauri build
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
