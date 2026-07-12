@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import ChangZhen from '@/assets/changzhen.webp'
+import ChangZhen from '@/assets/chang_zhen.webp'
 import Image from '@/components/Image.vue'
 import { useMusicStore } from '@/stores/music'
 import { useSettingStore } from '@/stores/setting'
