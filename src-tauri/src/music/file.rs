@@ -7,7 +7,6 @@ use lofty::{
 use serde::Serialize;
 use std::{
   fs::{create_dir_all, metadata, read_dir, remove_file, write},
-  os::windows::fs::MetadataExt,
   path::Path,
   process::Command,
 };
@@ -48,7 +47,7 @@ pub fn music_file_detail(file_path: &str) -> Result<MusicDetail, String> {
 
   music_info.path = file_path.to_owned();
   music_info.format = path.extension().map(|e| e.to_string_lossy().into_owned());
-  music_info.size = metadata.file_size();
+  music_info.size = metadata.len();
 
   let probe = Probe::open(file_path).map_err(|e| e.to_string())?;
   let tagged_file = probe.read().map_err(|e| e.to_string())?;
@@ -141,7 +140,8 @@ pub fn music_file_open(path: &str) -> Result<(), String> {
   #[cfg(target_os = "macos")]
   {
     Command::new("open")
-      .arg(["-R", path])
+      .arg("-R")
+      .arg(path)
       .spawn()
       .map_err(|_| String::from("打开失败"))?;
   };
