@@ -1,0 +1,17 @@
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  @apply h-1.5 w-1.5;
+}
+
+::-webkit-scrollbar-track {
+  @apply rounded-md bg-black/10 dark:bg-white/10;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply rounded-md bg-black/20 hover:bg-black/30 dark:bg-white/20 dark:hover:bg-white/30;
+}
+
+/* 隐藏滚动条但保持可滚动 (工具类) */
+.hide-scrollbar::-webkit-scrollbar {
+  @apply hidden [-ms-overflow-style:none] [scrollbar-width:none];
+}

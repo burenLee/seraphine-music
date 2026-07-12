@@ -1,0 +1,108 @@
+@import './scrollbar.css';
+@import './transition.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'poetry';
+  src: url('@/assets/fonts/poetry.woff') format('truetype');
+}
+
+:root {
+  --color-background: rgb(255, 255, 255); /** 背景 */
+  --color-foreground: rgb(30, 32, 36); /** 前景 */
+  --color-accent: rgb(0, 0, 0); /** 突出 */
+  --color-minor: rgb(160, 160, 160); /** 次要 */
+
+  --color-card: rgba(30, 32, 36, 0.05);
+  --color-border: rgba(30, 32, 36, 0.1);
+  --color-shadow: rgba(0, 0, 0, 0.2);
+  --color-hover: rgba(30, 32, 36, 0.08);
+  --color-actived: rgba(30, 32, 36, 0.5);
+
+  --color-info: #0284c7; /** Sky-600 */
+  --color-info-bg: #f0f9ff; /** Sky-50 */
+  --color-success: #0d9488; /** Teal-600 */
+  --color-success-bg: #f0fdfa; /** Teal-50 */
+  --color-warning: #d97706; /** Amber-600 */
+  --color-warning-bg: #fffbeb; /** Amber-50 */
+  --color-error: #dc2626; /** Red-600 */
+  --color-error-bg: #fef2f2; /** Red-50 */
+}
+
+.dark {
+  --color-background: rgb(30, 32, 36); /** 背景 */
+  --color-foreground: rgb(229, 229, 229); /** 前景 */
+  --color-accent: rgb(255, 255, 255); /** 突出 */
+  --color-minor: rgb(120, 120, 120); /** 次要 */
+
+  --color-card: rgba(229, 229, 229, 0.05);
+  --color-border: rgba(229, 229, 229, 0.1);
+  --color-shadow: rgba(0, 0, 0, 0.6);
+  --color-hover: rgba(229, 229, 229, 0.08);
+  --color-actived: rgba(229, 229, 229, 0.7);
+
+  --color-info: #0369a1; /** Sky-500 */
+  --color-info-bg: #d0d7dc; /** Sky-50改 */
+  --color-success: #0f766e; /** Teal-500 */
+  --color-success-bg: #cedad7; /** Teal-50改 */
+  --color-warning: #b45309; /** Amber-500 */
+  --color-warning-bg: #dbd8ce; /** Amber-50改 */
+  --color-error: #b91c1c; /** Red-500 */
+  --color-error-bg: #d7caca; /** Red-50改 */
+}
+
+@layer base {
+  body {
+    @apply text-foreground text-sm select-none;
+  }
+
+  *[data-disabled='true'] {
+    @apply !pointer-events-none !opacity-50;
+  }
+
+  /** 颜色选择器样式 */
+  input[type='color'] {
+    &::-webkit-color-swatch-wrapper {
+      @apply p-0;
+    }
+    &::-webkit-color-swatch {
+      @apply border-border border;
+    }
+  }
+}
+
+@layer utilities {
+  .animate-underline {
+    @apply from-foreground to-foreground bg-gradient-to-r bg-[length:0_2px] bg-right-bottom bg-no-repeat transition-[background-size] hover:bg-[length:100%_2px] hover:bg-left-bottom;
+  }
+}
+
+@layer components {
+  .main {
+    @apply py-4 pr-[1.625rem] pl-8; /* 右侧减去滚动条宽度 */
+  }
+
+  .card {
+    @apply border-border bg-card rounded-lg border;
+  }
+  .card-hover {
+    @apply hover:bg-hover;
+  }
+  .card-actived {
+    @apply bg-actived text-background;
+  }
+
+  .music-title {
+    @apply truncate leading-6 font-bold;
+  }
+  .music-artist {
+    @apply text-minor truncate text-xs leading-6 font-bold;
+  }
+
+  .action-icon {
+    @apply hover:text-minor size-8 cursor-pointer transition-[color,transform] active:scale-90;
+  }
+}

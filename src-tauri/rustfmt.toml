@@ -1,0 +1,41 @@
+# 最大行宽
+max_width = 100
+
+# 缩进宽度
+tab_spaces = 2
+
+# 导入合并垂直间距
+imports_granularity = "Crate"
+
+# 格式化代码注释
+format_code_in_doc_comments = true
+
+# 组织导入声明
+group_imports = "StdExternalCrate"
+
+# 省略不必要的包装括号
+overflow_delimited_expr = true
+
+# 控制结构是否保留单行样式
+control_brace_style = "AlwaysSameLine"
+
+# 格式化宏匹配器
+format_macro_matchers = true
+
+# 格式化宏体
+format_macro_bodies = true
+
+# 单行 if-else 的最大宽度
+single_line_if_else_max_width = 100
+
+# 单行 let-else 的最大宽度
+single_line_let_else_max_width = 100
+
+# 匹配臂块是否强制多行
+match_arm_blocks = false
+
+# 内联属性的最大宽度
+inline_attribute_width = 60
+
+# 链式调用的最大宽度
+chain_width = 60

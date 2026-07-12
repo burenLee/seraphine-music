@@ -1,0 +1,129 @@
+.slide-left-enter-active,
+.slide-left-leave-active {
+  @apply transition-all;
+}
+.slide-left-enter-from {
+  @apply translate-x-8 opacity-0;
+}
+.slide-left-leave-to {
+  @apply -translate-x-8 opacity-0;
+}
+
+.slide-right-enter-active,
+.slide-right-leave-active {
+  @apply transition-all;
+}
+.slide-right-enter-from {
+  @apply -translate-x-8 opacity-0;
+}
+.slide-right-leave-to {
+  @apply translate-x-8 opacity-0;
+}
+
+.slide-page-top-enter-active,
+.slide-page-top-leave-active {
+  @apply transition-all duration-300;
+}
+.slide-page-top-enter-from,
+.slide-page-top-leave-to {
+  @apply translate-y-full;
+}
+
+.slide-page-left-enter-active,
+.slide-page-left-leave-active {
+  @apply transition-all duration-300;
+}
+.slide-page-left-enter-from,
+.slide-page-left-leave-to {
+  @apply translate-x-full;
+}
+
+.slide-login-left-enter-active,
+.slide-login-left-leave-active,
+.slide-login-right-enter-active,
+.slide-login-right-leave-active {
+  @apply transition-all duration-500;
+}
+
+.slide-login-left-enter-from,
+.slide-login-left-leave-to {
+  @apply -translate-x-56 opacity-0;
+}
+
+.slide-login-right-enter-from,
+.slide-login-right-leave-to {
+  @apply translate-x-56 opacity-0;
+}
+
+.zoom-fade-enter-active,
+.zoom-fade-leave-active {
+  @apply transition-all;
+}
+
+.zoom-fade-enter-from,
+.zoom-fade-leave-to {
+  @apply scale-90 opacity-0;
+}
+
+.zoom-top-enter-active,
+.zoom-top-leave-active,
+.zoom-top-left-enter-active,
+.zoom-top-left-leave-active,
+.zoom-top-right-enter-active,
+.zoom-top-right-leave-active,
+.zoom-bottom-enter-active,
+.zoom-bottom-leave-active {
+  @apply transition-all;
+}
+.zoom-top-enter-active,
+.zoom-top-leave-active {
+  @apply origin-top;
+}
+.zoom-top-left-enter-active,
+.zoom-top-left-leave-active {
+  @apply origin-top-left;
+}
+.zoom-top-right-enter-active,
+.zoom-top-right-leave-active {
+  @apply origin-top-right;
+}
+.zoom-bottom-enter-active,
+.zoom-bottom-leave-active {
+  @apply origin-bottom;
+}
+.zoom-top-enter-from,
+.zoom-top-leave-to,
+.zoom-top-left-enter-from,
+.zoom-top-left-leave-to,
+.zoom-top-right-enter-from,
+.zoom-top-right-leave-to,
+.zoom-bottom-enter-from,
+.zoom-bottom-leave-to {
+  @apply scale-75 opacity-0;
+}
+
+.notification-move,
+.notification-enter-active,
+.notification-leave-active {
+  @apply origin-top-right transition-all duration-300;
+}
+.notification-enter-from,
+.notification-leave-to {
+  @apply translate-x-16 scale-75 opacity-0;
+}
+.notification-leave-active {
+  @apply absolute;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  @apply transition-all duration-300;
+}
+.modal-enter-from,
+.modal-leave-to {
+  @apply opacity-0;
+}
+.modal-enter-from .modal-container,
+.modal-leave-to .modal-container {
+  @apply scale-110;
+}

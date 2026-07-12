@@ -1,0 +1,17 @@
+pub mod artist;
+// pub mod images;
+pub mod album;
+pub mod lib;
+pub mod login;
+pub mod lyric;
+pub mod music;
+pub mod personal;
+pub mod playlist;
+pub mod privilege;
+pub mod rank;
+pub mod register;
+pub mod search;
+pub mod song;
+pub mod top;
+pub mod user;
+pub mod youth;

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "seraphine-music",
+  "version": "0.1.0",
+  "identifier": "com.administrator.seraphine-music",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Seraphine 音乐播放器",
+        "decorations": false,
+        "minWidth": 1152,
+        "minHeight": 768,
+        "center": true
+      }
+    ],
+    "security": {
+      "capabilities": ["desktop-capability", "desktop-lyric-capability"],
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://*; connect-src 'self' http://ipc.localhost https://*; style-src 'self' 'unsafe-inline'; font-src 'self' data:;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "bunre_lee",
+    "copyright": "Copyright © 2026 bunre_lee",
+    "category": "Music",
+    "shortDescription": "Seraphine 音乐播放器",
+    "icon": [
+      "icons/16x16.png",
+      "icons/24x24.png",
+      "icons/32x32.png",
+      "icons/48x48.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/256x256.png",
+      "icons/512x512.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "wix": {
+        "language": "zh-CN"
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "languages": ["SimpChinese"],
+        "displayLanguageSelector": true
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libgtk-3-0", "libayatana-appindicator3-1"]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "hardenedRuntime": true
+    }
+  }
+}
