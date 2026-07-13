@@ -40,7 +40,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 11.11.0
           run_install: false
 
       - name: Cache Cargo registry and target
@@ -69,7 +69,7 @@ jobs:
             libasound2-dev
 
       - name: Install dependencies
-        run: pnpm install --dangerously-allow-all-builds
+        run: pnpm install --frozen-lockfile --dangerously-allow-all-builds
 
       - name: Build frontend
         run: pnpm build
