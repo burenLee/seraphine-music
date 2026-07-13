@@ -9,7 +9,22 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+          - os: windows-latest
+            arch: x64
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            arch: x64
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
@@ -20,7 +35,6 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11
           run_install: false
 
       - name: Install Node
@@ -60,12 +74,12 @@ jobs:
         run: pnpm build
 
       - name: Build Tauri bundle
-        run: pnpm tauri build
+        run: CARGO_BUILD_TARGET=${{ matrix.target }} pnpm tauri build
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: seraphine-music-${{ matrix.os }}
+          name: seraphine-music-${{ matrix.os }}-${{ matrix.arch }}
           path: src-tauri/target/release/bundle/**
 
   publish:
@@ -81,10 +95,14 @@ jobs:
         with:
           path: ./bundles
 
-      - name: Create GitHub Release and upload bundles
+      - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          files: bundles/**
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload all bundle files to release
+        run: gh release upload ${{ github.ref_name }} bundles/** --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
