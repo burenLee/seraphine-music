@@ -1,7 +1,9 @@
-<div style="display: flex;justify-content: center;align-items: center;gap: 16px;">
-   <img src="./src-tauri/icons/128x128.png" width="48" height="48" alt="EchoMusic Logo">
-   <strong style="font-size: 32;line-height: 0">Seraphine Music</strong>
-</div>
+<p align="center">
+  <img src="./src-tauri/icons/128x128.png" width="96" height="96" alt="Seraphine Music" />
+</p>
+<p align="center">
+  <strong>Seraphine Music</strong>
+</p>
 
 > 一个体积小、启动快的简易音乐播放器
 
