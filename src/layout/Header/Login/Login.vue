@@ -18,11 +18,16 @@ const router = useRouter()
 
 const userStore = useUserStore()
 
-const userOptions: Array<SelectOption<UserAction>> = [
-  { label: '领取会员', value: UserAction.Vip, prefixIcon: 'Verified' },
+const userOptions = computed<Array<SelectOption<UserAction>>>(() => [
+  {
+    label: userStore.isVip ? '今日已领' : '领取会员',
+    value: UserAction.Vip,
+    prefixIcon: 'Verified',
+    disabled: userStore.isVip
+  },
   { label: '个人资料', value: UserAction.Info, prefixIcon: 'User', disabled: true },
   { label: '退出登录', value: UserAction.Logout, prefixIcon: 'Logout' }
-]
+])
 
 const mode = ref(LoginMode.Code)
 const modalVisible = ref(false)
