@@ -21,9 +21,20 @@ const qualitySelection = computed(
     qualityOptions[qualityOptions.length - 1]
 )
 
-const modeSelect = (quality: PlayingQuality) => {
+const modeSelect = async (quality: PlayingQuality) => {
+  const currentProgress = musicStore.playProgress
+  const wasPlaying = musicStore.isPlaying
+
   musicStore.setQuality(quality)
-  musicStore.setMusic(musicStore.music, { origin: musicStore.origin, loop: true })
+  await musicStore.setMusic(musicStore.music, {
+    origin: musicStore.origin,
+    loop: true,
+    autoPlay: false
+  })
+
+  if (currentProgress > 0) await musicStore.seek(currentProgress)
+  if (wasPlaying) await musicStore.play()
+
   qualityVisible.value = false
 }
 </script>
