@@ -100,11 +100,18 @@ const handleUpdateCancel = () => {
     @confirm="handleUpdateConfirm"
     @cancel="handleUpdateCancel"
   >
-    <div class="px-6">
-      发现新版本
-      <span class="font-bold text-info">
-        {{ updaterStore.updateInfo?.latestVersion }}
-      </span>
+    <div class="px-6 space-y-3">
+      <div>
+        发现新版本
+        <span class="font-bold text-info">
+          {{ updaterStore.updateInfo?.latestVersion }}
+        </span>
+      </div>
+
+      <!-- 更新说明（latest.json 的 notes 字段） -->
+      <pre v-if="updaterStore.updateInfo?.body" class="max-h-60 overflow-auto whitespace-pre-wrap text-sm text-minor">{{
+        updaterStore.updateInfo.body
+      }}</pre>
     </div>
   </Modal>
 </template>

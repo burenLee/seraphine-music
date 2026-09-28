@@ -80,6 +80,26 @@ jobs:
       # 多平台矩阵并发：首个 job 创建 Release，后续 job 追加产物并
       # 合并 latest.json 的 platforms 字段（action 内部处理并发）
       # ============================================================
+      # 从 CHANGELOG.md 提取当前 tag 对应版本的更新说明，
+      # 作为 Release body（GitHub Release 界面 / latest.json notes / 应用内弹窗共用）
+      - name: Extract changelog
+        id: changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BODY=$(awk -v v="$VERSION" '
+            BEGIN { target = "## [" v "]" }
+            index($0, target) == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md)
+          {
+            echo 'body<<CHANGELOG_EOF'
+            echo "$BODY"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -94,10 +114,8 @@ jobs:
           releaseName: 'Seraphine Music ${{ github.ref_name }}'
           releaseDraft: false
           prerelease: false
-          # 使用 GitHub 自动生成的 Release Notes（基于 PR 标题和 label）
-          # 需在仓库 Settings → General → Features 勾选 "Automatically generated release notes"
-          # 配合 .github/release.yml 可自定义分类规则
-          releaseNotes: true
+          # 使用 CHANGELOG.md 中对应版本的更新说明（不再自动生成）
+          releaseBody: ${{ steps.changelog.outputs.body }}
           # Windows 同时生成 NSIS + MSI，updater 优先使用 NSIS（支持 passive 安装模式）
           updaterJsonPreferNsis: true
           tauriScript: pnpm tauri
