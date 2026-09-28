@@ -1,44 +1,43 @@
 ﻿<script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import { useListStore } from '@/stores/list'
-import { useMusicStore } from '@/stores/music'
-import { getOrigin } from '@/utils/music'
-import { ListType } from '@/utils/params'
-import { computed, inject } from 'vue'
+import { computed, inject } from 'vue';
 
-const listType = inject<ListType>('listType', ListType.Show)
+import ActionButton from '@/components/ActionButton.vue';
+import { useListStore } from '@/stores/list';
+import { useMusicStore } from '@/stores/music';
+import { getOrigin } from '@/utils/music';
+import { ListType } from '@/utils/params';
 
-const listStore = useListStore()
+const listType = inject<ListType>('listType', ListType.Show);
 
-const musicStore = useMusicStore()
+const listStore = useListStore();
+const musicStore = useMusicStore();
 
-const list = computed(() => listStore[listType])
+const musicList = computed(() => listStore[listType]);
 
 const handlePlay = () => {
-  if (musicStore.isPlaying || list.value.list.length === 0) return
+  if (musicList.value.list.length === 0) return;
 
-  let music: ListMusic
-  let shouldUpdate = false
-
-  if (listStore.play.info.id === list.value.info.id) {
+  let music: MusicInfo;
+  if (listStore.play.info.id === musicList.value.info.id) {
     // 同一列表：使用播放列表
+    if (musicStore.isPlaying) return;
     if (musicStore.music) {
-      musicStore.play()
-      return
+      musicStore.play();
+      return;
     }
 
-    music = listStore.play.list[0]
+    music = listStore.play.list[0];
   } else {
     // 不同列表：使用target列表
-    music = list.value.list[0]
-    shouldUpdate = true
+    music = musicList.value.list[0];
+    listStore.setList(ListType.Play, {
+      info: musicList.value.info,
+      list: [...musicList.value.list],
+    });
   }
 
-  musicStore.setMusic(music, { origin: getOrigin(music) })
-
-  if (shouldUpdate)
-    listStore.setList(ListType.Play, { info: list.value.info, list: [...list.value.list] })
-}
+  musicStore.setMusic(music, { origin: getOrigin(music) });
+};
 </script>
 
 <template>

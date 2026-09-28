@@ -1,9 +1,9 @@
 <!-- filepath: e:\Code\tauri\SeraphineMusic\src\layout\Header\Login\Sidebar.vue -->
 <script lang="ts" setup>
-import loginBg from '@/assets/imgs/login_bg.jpg'
-import { LoginMode } from '@/utils/params'
+import loginBg from '@/assets/imgs/login_bg.jpg';
+import { LoginMode } from '@/utils/params';
 
-const mode = defineModel({ required: true, default: LoginMode.Code })
+const mode = defineModel({ required: true, default: LoginMode.Code });
 </script>
 
 <template>
@@ -14,20 +14,24 @@ const mode = defineModel({ required: true, default: LoginMode.Code })
         ? 'translate-x-0 before:-translate-x-0'
         : 'translate-x-[26rem] before:-translate-x-[26rem]'
     "
-    :style="{ '--login-bg': `url(${loginBg})` }">
+    :style="{ '--login-bg': `url(${loginBg})` }"
+  >
     <div
       class="relative z-10 flex h-full select-none flex-col items-center font-poetry text-4xl text-white"
-      :style="{ writingMode: 'vertical-lr' }">
+      :style="{ writingMode: 'vertical-lr' }"
+    >
       <div
         class="w-28 transition-[opacity.transform] duration-500"
-        :class="mode === LoginMode.Code ? 'translate-x-[4.5rem] opacity-100' : 'opacity-0'">
+        :class="mode === LoginMode.Code ? 'translate-x-[4.5rem] opacity-100' : 'opacity-0'"
+      >
         <div>伤心桥下春波绿</div>
         <div class="indent-12">曾是惊鸿照影来</div>
       </div>
 
       <div
         class="w-28 pl-8 transition-[opacity.transform] duration-500"
-        :class="mode === LoginMode.Code ? 'opacity-0' : 'translate-x-[-4.5rem] opacity-100'">
+        :class="mode === LoginMode.Code ? 'opacity-0' : 'translate-x-[-4.5rem] opacity-100'"
+      >
         <div class="indent-12">事如春梦了无痕</div>
         <div>人似秋鸿来有信</div>
       </div>

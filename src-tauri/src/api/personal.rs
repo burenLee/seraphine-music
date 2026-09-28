@@ -1,19 +1,21 @@
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tauri_plugin_http::reqwest::Method;
 
 use crate::{
-  api::libs::ApiResult,
+  api::types::ApiResult,
   http::{
-    config::HttpConfig,
-    server::{request, RequestOptions},
+    config::{DynamicModeConfig, HttpConfig, StaticConfigMode},
+    cookie::{HttpCookie, ModeCookies},
+    request::HttpRequest,
   },
   utils::helper::sign_key_params,
 };
 
+use crate::utils::logger::LogErrExt;
+
 #[tauri::command]
-/// 私人 FM(对应手机和 pc 端的猜你喜欢)
+/// ## 私人 FM(对应手机和 pc 端的猜你喜欢)
 ///
 /// ### 可选参数
 /// * `hash` - 音乐 hash, 建议
@@ -36,72 +38,54 @@ pub async fn api_personal_fm(
   remain_songcnt: Option<u8>,
   platform: Option<String>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_static_config = HttpConfig::get_kg_static_config();
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+  let static_config = match HttpConfig::get_static_config() {
+    StaticConfigMode::KgMobile(config) => config,
+    StaticConfigMode::KgLite(config) => config,
+  };
+  let dynamic_config = match HttpConfig::get_dynamic_config() {
+    DynamicModeConfig::KgMobile(config) => config,
+    DynamicModeConfig::KgLite(config) => config,
+  };
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
   let client_time = Utc::now().timestamp_millis();
 
   let data = json!({
-    "appid": kg_static_config.appid,
+    "appid": static_config.appid,
     "clienttime": client_time,
-    "mid": kg_dynamic_config.mid,
-    "action": action.unwrap_or(String::from("play")),
+    "mid": dynamic_config.mid,
+    "action": action.unwrap_or("play".to_string()),
     "recommend_source_locked": 0,
     "song_pool_id": song_pool_id.unwrap_or_default(),
     "callerid": 0,
     "m_type": 1,
-    "platform": platform.unwrap_or(String::from("ios")),
+    "platform": platform.unwrap_or("ios".to_string()),
     "area_code": 1,
     "remain_songcnt": remain_songcnt.unwrap_or_default(),
-    "clientver": kg_static_config.client_ver,
+    "clientver": static_config.client_ver,
     "is_overplay": is_overplay,
-    "mode": mode.unwrap_or(String::from("normal")),
+    "mode": mode.unwrap_or("normal".to_string()),
     "fakem": "ca981cfc583a4c37f28d2d49000013c16a0a",
     "key": sign_key_params(&client_time.to_string(), None, None),
-    "userid": kg_dynamic_config.cookies.userid,
-    "kguid": kg_dynamic_config.cookies.userid,
-    "token": kg_dynamic_config.cookies.token,
-    "vip_type": kg_dynamic_config.cookies.vip_type,
+    "userid": cookies.userid,
+    "kguid": cookies.userid,
+    "token": cookies.token,
+    "vip_type": cookies.vip_type,
     "hash": hash.unwrap_or_default(),
     "songid": songid.unwrap_or_default(),
     "playtime": playtime.unwrap_or_default(),
   });
 
-  let opts = RequestOptions::new()
-    .url(String::from("/v2/personal_recommend"))
-    .method(Method::POST)
-    .add_header("x-router", "persnfm.service.kugou.com")
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn test_url_path() {
-    let path = "/v2/personal_recommend";
-    assert!(path.starts_with("/v2"));
-    assert!(path.contains("personal"));
-  }
-
-  #[test]
-  fn test_x_router_header() {
-    let router = "persnfm.service.kugou.com";
-    assert!(router.contains("persnfm"));
-  }
-
-  #[test]
-  fn test_fakem_constant() {
-    let fakem = "ca981cfc583a4c37f28d2d49000013c16a0a";
-    assert_eq!(fakem.len(), 36);
-    assert!(fakem.chars().all(|c| c.is_ascii_hexdigit()));
-  }
-
-  #[test]
-  fn test_command_signature_exist() {
-    let _ = api_personal_fm;
-  }
+  HttpRequest::new()
+    .url("/v2/personal_recommend".to_string())
+    .post()
+    .header("x-router", "persnfm.service.kugou.com")
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_personal_fm", "请求失败")
 }

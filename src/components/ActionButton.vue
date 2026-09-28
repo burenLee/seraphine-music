@@ -1,24 +1,24 @@
 ﻿<script lang="ts" setup>
-import { IconMap, IconName } from '@/utils/icons'
-import { cn } from '@/utils/tools'
+import { IconMap, IconName } from '@/utils/icons';
+import { cn } from '@/utils/tools';
 
-type BtnMode = 'text' | 'button'
-type BtnTheme = 'default' | 'info' | 'success' | 'warning' | 'error'
+type BtnMode = 'text' | 'button';
+type BtnTheme = 'default' | 'info' | 'success' | 'warning' | 'error';
 
 interface Props {
-  mode?: BtnMode
-  theme?: BtnTheme
+  mode?: BtnMode;
+  theme?: BtnTheme;
   /** 前缀图标 */
-  prefixIcon?: IconName
+  prefixIcon?: IconName;
   /** 后缀图标 */
-  suffixIcon?: IconName
+  suffixIcon?: IconName;
   /** 图标尺寸 */
-  size?: number | string
-  disabled?: boolean
+  size?: number | string;
+  disabled?: boolean;
 }
 
 interface Emits {
-  click: [e: MouseEvent]
+  click: [e: MouseEvent];
 }
 
 const {
@@ -27,34 +27,35 @@ const {
   prefixIcon,
   suffixIcon,
   size = 16,
-  disabled
-} = defineProps<Props>()
-const emits = defineEmits<Emits>()
+  disabled,
+} = defineProps<Props>();
+const emits = defineEmits<Emits>();
 
 const themes: Record<BtnTheme, string> = {
   default: 'action-default',
   info: 'action-info',
   success: 'action-success',
   warning: 'action-warning',
-  error: 'action-error'
-}
+  error: 'action-error',
+};
 </script>
 
 <template>
   <button
     :class="
       cn(
-        'flex items-center justify-center px-3 border h-8 rounded-lg text-xs font-bold transition-all active:scale-90',
-        mode === 'text' && '!bg-transparent !border-none',
+        'flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-bold transition-all active:scale-90',
+        mode === 'text' && '!border-none !bg-transparent',
         themes[theme],
-        $attrs.class
+        $attrs.class,
       )
     "
     :data-disabled="disabled"
-    @click="emits('click', $event)">
+    @click="emits('click', $event)"
+  >
     <component v-if="prefixIcon" :is="IconMap[prefixIcon]" :height="size" :width="size" />
 
-    <div class="px-1 whitespace-nowrap">
+    <div class="whitespace-nowrap px-1">
       <slot></slot>
     </div>
 

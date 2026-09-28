@@ -1,40 +1,41 @@
 <script lang="ts" setup>
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useLyricStore } from '@/stores/lyric'
-import { IconName } from '@/utils/icons'
-import { LyricTextAlign } from '@/utils/params'
-import { ref } from 'vue'
+import { ref } from 'vue';
 
-const lyricStore = useLyricStore()
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useLyricStore } from '@/stores/lyric';
+import { IconName } from '@/utils/icons';
+import { LyricTextAlign } from '@/utils/params';
+
+const lyricStore = useLyricStore();
 
 const Align_Titles: Record<LyricTextAlign, string> = {
   [LyricTextAlign.Left]: '左对齐',
   [LyricTextAlign.Center]: '居中对齐',
-  [LyricTextAlign.Right]: '右对齐'
-}
+  [LyricTextAlign.Right]: '右对齐',
+};
 
-const iconName = ref<IconName>('AlignLeft')
+const iconName = ref<IconName>('AlignLeft');
 
 const handleClick = () => {
-  let mode = LyricTextAlign.Center
+  let textAlign = LyricTextAlign.Center;
 
   switch (lyricStore.textAlign) {
     case LyricTextAlign.Left:
-      mode = LyricTextAlign.Center
-      iconName.value = 'AlignCenter'
-      break
+      textAlign = LyricTextAlign.Center;
+      iconName.value = 'AlignCenter';
+      break;
     case LyricTextAlign.Center:
-      mode = LyricTextAlign.Right
-      iconName.value = 'AlignRight'
-      break
+      textAlign = LyricTextAlign.Right;
+      iconName.value = 'AlignRight';
+      break;
     case LyricTextAlign.Right:
-      mode = LyricTextAlign.Left
-      iconName.value = 'AlignLeft'
-      break
+      textAlign = LyricTextAlign.Left;
+      iconName.value = 'AlignLeft';
+      break;
   }
 
-  lyricStore.setTextAlign(mode)
-}
+  lyricStore.setTextAlign(textAlign);
+};
 </script>
 
 <template>
@@ -42,5 +43,6 @@ const handleClick = () => {
     class="action-icon card"
     :name="iconName"
     :title="Align_Titles[lyricStore.textAlign]"
-    @click="handleClick" />
+    @click="handleClick"
+  />
 </template>

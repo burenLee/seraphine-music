@@ -10,16 +10,18 @@
   src: url('@/assets/fonts/poetry.woff') format('truetype');
 }
 
+/* TODO: 下版本迁移至v4 */
+
 :root {
   --color-background: rgb(255, 255, 255); /** 背景 */
   --color-foreground: rgb(30, 32, 36); /** 前景 */
   --color-accent: rgb(0, 0, 0); /** 突出 */
   --color-minor: rgb(160, 160, 160); /** 次要 */
 
-  --color-card: rgba(30, 32, 36, 0.05);
+  --color-card: rgba(30, 32, 36, 0.025);
   --color-border: rgba(30, 32, 36, 0.1);
-  --color-shadow: rgba(0, 0, 0, 0.2);
-  --color-hover: rgba(30, 32, 36, 0.08);
+  --color-shadow: rgba(0, 0, 0, 0.25);
+  --color-hover: rgba(30, 32, 36, 0.05);
   --color-actived: rgba(30, 32, 36, 0.5);
 
   --color-info: #0284c7; /** Sky-600 */
@@ -38,11 +40,11 @@
   --color-accent: rgb(255, 255, 255); /** 突出 */
   --color-minor: rgb(120, 120, 120); /** 次要 */
 
-  --color-card: rgba(229, 229, 229, 0.05);
+  --color-card: rgba(229, 229, 229, 0.025);
   --color-border: rgba(229, 229, 229, 0.1);
-  --color-shadow: rgba(0, 0, 0, 0.6);
-  --color-hover: rgba(229, 229, 229, 0.08);
-  --color-actived: rgba(229, 229, 229, 0.7);
+  --color-shadow: rgba(0, 0, 0, 0.75);
+  --color-hover: rgba(229, 229, 229, 0.05);
+  --color-actived: rgba(229, 229, 229, 0.75);
 
   --color-info: #0369a1; /** Sky-500 */
   --color-info-bg: #d0d7dc; /** Sky-50改 */
@@ -61,6 +63,10 @@
 
   *[data-disabled='true'] {
     @apply !pointer-events-none !opacity-50;
+  }
+
+  input[type='range'] {
+    @apply outline-none;
   }
 
   /** 颜色选择器样式 */
@@ -99,6 +105,17 @@
   }
   .music-artist {
     @apply truncate text-xs font-bold leading-6 text-minor;
+  }
+  .music-lyric {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-lyric) 0%,
+      var(--color-lyric) var(--word-progress),
+      var(--color-accent) var(--word-progress),
+      var(--color-accent) 100%
+    );
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   .action-icon {

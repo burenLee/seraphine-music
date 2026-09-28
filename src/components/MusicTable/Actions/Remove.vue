@@ -1,24 +1,25 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import Modal from '@/components/Modal.vue'
-import { useListStore } from '@/stores/list'
-import { ListType } from '@/utils/params'
-import { inject, ref } from 'vue'
+import { inject, ref } from 'vue';
 
-const listType = inject<ListType>('listType', ListType.Show)
+import ActionButton from '@/components/ActionButton.vue';
+import Modal from '@/components/Modal.vue';
+import { useListStore } from '@/stores/list';
+import { ListType } from '@/utils/params';
 
-const listStore = useListStore()
+const listType = inject<ListType>('listType', ListType.Show);
 
-const visible = ref(false)
+const listStore = useListStore();
+
+const visible = ref(false);
 
 const handleCancel = () => {
-  visible.value = false
-}
+  visible.value = false;
+};
 
 const handleConfirm = () => {
-  listStore.removeCheckedList(listType)
-  visible.value = false
-}
+  listStore.removeListChecked(listType);
+  visible.value = false;
+};
 </script>
 
 <template>
@@ -26,7 +27,8 @@ const handleConfirm = () => {
     theme="error"
     prefix-icon="Bin"
     :disabled="listStore.checkedList.length === 0"
-    @click="visible = true">
+    @click="visible = true"
+  >
     删除
   </ActionButton>
 
@@ -35,8 +37,9 @@ const handleConfirm = () => {
     class="w-80"
     title="删除"
     @cancel="handleCancel"
-    @confirm="handleConfirm">
+    @confirm="handleConfirm"
+  >
     <div class="px-4 font-bold">确认删除选中歌曲?</div>
-    <div class="px-4 py-2">tips: 仅删除显示, 不删除本地文件</div>
+    <div class="px-4 py-2">tips: 仅删除显示</div>
   </Modal>
 </template>

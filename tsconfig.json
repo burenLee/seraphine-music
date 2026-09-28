@@ -1,32 +1,48 @@
 {
   "compilerOptions": {
+    // 编译产出的 JS 语法版本，ES2020 覆盖主流浏览器与 WebView2
     "target": "ES2020",
+    // 类字段使用 Object.defineProperty 语义，与 ES 标准一致（配合 target >= ES2022 才默认开启）
     "useDefineForClassFields": true,
+    // 输出 ES Module 语法，交给 Vite 处理
     "module": "ESNext",
+    // 可用的内置类型声明：ES2020 语法 + 浏览器 DOM API
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    // 跳过 .d.ts 类型检查，加快编译（node_modules 类型错误不阻断）
     "skipLibCheck": true,
+
     /* Bundler mode */
+    // 按打包器（Vite）规则解析模块，支持无扩展名与 package exports
     "moduleResolution": "bundler",
+    // 允许 import 时带 .ts 后缀
     "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
+    // 每个文件独立编译，禁止跨文件的类型重导出（配合 esbuild/SWC 必需）
     "isolatedModules": true,
+    // 只做类型检查，不产出 js 文件（编译由 Vite 负责）
     "noEmit": true,
-    "jsx": "preserve",
-    "jsxImportSource": "vue",
+
     /* Linting */
+    // 开启全部严格类型检查（strictNullChecks 等）
     "strict": true,
+    // 未使用的局部变量报错
     "noUnusedLocals": true,
+    // 未使用的函数参数报错
     "noUnusedParameters": true,
+    // switch 中非空 case 贯穿到下一 case 时报错
     "noFallthroughCasesInSwitch": true,
+
     "paths": {
       "@/*": ["./src/*"]
     },
     "types": ["@types/node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "tests/**/*.spec.ts"],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    }
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
   ]
 }

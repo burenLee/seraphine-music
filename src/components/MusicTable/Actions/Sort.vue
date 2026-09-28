@@ -1,65 +1,67 @@
 <script lang="ts" setup>
-import SelectModal from '@/components/SelectModal.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useListStore } from '@/stores/list'
-import { ListType, SortOrder, SortType } from '@/utils/params'
-import { vOnClickOutside } from '@vueuse/components'
-import { computed, inject, ref, watch } from 'vue'
+import { vOnClickOutside } from '@vueuse/components';
+import { computed, inject, ref, watch } from 'vue';
 
-const listType = inject<ListType>('listType', ListType.Show)
+import SelectModal from '@/components/SelectModal.vue';
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useListStore } from '@/stores/list';
+import { ListType, SortOrder, SortType } from '@/utils/params';
 
-const listStore = useListStore()
+const listType = inject<ListType>('listType', ListType.Show);
 
-const sortVisible = ref(false)
+const listStore = useListStore();
+
+const sortVisible = ref(false);
 const sortOptions = ref<Array<SelectOption<SortType>>>([
   { label: '默认', value: SortType.Default, prefixIcon: 'Sort', suffixIcon: 'SortUp' },
   { label: '歌名', value: SortType.Title, prefixIcon: 'Music' },
   { label: '歌手', value: SortType.Artist, prefixIcon: 'User' },
   { label: '专辑', value: SortType.Album, prefixIcon: 'Album' },
-  { label: '时长', value: SortType.Duration, prefixIcon: 'Timer' }
-])
+  { label: '时长', value: SortType.Duration, prefixIcon: 'Timer' },
+]);
 
-const list = computed(() => listStore[listType])
-const listSort = computed<SortInfo | undefined>(() => listStore.sortMap[list.value.info.id])
+const musicList = computed(() => listStore[listType]);
+const listSort = computed<SortInfo | undefined>(() => listStore.sortMap[musicList.value.info.id]);
 const sortSelection = computed(
   () =>
     sortOptions.value.find((option) => option.value === listSort.value?.type) ||
-    sortOptions.value[0]
-)
+    sortOptions.value[0],
+);
 
-const handleSortSelect = (newSortType: SortType) => {
-  const sortInfo = { type: newSortType, order: SortOrder.ASC }
+const sortListSelect = (newSortType: SortType) => {
+  const sortInfo = { type: newSortType, order: SortOrder.ASC };
 
   if (listSort.value?.type === newSortType) {
-    sortInfo.order = listSort.value.order === SortOrder.ASC ? SortOrder.DESC : SortOrder.ASC
+    sortInfo.order = listSort.value.order === SortOrder.ASC ? SortOrder.DESC : SortOrder.ASC;
   }
 
-  listStore.sortMap[list.value.info.id] = sortInfo
-  sortVisible.value = false
-}
+  listStore.sortMap[musicList.value.info.id] = sortInfo;
+  sortVisible.value = false;
+};
 
 watch(
   listSort,
   (sortInfo) => {
-    if (!sortInfo) return
+    if (!sortInfo) return;
 
     sortOptions.value = sortOptions.value.map((option) => {
-      const icon = sortInfo.order === SortOrder.ASC ? 'SortUp' : 'SortDown'
-      return { ...option, suffixIcon: option.value === sortInfo.type ? icon : undefined }
-    })
+      const icon = sortInfo.order === SortOrder.ASC ? 'SortUp' : 'SortDown';
+      return { ...option, suffixIcon: option.value === sortInfo.type ? icon : undefined };
+    });
 
-    listStore.handleSort(listType)
+    listStore.sort(listType);
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 </script>
 
 <template>
   <div class="relative" v-on-click-outside="() => (sortVisible = false)">
     <SvgIcon
-      class="action-icon card-hover transition-colors rounded-lg hover:text-foreground"
+      class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
       :name="sortSelection.prefixIcon!"
-      @click="sortVisible = !sortVisible" />
+      @click="sortVisible = !sortVisible"
+    />
 
     <SelectModal
       class="absolute left-1/2 top-full -translate-x-1/2"
@@ -67,6 +69,7 @@ watch(
       :visible="sortVisible"
       :options="sortOptions"
       :selection="sortSelection"
-      @select="handleSortSelect" />
+      @select="sortListSelect"
+    />
   </div>
 </template>

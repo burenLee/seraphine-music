@@ -1,29 +1,39 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
-use tauri::{http::Method, AppHandle};
 
 use crate::{
-  api::libs::RegisterDev,
+  api::types::RegisterDev,
+  app::mode::{AppMode, Mode},
   http::{
-    config::HttpConfig,
-    libs::BASE_URL,
-    server::{request, RequestOptions, Response, ResponseType},
+    config::{DynamicModeConfig, HttpConfig},
+    cookie::{HttpCookie, ModeCookies},
+    request::HttpRequest,
   },
-  utils::crypto::{decrypt_aes_playlist, encrypt_aes_playlist, encrypt_rsa_pad},
+  utils::{
+    crypto::{decrypt_aes_playlist, encrypt_aes_playlist, encrypt_rsa_pad},
+    logger::LogErrExt,
+  },
 };
 
 #[tauri::command]
-pub async fn api_register_dev(app_handle: AppHandle) -> Result<(), String> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+/// ## 获取 dfid
+pub async fn api_register_dev() -> Result<(), String> {
+  let mut cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
-  if kg_dynamic_config.cookies.dfid != "-" {
+  // 存在就不再获取
+  if cookies.dfid != "-" {
     return Ok(());
   }
 
-  let userid = kg_dynamic_config.cookies.userid;
-  let token = kg_dynamic_config.cookies.token;
+  let dynamic_config = match HttpConfig::get_dynamic_config() {
+    DynamicModeConfig::KgMobile(config) => config,
+    DynamicModeConfig::KgLite(config) => config,
+  };
 
-  let data = json!({
+  let aes_data = json!({
     "availableRamSize": 4983533568u64, //可用内存，单位是字节
     "availableRomSize": 48114719, //内部存储可用空间，单位是字节（约48MB）
     "availableSDSize": 48114717, //外部存储可用空间，单位是字节（约48MB）
@@ -33,10 +43,10 @@ pub async fn api_register_dev(app_handle: AppHandle) -> Result<(), String> {
     "brand": "Redmi", //品牌
     "buildSerial":"unknown", //设备序号
     "device": "marble", //设备代号
-    "imei": kg_dynamic_config.guid, //IMEI号
+    "imei": dynamic_config.guid, //IMEI号
     "imsi": "", //sim卡号序号
     "manufacturer": "Xiaomi", //厂商
-    "uuid": kg_dynamic_config.guid, //设备uuid
+    "uuid": dynamic_config.guid, //设备uuid
     "accelerometer": false, //是否有加速度传感器
     "accelerometerValue": "", //加速度传感器值
     "gravity": false, //是否有重力传感器
@@ -56,105 +66,50 @@ pub async fn api_register_dev(app_handle: AppHandle) -> Result<(), String> {
     "temperature": false, //是否有温度传感器
     "temperatureValue":"", //温度传感器的值
   });
+  let (aes_res, aes_key) =
+    encrypt_aes_playlist(aes_data.to_string()).log_command("api_register_dev", "aes加密失败")?;
 
-  let aes_encrypted = encrypt_aes_playlist(data.to_string()).map_err(|e| e.to_string())?;
-
-  let p_data = json!({ "aes": aes_encrypted.key, "uid": userid, "token": token });
-  let p = encrypt_rsa_pad(p_data.to_string()).map_err(|e| e.to_string())?;
+  let p_data = json!({ "aes": aes_key, "uid": cookies.userid, "token": cookies.token });
+  let p = encrypt_rsa_pad(p_data.to_string()).log_command("api_register_dev", "p加密失败")?;
 
   let params = json!({ "part": 1, "platid": 1, "p": p });
   let Value::Object(params) = params else { unreachable!() };
 
-  let opts = RequestOptions::new()
+  let resp_bytes = HttpRequest::new()
     .base_url("https://userservice.kugou.com")
     .url("/risk/v2/r_register_dev")
-    .method(Method::POST)
+    .post()
     .params(params)
-    .data(Value::String(aes_encrypted.str))
-    .response_type(ResponseType::Bytes);
-
-  let resp = request::<Value>(opts).await.map_err(|e| e.to_string())?;
-  let Response::Bytes(resp_bytes) = resp else { unreachable!() };
+    .data(Value::String(aes_res))
+    .builder()
+    .bytes()
+    .await
+    .log_command("api_register_dev", "请求失败")?;
 
   // 如果是报错返回, 不需要解密处理, 所以先尝试解析
   let resp_str = String::from_utf8_lossy(&resp_bytes);
   if resp_str.starts_with('{') {
-    // 暂不处理
-    return Ok(());
+    return Err(resp_str.into_owned());
   }
 
   let resp_base64 = STANDARD.encode(&resp_bytes);
   let resp_decrypted =
-    decrypt_aes_playlist(&resp_base64, &aes_encrypted.key).map_err(|e| e.to_string())?;
-  let resp_map = serde_json::from_str::<RegisterDev>(&resp_decrypted).map_err(|e| e.to_string())?;
+    decrypt_aes_playlist(&resp_base64, &aes_key).log_command("api_register_dev", "resp解密失败")?;
+  let resp_map = serde_json::from_str::<RegisterDev>(&resp_decrypted)
+    .log_command("api_register_dev", "resp序列化失败")?;
 
-  let Some(data) = &resp_map.data else { return Err(String::from("接口数据无效")) };
+  let Some(data) = resp_map.data else {
+    return Err("接口数据无效".to_string());
+  };
 
-  let mut cookies = HttpConfig::get_kg_dynamic_config().cookies;
   cookies.dfid = data.dfid.clone();
 
-  HttpConfig::set_kg_cookies(&app_handle, BASE_URL, cookies).map_err(|e| e.to_string())?;
+  let cookies = match AppMode::get_mode() {
+    Mode::KgMobile => ModeCookies::KgMobile(cookies),
+    Mode::KgLite => ModeCookies::KgLite(cookies),
+  };
+
+  HttpCookie::set_cookies(cookies).log_command("api_register_dev", "设置cookies失败")?;
 
   Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn test_base_url() {
-    let url = "https://userservice.kugou.com";
-    assert!(url.starts_with("https://"));
-    assert!(url.contains("userservice"));
-  }
-
-  #[test]
-  fn test_url_path() {
-    let path = "/risk/v2/r_register_dev";
-    assert!(path.contains("r_register_dev"));
-  }
-
-  #[test]
-  fn test_command_signature_exist() {
-    let _ = api_register_dev;
-  }
-
-  // === 设备信息字段常量 ===
-
-  #[test]
-  fn test_brand_constant() {
-    let brand = "Redmi";
-    assert_eq!(brand, "Redmi");
-  }
-
-  #[test]
-  fn test_manufacturer_constant() {
-    let manufacturer = "Xiaomi";
-    assert_eq!(manufacturer, "Xiaomi");
-  }
-
-  #[test]
-  fn test_device_constant() {
-    let device = "marble";
-    assert_eq!(device, "marble");
-  }
-
-  #[test]
-  fn test_available_ram_size_constant() {
-    // 4983533568 字节 ≈ 4.6 GB
-    let ram: u64 = 4983533568;
-    assert!(ram > 4_000_000_000);
-    assert!(ram < 5_000_000_000);
-  }
-
-  #[test]
-  fn test_battery_level_constant() {
-    assert_eq!(100, 100);
-  }
-
-  #[test]
-  fn test_battery_status_constant() {
-    assert_eq!(3, 3);
-  }
 }

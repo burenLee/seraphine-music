@@ -1,13 +1,13 @@
 <script lang="ts" setup>
-import { IconMap, IconName } from '@/utils/icons'
+import { IconMap, IconName } from '@/utils/icons';
 
 interface Props {
-  name: IconName
-  size?: number | string
-  disabled?: boolean
+  name: IconName;
+  size?: number | string;
+  disabled?: boolean;
 }
 
-const { name, size = 16, disabled } = defineProps<Props>()
+const { name, size = 16, disabled } = defineProps<Props>();
 </script>
 
 <template>

@@ -1,31 +1,33 @@
 <script lang="ts" setup>
-import AlignBtn from './Actions/AlignBtn.vue'
-import ColorBtn from './Actions/ColorBtn.vue'
-import FontFamilyBtn from './Actions/FontFamilyBtn.vue'
-import FontSizeBtn from './Actions/FontSizeBtn.vue'
-import OffsetBtn from './Actions/OffsetBtn.vue'
-import TransBtn from './Actions/TransBtn.vue'
-import BgMode from './BgMode.vue'
-import FullScreen from './FullScreen.vue'
-import LyricScrollList from './LyricScrollList.vue'
-import LyricSearchModal from './LyricSearchModal.vue'
-import SquareCover from './SquareCover.vue'
-import VinylRecord from './VinylRecord.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import SystemActions from '@/components/SystemActions.vue'
-import { useContextMenuStore } from '@/stores/context-menu'
-import { useLyricStore } from '@/stores/lyric'
-import { useMusicStore } from '@/stores/music'
-import { useSettingStore } from '@/stores/setting'
-import { LyricPageMode } from '@/utils/params'
-import { ref } from 'vue'
+import { ref } from 'vue';
 
-const settingStore = useSettingStore()
-const lyricStore = useLyricStore()
-const musicStore = useMusicStore()
-const contextMenuStore = useContextMenuStore()
+import SvgIcon from '@/components/SvgIcon.vue';
+import SystemActions from '@/components/SystemActions.vue';
+import { useContextMenuStore } from '@/stores/context-menu';
+import { useLyricStore } from '@/stores/lyric';
+import { useMusicStore } from '@/stores/music';
+import { useSettingStore } from '@/stores/setting';
+import { LyricPageMode } from '@/utils/params';
 
-const lyricSearchVisible = ref(false)
+import AlignBtn from './Actions/AlignBtn.vue';
+import ColorBtn from './Actions/ColorBtn.vue';
+import FontFamilyBtn from './Actions/FontFamilyBtn.vue';
+import FontSizeBtn from './Actions/FontSizeBtn.vue';
+import OffsetBtn from './Actions/OffsetBtn.vue';
+import TransBtn from './Actions/TransBtn.vue';
+import BgMode from './BgMode.vue';
+import FullScreen from './FullScreen.vue';
+import LyricScrollList from './LyricScrollList.vue';
+import LyricSearchModal from './LyricSearchModal.vue';
+import SquareCover from './SquareCover.vue';
+import VinylRecord from './VinylRecord.vue';
+
+const settingStore = useSettingStore();
+const lyricStore = useLyricStore();
+const musicStore = useMusicStore();
+const contextMenuStore = useContextMenuStore();
+
+const lyricSearchVisible = ref(false);
 
 const handleContextMenu = (e: MouseEvent) => {
   contextMenuStore.show({
@@ -39,41 +41,43 @@ const handleContextMenu = (e: MouseEvent) => {
           {
             label: '方形封面',
             prefixIcon: 'Picture',
-            onClick: () => lyricStore.setPageMode(LyricPageMode.Cover)
+            onClick: () => lyricStore.setPageMode(LyricPageMode.Cover),
           },
           {
             label: '炫胶唱片',
             prefixIcon: 'Album',
-            onClick: () => lyricStore.setPageMode(LyricPageMode.Record)
+            onClick: () => lyricStore.setPageMode(LyricPageMode.Record),
           },
-          { label: '歌手写真', prefixIcon: 'User', disabled: true }
-        ]
+          { label: '歌手写真', prefixIcon: 'User', disabled: true },
+        ],
       },
       { divider: true },
       {
         label: '歌词搜索',
         prefixIcon: 'Search',
         disabled: !musicStore.music,
-        onClick: () => (lyricSearchVisible.value = true)
+        onClick: () => (lyricSearchVisible.value = true),
       },
-      { label: '歌词关联', prefixIcon: 'Link', disabled: true, onClick: () => 'TODO: 歌词关联' }
-    ]
-  })
-}
+      { label: '歌词关联', prefixIcon: 'Link', disabled: true, onClick: () => 'TODO: 歌词关联' },
+    ],
+  });
+};
 </script>
 
 <template>
   <Transition name="slide-page-top">
     <div
       v-if="lyricStore.pageVisible"
-      class="fixed bottom-[var(--playbar-height)] z-10 left-0 right-0 top-0 flex flex-col bg-background">
+      class="fixed bottom-[var(--playbar-height)] left-0 right-0 top-0 z-10 flex flex-col bg-background"
+    >
       <!-- <Transition name="fade">
         <SingerPhoto v-if="lyricPageMode === LyricPageMode.Photo" />
       </Transition> -->
 
       <div
         :data-tauri-drag-region="!settingStore.isFullscreen"
-        class="flex h-14 w-full justify-between px-6 pt-6">
+        class="flex h-14 w-full justify-between px-6 pt-6"
+      >
         <!-- 左侧 -->
         <div class="flex items-center gap-1">
           <SvgIcon
@@ -82,7 +86,8 @@ const handleContextMenu = (e: MouseEvent) => {
             name="Down"
             size="24"
             title="收起"
-            @click="lyricStore.togglePageVisible" />
+            @click="lyricStore.togglePageVisible"
+          />
         </div>
 
         <!-- 右侧 -->
@@ -99,7 +104,7 @@ const handleContextMenu = (e: MouseEvent) => {
       </div>
 
       <div class="flex h-0 flex-1 p-8" @contextmenu.prevent="handleContextMenu">
-        <div class="flex items-center justify-center w-1/2 pr-4">
+        <div class="flex w-1/2 items-center justify-center pr-4">
           <Transition name="zoom-fade" mode="out-in">
             <SquareCover v-if="lyricStore.pageMode === LyricPageMode.Cover" />
             <VinylRecord v-else-if="lyricStore.pageMode === LyricPageMode.Record" />
@@ -109,11 +114,14 @@ const handleContextMenu = (e: MouseEvent) => {
         <div class="relative flex h-full w-1/2 gap-3 pl-4">
           <LyricScrollList
             class="h-full w-0 flex-1"
-            @lyric-search-show="lyricSearchVisible = true" />
+            @lyric-search-show="lyricSearchVisible = true"
+          />
           <div
-            class="pointer-events-none absolute left-0 right-10 top-0 h-32 bg-gradient-to-b from-background to-transparent"></div>
+            class="pointer-events-none absolute left-0 right-10 top-0 h-32 bg-gradient-to-b from-background to-transparent"
+          ></div>
           <div
-            class="pointer-events-none absolute bottom-0 left-0 right-10 h-32 bg-gradient-to-t from-background to-transparent"></div>
+            class="pointer-events-none absolute bottom-0 left-0 right-10 h-32 bg-gradient-to-t from-background to-transparent"
+          ></div>
 
           <div class="flex w-8 flex-col gap-3 self-end">
             <template v-if="!settingStore.isFullscreen">

@@ -1,14 +1,10 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tauri::http::Method;
 
 use crate::{
-  api::libs::ApiResult,
-  http::{
-    config::HttpConfig,
-    server::{request, RequestOptions},
-  },
+  api::types::ApiResult,
+  http::{config::HttpConfig, mode::HttpMode, request::HttpRequest},
 };
 
 #[derive(Debug, Serialize)]
@@ -21,17 +17,18 @@ struct MusicInfo {
 }
 
 #[tauri::command]
-/// 获取歌曲信息
+/// ## 歌曲信息
 ///
 /// ### 必选参数
 /// * `hashes` - 音频的hash列表
 pub async fn api_privilege_lite(hashes: Vec<&str>) -> ApiResult<HashMap<String, Value>> {
-  let kg_static_config = HttpConfig::get_kg_static_config();
+  let http_mode = HttpMode::get_mode();
+  let kg_static_config = HttpConfig::get_kg_static_config(&http_mode);
 
   let music_list: Vec<MusicInfo> = hashes
     .iter()
     .map(|h| MusicInfo {
-      music_type: String::from("audio"),
+      music_type: "audio".to_string(),
       page_id: 0,
       hash: h.to_string(),
       album_id: 0,
@@ -50,68 +47,13 @@ pub async fn api_privilege_lite(hashes: Vec<&str>) -> ApiResult<HashMap<String, 
     "qualities": vec!["128", "320", "flac", "high", "viper_atmos", "viper_tape", "viper_clear"],
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/v2/get_res_privilege/lite")
-    .method(Method::POST)
-    .add_header("x-router", "media.store.kugou.com")
-    .add_header("content-type", "application/json")
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn test_url_path() {
-    let path = "/v2/get_res_privilege/lite";
-    assert!(path.starts_with("/v2"));
-    assert!(path.contains("privilege"));
-  }
-
-  #[test]
-  fn test_x_router_header() {
-    assert_eq!("media.store.kugou.com", "media.store.kugou.com");
-  }
-
-  #[test]
-  fn test_content_type_header() {
-    assert_eq!("application/json", "application/json");
-  }
-
-  #[test]
-  fn test_qualities_constant_count() {
-    // qualities 包含 7 个值
-    let qualities = [
-      "128",
-      "320",
-      "flac",
-      "high",
-      "viper_atmos",
-      "viper_tape",
-      "viper_clear",
-    ];
-    assert_eq!(qualities.len(), 7);
-  }
-
-  #[test]
-  fn test_music_info_serialization() {
-    let info = MusicInfo {
-      music_type: String::from("audio"),
-      page_id: 0,
-      hash: String::from("abc"),
-      album_id: 0,
-    };
-    let json = serde_json::to_string(&info).unwrap();
-    // type 字段 rename 为 "type"
-    assert!(json.contains("\"type\":\"audio\""));
-    assert!(json.contains("\"hash\":\"abc\""));
-  }
-
-  #[test]
-  fn test_command_signature_exist() {
-    let _ = api_privilege_lite;
-  }
+    .post()
+    .header("x-router", "media.store.kugou.com")
+    .header("content-type", "application/json")
+    .data(data)
+    .builder()
+    .json()
+    .await
 }

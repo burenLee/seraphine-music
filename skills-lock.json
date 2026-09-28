@@ -91,6 +91,12 @@
       "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
       "computedHash": "509889c1c4970485fdd558df50142d4bf28d6f40866923637c32e64689c9fbda"
     },
+    "tauri-scout": {
+      "source": "burenLee/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tauri-scout/SKILL.md",
+      "computedHash": "d64e81f82d69eb93fdf62a9f04cd887bf2091e293d605aa5ae2d7e435e14740a"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",

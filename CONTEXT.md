@@ -107,7 +107,7 @@ _Avoid_: TranslationMode
 _Avoid_: Account、Member
 
 **VIP**:
-用户的酷狗会员状态，通过 `api_youth_union_vip` 查询 `is_vip`/`busi_vip`，影响 Privilege 与音质可用性。
+用户的酷狗会员状态，通过 `api_youth_union_vip` 查询，影响 Privilege 与音质可用性。
 _Avoid_: Membership、Subscription
 
 ### 通信
@@ -129,6 +129,14 @@ _Avoid_: MiniPlayerAction
 _Avoid_: DesktopLyricAction
 
 ### 设置与系统
+
+**前端错误（Frontend Error）**:
+产生于 WebView 侧的错误，包括 UI 渲染异常、Bridge 事件处理失败、JS 运行时异常；不含 invoke 调用从后端返回的错误。
+_Avoid_: 客户端错误、UI 错误
+
+**后端错误（Backend Error）**:
+产生于 Rust 侧的错误，包括 command 内部失败、酷狗接口请求失败、音频解码/文件读写失败；前端 invoke 收到的错误一律视为后端错误。
+_Avoid_: 服务端错误、Rust 错误
 
 **AutoStartMode（开机自启模式）**:
 应用开机自启的启动方式枚举：`Foreground`（前台启动）或 `Background`（后台启动）。

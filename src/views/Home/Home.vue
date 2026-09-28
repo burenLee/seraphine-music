@@ -1,9 +1,10 @@
 ﻿<script lang="ts" setup>
-import Banner from './Banner.vue'
-import ArtistList from '@/views/ArtistList/Card.vue'
-import RankTop from '@/views/RankTop/Card.vue'
-import TopCard from '@/views/TopCard/Card.vue'
-import TopPlaylist from '@/views/TopPlaylist/Card.vue'
+import ArtistList from '@/views/ArtistList/Card.vue';
+import RankTop from '@/views/RankTop/Card.vue';
+import TopCard from '@/views/TopCard/Card.vue';
+import TopPlaylist from '@/views/TopPlaylist/Card.vue';
+
+import Banner from './Banner.vue';
 </script>
 
 <template>

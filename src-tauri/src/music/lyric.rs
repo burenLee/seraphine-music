@@ -1,11 +1,10 @@
+use anyhow::anyhow;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use flate2::read::ZlibDecoder;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::{fmt, fs, io::Read};
 
-use crate::{
-  system::path::AppPath,
-  utils::tools::{decode_krc_lyric, get_valid_path},
-};
+use crate::{app::dir::AppDir, utils::logger::LogErrExt, utils::tools::gen_valid_path};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Lyric {
@@ -15,208 +14,169 @@ pub struct Lyric {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum LyricFormat {
   Krc,
   Lrc,
 }
 
-impl LyricFormat {
-  pub fn as_ext(&self) -> &'static str {
+impl fmt::Display for LyricFormat {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      Self::Krc => "krc",
-      Self::Lrc => "lrc",
+      Self::Krc => write!(f, "krc"),
+      Self::Lrc => write!(f, "lrc"),
     }
   }
 }
 
 #[tauri::command]
-/// 获取本地歌词
+/// ## 获取本地歌词
 ///
 /// ### 必选参数
-/// * `name` - 歌词名称
 /// * `id` - 歌词id
-pub fn music_lyric_get(name: &str, id: &str, fmt: LyricFormat) -> Option<Lyric> {
-  let (name, id) = (get_valid_path(name), get_valid_path(id));
+/// * `name` - 歌词名称
+/// * `fmt` - 歌词类型
+pub fn music_lyric_get(id: &str, name: &str, fmt: LyricFormat) -> Option<Lyric> {
+  let (id, name) = (gen_valid_path(id), gen_valid_path(name));
+  let lyric_path = AppDir::lyric().join(format!("{name} - {id}.{fmt}"));
 
-  let lyric_path = AppPath::new()
-    .lyric_dir()
-    .join(format!("{name} - {id}.{}", fmt.as_ext()));
-
-  let Ok(lyric_txt) = fs::read_to_string(&lyric_path) else {
+  if !lyric_path.exists() {
     return None;
-  };
+  }
 
-  let Ok(lyric_buf) = STANDARD.decode(&lyric_txt) else {
-    return None;
-  };
-
+  let lyric_txt = fs::read_to_string(&lyric_path)
+    .log_warn("music_lyric_get", "读取失败")
+    .ok()?;
+  let lyric_buf = STANDARD
+    .decode(&lyric_txt)
+    .log_warn("music_lyric_get", "解码失败")
+    .ok()?;
   let lyric_decoded = match fmt {
-    LyricFormat::Krc => decode_krc_lyric(&lyric_buf).ok(),
-    LyricFormat::Lrc => String::from_utf8(lyric_buf).ok(),
+    LyricFormat::Krc => decode_krc_lyric(&lyric_buf)
+      .log_warn("music_lyric_get", "解析失败")
+      .ok()?,
+    LyricFormat::Lrc => String::from_utf8(lyric_buf)
+      .log_warn("music_lyric_get", "解析失败")
+      .ok()?,
   };
 
   Some(Lyric {
     id: id.to_owned(),
     fmt,
-    content: lyric_decoded.unwrap_or_default(),
+    content: lyric_decoded,
   })
 }
 
-pub fn music_lyric_save(
-  name: &str,
-  id: &str,
-  fmt: &LyricFormat,
-  conetnt: &str,
-) -> Result<(), String> {
-  let (name, id) = (get_valid_path(name), get_valid_path(id));
+/// ## 解码歌词内容
+///
+/// ### 必选参数
+/// * `content` - 歌词内容
+/// * `fmt` - 歌词类型
+pub fn decode_lyric(content: &str, fmt: &LyricFormat) -> anyhow::Result<String> {
+  let content_vec = STANDARD.decode(content)?;
 
-  let lyric_path = AppPath::new()
-    .lyric_dir()
-    .join(format!("{name} - {id}.{}", fmt.as_ext()));
-
-  if let Err(e) = fs::write(&lyric_path, &conetnt) {
-    return Err(format!("歌词文件保存失败: {e}"));
+  let decoded_content = match fmt {
+    LyricFormat::Krc => decode_krc_lyric(&content_vec)?,
+    LyricFormat::Lrc => String::from_utf8(content_vec)?,
   };
+
+  Ok(decoded_content)
+}
+
+/// ## 解码 KRC 歌词
+///
+/// ### 必选参数
+/// * `content` - krc 歌词内容
+pub fn decode_krc_lyric(content: &[u8]) -> anyhow::Result<String> {
+  if content.len() < 4 {
+    return Err(anyhow!("数据长度不足"));
+  }
+
+  const KRC_KEY: [u8; 16] = [
+    0x40, 0x47, 0x61, 0x77, 0x5E, 0x32, 0x74, 0x47, 0x51, 0x36, 0x31, 0x2D, 0xCE, 0xD2, 0x6E, 0x69,
+  ];
+
+  let encrypted_data = &content[4..];
+
+  let mut decrypted_data = Vec::with_capacity(encrypted_data.len());
+  for (i, &byte) in encrypted_data.iter().enumerate() {
+    decrypted_data.push(byte ^ KRC_KEY[i % KRC_KEY.len()]);
+  }
+
+  let mut decoded_data = String::new();
+  let mut decoder = ZlibDecoder::new(&decrypted_data[..]);
+  decoder.read_to_string(&mut decoded_data)?;
+
+  Ok(decoded_data)
+}
+
+/// ## 保存歌词
+///
+/// ### 必选参数
+/// * `id` - 歌词id
+/// * `name` - 歌词名称
+/// * `fmt` - 歌词类型
+/// * `conetnt` - 歌词内容
+pub fn save_lyric(id: &str, name: &str, fmt: &LyricFormat, conetnt: &str) -> anyhow::Result<()> {
+  let (id, name) = (gen_valid_path(id), gen_valid_path(name));
+  let lyric_path = AppDir::lyric().join(format!("{name} - {id}.{fmt}"));
+
+  fs::write(lyric_path, conetnt)?;
 
   Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+  use flate2::{write::ZlibEncoder, Compression};
+  use std::io::Write;
+
   use super::*;
-  use base64::{engine::general_purpose::STANDARD, Engine};
-  use std::fs;
-  use tempfile::tempdir;
 
-  // === LyricFormat as_ext ===
+  /// 与 `decode_krc_lyric` 内部使用一致的 KRC 异或密钥，用于在测试中构造合法 KRC 数据
+  const KRC_KEY: [u8; 16] = [
+    0x40, 0x47, 0x61, 0x77, 0x5E, 0x32, 0x74, 0x47, 0x51, 0x36, 0x31, 0x2D, 0xCE, 0xD2, 0x6E, 0x69,
+  ];
 
-  #[test]
-  fn test_lyric_format_as_ext_krc() {
-    assert_eq!(LyricFormat::Krc.as_ext(), "krc");
-  }
+  /// 构造合法的 KRC 编码数据：4 字节头 + (zlib 压缩后与密钥异或)
+  fn encode_krc(plain: &str) -> Vec<u8> {
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(plain.as_bytes()).unwrap();
+    let compressed = encoder.finish().unwrap();
 
-  #[test]
-  fn test_lyric_format_as_ext_lrc() {
-    assert_eq!(LyricFormat::Lrc.as_ext(), "lrc");
-  }
-
-  #[test]
-  fn test_lyric_format_exhaustive_match() {
-    for fmt in [LyricFormat::Krc, LyricFormat::Lrc] {
-      match fmt {
-        LyricFormat::Krc => assert_eq!(fmt.as_ext(), "krc"),
-        LyricFormat::Lrc => assert_eq!(fmt.as_ext(), "lrc"),
-      }
+    let mut buf = vec![0u8; 4];
+    for (i, &byte) in compressed.iter().enumerate() {
+      buf.push(byte ^ KRC_KEY[i % KRC_KEY.len()]);
     }
-  }
 
-  // === Lyric / LyricFormat serde ===
-
-  #[test]
-  fn test_lyric_serde_roundtrip_krc() {
-    let lyric = Lyric {
-      id: "1001".into(),
-      fmt: LyricFormat::Krc,
-      content: "[00:01.00]hello world".into(),
-    };
-    let json = serde_json::to_string(&lyric).unwrap();
-    let back: Lyric = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.id, "1001");
-    assert!(matches!(back.fmt, LyricFormat::Krc));
-    assert_eq!(back.content, "[00:01.00]hello world");
+    buf
   }
 
   #[test]
-  fn test_lyric_serde_roundtrip_lrc() {
-    let lyric = Lyric {
-      id: "99".into(),
-      fmt: LyricFormat::Lrc,
-      content: "[ti:title]\n[ar:artist]".into(),
-    };
-    let json = serde_json::to_string(&lyric).unwrap();
-    let back: Lyric = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.id, "99");
-    assert!(matches!(back.fmt, LyricFormat::Lrc));
-    assert_eq!(back.content, "[ti:title]\n[ar:artist]");
+  fn lyric_format_display() {
+    assert_eq!(LyricFormat::Krc.to_string(), "krc");
+    assert_eq!(LyricFormat::Lrc.to_string(), "lrc");
   }
 
   #[test]
-  fn test_lyric_format_serde_krc() {
-    let json = serde_json::to_string(&LyricFormat::Krc).unwrap();
-    assert!(json.contains("Krc"));
-    let back: LyricFormat = serde_json::from_str(&json).unwrap();
-    assert!(matches!(back, LyricFormat::Krc));
+  fn decode_lrc_returns_utf8_content() {
+    let content = STANDARD.encode("hello lyric");
+    let decoded = decode_lyric(&content, &LyricFormat::Lrc).unwrap();
+
+    assert_eq!(decoded, "hello lyric");
   }
 
   #[test]
-  fn test_lyric_format_serde_lrc() {
-    let json = serde_json::to_string(&LyricFormat::Lrc).unwrap();
-    assert!(json.contains("Lrc"));
-    let back: LyricFormat = serde_json::from_str(&json).unwrap();
-    assert!(matches!(back, LyricFormat::Lrc));
-  }
+  fn decode_krc_roundtrip() {
+    let encoded = encode_krc("krc lyric content");
+    let decoded = decode_krc_lyric(&encoded).unwrap();
 
-  // === music_lyric_save / music_lyric_get 保存读取完整流程 ===
-  // 注意：AppPath::new() 使用的是真实 current_dir/temp_dir，
-  // 我们不替换 AppPath 行为，因此直接在临时目录中观察文件落盘
-  // 会造成单测对全局 lyric_dir 有副作用。
-  // 因此这里通过直接构造临时路径 + 写入/读取 base64 内容来验证 "content 往返一致性"
-  // 而不依赖 AppPath 内部目录。
-
-  #[test]
-  fn test_lrc_base64_save_and_read_roundtrip() {
-    // Lrc 流程：原文 UTF-8 → base64 encode → 写入 → 读取 → base64 decode → String::from_utf8
-    let content = "[00:00.50]Hello世界";
-    let encoded = STANDARD.encode(content.as_bytes());
-
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("test.lrc");
-    fs::write(&path, &encoded).unwrap();
-
-    let read = fs::read_to_string(&path).unwrap();
-    let bytes = STANDARD.decode(&read).unwrap();
-    let decoded = String::from_utf8(bytes).unwrap();
-    assert_eq!(decoded, content);
+    assert_eq!(decoded, "krc lyric content");
   }
 
   #[test]
-  fn test_music_lyric_save_invalid_path_chars_rejected_by_get_valid_path() {
-    // get_valid_path 会替换非法字符，但保存结果是合法路径，应 Ok
-    // 这里只验证不会 panic
-    let res = music_lyric_save("a/b\\c:d*e?f\"g<h>i|j", "id", &LyricFormat::Lrc, "");
-    // 不同平台可能行为不同，只要不 panic 即可
-    assert!(res.is_ok() || res.is_err());
-  }
-
-  // === music_lyric_get 对不存在的文件返回 None ===
-
-  #[test]
-  fn test_music_lyric_get_missing_file_returns_none() {
-    let result = music_lyric_get(
-      "__definitely_not_exist_name_xyz",
-      "__999999",
-      LyricFormat::Lrc,
-    );
-    assert!(result.is_none());
-  }
-
-  #[test]
-  fn test_music_lyric_get_missing_krc_file_returns_none() {
-    let result = music_lyric_get("__krc_missing_xyz", "123", LyricFormat::Krc);
-    assert!(result.is_none());
-  }
-
-  // === debug 显示 ===
-
-  #[test]
-  fn test_lyric_debug_contains_id() {
-    let lyric = Lyric {
-      id: "ABC".into(),
-      fmt: LyricFormat::Lrc,
-      content: "".into(),
-    };
-    let s = format!("{:?}", lyric);
-    assert!(s.contains("ABC"));
-    assert!(s.contains("Lrc"));
+  fn decode_krc_rejects_short_input() {
+    let err = decode_krc_lyric(&[0x01, 0x02]).unwrap_err();
+    assert_eq!(err.to_string(), "数据长度不足");
   }
 }

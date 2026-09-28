@@ -1,115 +1,115 @@
-import { useLyricStore } from '@/stores/lyric'
-import { useMusicStore } from '@/stores/music'
-import { useSettingStore } from '@/stores/setting'
-import { DesktopLyricEmit, Interval, WindowEvent, WindowTarget } from '@/utils/params'
-import { emitTo, listen } from '@tauri-apps/api/event'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { PhysicalPosition, getCurrentWindow } from '@tauri-apps/api/window'
-import { watchThrottled } from '@vueuse/core'
-import { type Ref, watch } from 'vue'
+import { emitTo, listen } from '@tauri-apps/api/event';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { PhysicalPosition, getCurrentWindow } from '@tauri-apps/api/window';
+import { watchThrottled } from '@vueuse/core';
+import { watch } from 'vue';
 
-export function useDesktopLyricBridge(lyricWindow: Ref<WebviewWindow | undefined>) {
-  const musicStore = useMusicStore()
-  const lyricStore = useLyricStore()
-  const settingStore = useSettingStore()
+import { useLyricStore } from '@/stores/lyric';
+import { useMusicStore } from '@/stores/music';
+import { useSettingStore } from '@/stores/setting';
+import { DesktopLyricEmit, Interval, WindowEvent, WindowTarget } from '@/utils/params';
 
-  const stopFns: (() => void)[] = []
+export function useDesktopLyricBridge() {
+  const musicStore = useMusicStore();
+  const lyricStore = useLyricStore();
+  const settingStore = useSettingStore();
+
+  const stopFns: (() => void)[] = [];
 
   const syncAudio = () => {
     const data: DesktopLyricAudio = {
       isLoading: musicStore.isLoading,
       isPlaying: musicStore.isPlaying,
-      music: musicStore.music
-    }
+      music: musicStore.music,
+    };
 
     emitTo(WindowTarget.DesktopLyric, WindowEvent.DesktopLyric, {
       type: DesktopLyricEmit.Audio,
-      data
-    })
-  }
+      data,
+    });
+  };
 
   const syncLyric = () => {
     emitTo(WindowTarget.DesktopLyric, WindowEvent.DesktopLyric, {
       type: DesktopLyricEmit.Lyric,
-      data: lyricStore.lyric
-    })
-  }
+      data: lyricStore.lyric,
+    });
+  };
 
   const syncFonts = () => {
-    if (settingStore.availableFonts.length === 0) settingStore.getAvailableFonts()
+    if (settingStore.availableFonts.length === 0) settingStore.getAvailableFonts();
 
     emitTo(WindowTarget.DesktopLyric, WindowEvent.DesktopLyric, {
       type: DesktopLyricEmit.Fonts,
-      data: settingStore.availableFonts
-    })
-  }
+      data: settingStore.availableFonts,
+    });
+  };
 
   const syncProgress = () => {
     emitTo(WindowTarget.DesktopLyric, WindowEvent.DesktopLyric, {
       type: DesktopLyricEmit.Progress,
-      data: musicStore.playProgress
-    })
-  }
+      data: musicStore.playProgress,
+    });
+  };
 
   /** 启动桥接 */
   const start = async () => {
     const unwatchAudio = watch(
       [() => musicStore.isLoading, () => musicStore.isPlaying, () => musicStore.music],
-      syncAudio
-    )
-    const unwatchLyric = watch(() => lyricStore.lyric, syncLyric)
-    const unwatchFonts = watch(() => settingStore.availableFonts, syncFonts)
+      syncAudio,
+    );
+    const unwatchLyric = watch(() => lyricStore.lyric, syncLyric);
+    const unwatchFonts = watch(() => settingStore.availableFonts, syncFonts);
     const unwatchProgress = watchThrottled(() => musicStore.playProgress, syncProgress, {
-      throttle: Interval.Medium
-    })
+      throttle: Interval.Medium,
+    });
     const unlistenAction = await listen<{ type: DesktopLyricEmit; data: unknown }>(
       WindowEvent.DesktopLyric,
-      (e) => {
+      async (e) => {
         switch (e.payload.type) {
           case DesktopLyricEmit.Init:
-            syncAudio()
-            syncLyric()
-            syncFonts()
-            syncProgress()
-            break
+            syncAudio();
+            syncLyric();
+            syncFonts();
+            syncProgress();
+            break;
           case DesktopLyricEmit.Main:
-            getCurrentWindow().show()
-            break
+            getCurrentWindow().show();
+            break;
           case DesktopLyricEmit.Play:
-            musicStore.play()
-            break
+            musicStore.play();
+            break;
           case DesktopLyricEmit.Pause:
-            musicStore.pause()
-            break
+            musicStore.pause();
+            break;
           case DesktopLyricEmit.Prev:
-            musicStore.playPrevOrNext('prev')
-            break
+            musicStore.playPrevOrNext('prev');
+            break;
           case DesktopLyricEmit.Next:
-            musicStore.playPrevOrNext('next')
-            break
+            musicStore.playPrevOrNext('next');
+            break;
           case DesktopLyricEmit.Close:
-            stop()
-            break
+            stop();
+            break;
           case DesktopLyricEmit.Pos:
-            const { x, y } = e.payload.data as PhysicalPosition
-            settingStore.setdesktopLyricPosition({ x, y })
-            break
+            const { x, y } = e.payload.data as PhysicalPosition;
+            settingStore.setdesktopLyricPosition({ x, y });
+            break;
         }
-      }
-    )
+      },
+    );
 
-    stopFns.push(unwatchAudio, unwatchLyric, unwatchFonts, unwatchProgress, unlistenAction)
-  }
+    stopFns.push(unwatchAudio, unwatchLyric, unwatchFonts, unwatchProgress, unlistenAction);
+  };
 
   /** 停止桥接 */
-  const stop = () => {
-    stopFns.forEach((fn) => fn())
-    stopFns.length = 0
+  const stop = async () => {
+    stopFns.forEach((fn) => fn());
+    stopFns.length = 0;
 
-    if (!lyricWindow.value) return
-    lyricWindow.value.close()
-    lyricWindow.value = undefined
-  }
+    const lyricWindow = await WebviewWindow.getByLabel(WindowTarget.DesktopLyric);
+    if (lyricWindow) lyricWindow.close();
+  };
 
-  return { start, stop }
+  return { start, stop };
 }

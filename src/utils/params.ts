@@ -1,6 +1,6 @@
 /** api invoke 状态 */
 export const enum ApiInvokeStatus {
-  Success = 1
+  Success = 1,
 }
 
 /** 扫描状态 */
@@ -8,7 +8,7 @@ export const enum ScanStatus {
   Ready,
   Loading,
   Fail,
-  Success
+  Success,
 }
 
 /** 二维码状态 */
@@ -17,45 +17,45 @@ export const enum QrcodeStatus {
   Scan,
   Timeout,
   Confirm,
-  Fail
+  Fail,
 }
 
 /** 列表类型 */
 export const enum ListType {
   Local = 'local',
   Show = 'show',
-  Play = 'play'
+  Play = 'play',
 }
 
 /** 播放列表类型 */
 export const enum PlaylistType {
   User,
-  Collection
+  Collection,
 }
 
 /** 添加播放列表方式 */
 export const enum AddPlaylistType {
   Add,
-  Import
+  Import,
 }
 
 /** 屏幕像素断点 */
 export const enum BreakPoint {
   MD = 1280,
-  LG = 1536
+  LG = 1536,
 }
 
 /** 列显示数量 */
 export const enum ColCount {
   SM = 3,
   MD = 4,
-  LG = 5
+  LG = 5,
 }
 
 /** 播放来源 */
 export const enum PlayingOrigin {
   Local,
-  Online
+  Online,
 }
 
 /** 播放模式 */
@@ -64,7 +64,7 @@ export const enum PlayingMode {
   SinglePlay,
   OrderLoop,
   SingleLoop,
-  RandomPlay
+  RandomPlay,
 }
 
 /** 播放音质 */
@@ -85,7 +85,7 @@ export const enum PlayingQuality {
   MagicSubwoofer = 'subwoofer',
   MagicAncient = 'ancient',
   MagicSurnay = 'surnay',
-  MagicDj = 'dj'
+  MagicDj = 'dj',
 }
 
 /** 排序方式 */
@@ -94,38 +94,38 @@ export const enum SortType {
   Title,
   Artist,
   Album,
-  Duration
+  Duration,
 }
 
 /** 排序顺序 */
 export const enum SortOrder {
   ASC,
-  DESC
+  DESC,
 }
 
 /** 添加音频方式 */
 export const enum AddMusicType {
   Add,
-  Scan
+  Scan,
 }
 
 /** 关闭按钮状态 */
 export const enum CloseStatus {
   Hide,
-  Exit
+  Exit,
 }
 
 /** 歌词页显示模式 */
 export const enum LyricPageMode {
   Cover,
   Record,
-  Photo
+  Photo,
 }
 
 /** 歌词类型 */
 export const enum LyricFormat {
-  Krc = 'Krc',
-  Lrc = 'Lrc'
+  Krc = 'krc',
+  Lrc = 'lrc',
 }
 
 /** 歌词字体大小范围 */
@@ -133,7 +133,7 @@ export const enum LyricFontSize {
   Step = 2,
   Default = 26,
   Min = 16,
-  Max = 36
+  Max = 36,
 }
 
 /** 歌词底色 */
@@ -144,7 +144,7 @@ export const enum LyricBaseColor {
   Green = '#22c55e',
   Cyan = '#06b6d4',
   Blue = '#3b82f6',
-  Purple = '#a855f7'
+  Purple = '#a855f7',
 }
 
 /** 歌词着重色 */
@@ -155,14 +155,14 @@ export const enum LyricAccentColor {
   Green = '#86efac',
   Cyan = '#67e8f9',
   Blue = '#93c5fd',
-  Purple = '#d8b4fe'
+  Purple = '#d8b4fe',
 }
 
 /** 歌词对齐模式 */
 export const enum LyricTextAlign {
   Left = 'text-left',
   Center = 'text-center',
-  Right = 'text-right'
+  Right = 'text-right',
 }
 
 /** 歌词翻译模式 */
@@ -171,17 +171,17 @@ export const enum LyricTransMode {
   Roman,
   /** 翻译 */
   Trans,
-  Off
+  Off,
 }
 
 /** 歌词偏移量 */
 export const enum LyricOffset {
   Step = 0.2,
-  Default = 0
+  Default = 0,
 }
 
 /** 歌词提前间隔 */
-export const FORWARD_DURATION = 150
+export const FORWARD_DURATION = 150;
 
 /** 预设歌词配色方案 */
 export const PresetsColors = [
@@ -191,27 +191,27 @@ export const PresetsColors = [
   [LyricBaseColor.Green, LyricAccentColor.Green],
   [LyricBaseColor.Cyan, LyricAccentColor.Cyan],
   [LyricBaseColor.Blue, LyricAccentColor.Blue],
-  [LyricBaseColor.Purple, LyricAccentColor.Purple]
-] as const
+  [LyricBaseColor.Purple, LyricAccentColor.Purple],
+] as const;
 
 /** 二维码类型 */
 export const enum QrcodeType {
   KG,
   QQ,
-  WX
+  WX,
 }
 
 /** 登录页模式 */
 export const enum LoginMode {
   Code,
-  Form
+  Form,
 }
 
 /** 用户操作 */
 export const enum UserAction {
   Info,
   Logout,
-  Vip
+  Vip,
 }
 
 /** 菜单操作 */
@@ -220,20 +220,20 @@ export const enum MenuAction {
   Update,
   Setting,
   Logout,
-  Exit
+  Exit,
 }
 
 /** 窗口名称 */
 export const enum WindowTarget {
   Main = 'main',
   MiniPlayer = 'mini-player',
-  DesktopLyric = 'desktop-lyric'
+  DesktopLyric = 'desktop-lyric',
 }
 
 /** 窗口事件 */
 export const enum WindowEvent {
   MiniPlayer = 'mini-player:handler',
-  DesktopLyric = 'desktop-lyric:handler'
+  DesktopLyric = 'desktop-lyric:handler',
 }
 
 /** 迷你播放器窗口通信类型 */
@@ -259,7 +259,7 @@ export const enum MiniPlayerEmit {
   /** 播放指定音频 */
   Set,
   /** 关闭窗口 */
-  Close
+  Close,
 }
 
 /** 桌面歌词窗口通信类型 */
@@ -287,27 +287,33 @@ export const enum DesktopLyricEmit {
   /** 暂停 */
   Pause,
   /** 关闭窗口 */
-  Close
+  Close,
 }
 
 /** 自启模式 */
 export const enum AutoStartMode {
   Foreground,
-  Background
+  Background,
 }
 
 /** 主题模式 */
 export const enum ThemeMode {
   Light = 'light',
   Dark = 'dark',
-  Auto = 'auto'
+  Auto = 'auto',
+}
+
+/** 系统主题(启动时读取的系统明暗偏好) */
+export const enum SystemTheme {
+  Light = 'Light',
+  Dark = 'Dark',
 }
 
 /** mini播放器默认尺寸(+border:1px) */
-export const miniPlayerSize = { width: 298, height: 66 } as const
+export const miniPlayerSize = { width: 298, height: 66 } as const;
 
 /** 桌面歌词默认尺寸 */
-export const desktopLyricSize = { width: 608, height: 112 } as const
+export const desktopLyricSize = { width: 608, height: 112 } as const;
 
 /** 查询类型 */
 export const enum SearchType {
@@ -317,14 +323,15 @@ export const enum SearchType {
   Mv = 'mv',
   Lyric = 'lyric',
   Special = 'special',
-  Collect = 'collect'
+  Collect = 'collect',
 }
 
 /** 分页尺寸 */
 export const enum PageSize {
-  Min = 10,
-  Default = 30,
-  Max = 300
+  Min = 3,
+  Default = 10,
+  More = 30,
+  Max = 300,
 }
 
 /** 按键映射 */
@@ -336,7 +343,7 @@ export const enum ShortcutKey {
   Prev = 'prev',
   Next = 'next',
   Forward = 'forward',
-  Backward = 'backward'
+  Backward = 'backward',
 }
 
 /** 帧间隔时间 */
@@ -346,43 +353,60 @@ export const enum Interval {
   Long = 100,
   Sec = 1000,
   /** 上/下一首 */
-  PoN = 2000
+  PoN = 2000,
 }
 
 /** 图片尺寸 */
 export const enum PicSize {
   Sm = '64',
   Md = '120',
-  Lg = '400'
+  Lg = '400',
+}
+
+/** 概念版vip等级 */
+export const enum YouthVip {
+  Not,
+  Dvip,
+  Qvip,
+  Tvip,
+  Svip,
+}
+
+/** Mode */
+export const enum Mode {
+  KgMobile = 'KgMobile',
+  KgLite = 'KgLite',
 }
 
 /** 文件大小单位 */
-export const SizeUnits = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] as const
+export const SizeUnits = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] as const;
 
+/** 歌手区域配置   */
 export const AreaTypes = [
-  { id: 1, type: 1, musician: 0, title: '华语' },
-  { id: 2, type: 2, musician: 0, title: '欧美' },
-  { id: 3, type: 5, musician: 0, title: '日本' },
-  { id: 4, type: 6, musician: 0, title: '韩国' },
-  { id: 5, type: 7, musician: 0, title: '粤语' },
-  { id: 6, type: 8, musician: 0, title: '闽南语' },
-  { id: 7, type: 0, musician: 3, title: '音乐人' },
-  { id: 8, type: 4, musician: 0, title: '其他' }
-] as const
+  { type: 1, musician: 0, title: '华语' },
+  { type: 2, musician: 0, title: '欧美' },
+  { type: 5, musician: 0, title: '日本' },
+  { type: 6, musician: 0, title: '韩国' },
+  { type: 7, musician: 0, title: '粤语' },
+  { type: 8, musician: 0, title: '闽南语' },
+  { type: 0, musician: 3, title: '音乐人' },
+  { type: 4, musician: 0, title: '其他' },
+] as const;
 
+/** 歌手性别配置 */
 export const SexTypes = [
   { key: 0, value: '全部' },
   { key: 1, value: '男' },
   { key: 2, value: '女' },
-  { key: 3, value: '组合' }
-] as const
+  { key: 3, value: '组合' },
+] as const;
 
-export const AlbumTypes: Array<{ title: string; type: keyof TopAlbum }> = [
+export const AlbumTypes: Array<{ title: string; type: keyof ApiTopAlbum }> = [
   { title: '华语', type: 'chn' },
   { title: '欧美', type: 'eur' },
   { title: '日本', type: 'jpn' },
-  { title: '韩国', type: 'kor' }
-] as const
+  { title: '韩国', type: 'kor' },
+] as const;
 
 // TODO: 暂时使用预设, 后续改成从后端获取全部字体
 // 常见系统字体列表 [中文显示名称, 英文名称]
@@ -460,5 +484,5 @@ export const DefaultSystemFonts = [
   ['Menlo', 'Menlo'],
   ['Lucida Console', 'Lucida Console'],
   ['Source Code Pro', 'Source Code Pro'],
-  ['Fira Code', 'Fira Code']
-] as const
+  ['Fira Code', 'Fira Code'],
+] as const;

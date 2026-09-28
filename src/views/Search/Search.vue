@@ -1,140 +1,75 @@
 <script lang="ts" setup>
-import Image from '@/components/Image.vue'
-import MusicActions from '@/components/MusicTable/MusicActions.vue'
-import MusicTable from '@/components/MusicTable/MusicTable.vue'
-import ToTop from '@/components/PageActions/ToTop.vue'
-import SlideBar from '@/components/SlideBar.vue'
-import VirtualList from '@/components/VirtualList.vue'
-import { useListStore } from '@/stores/list'
-import { getPic, getPrivilegeTags } from '@/utils/music'
-import { ApiInvokeStatus, ListType, PageSize, SearchType } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { onMounted, onUnmounted, provide, ref, useTemplateRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onMounted, onUnmounted, provide, ref, useTemplateRef, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-provide('listType', ListType.Show)
+import Image from '@/components/Image.vue';
+import MusicActions from '@/components/MusicTable/MusicActions.vue';
+import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import { notify } from '@/components/Notification.vue';
+import ToTop from '@/components/PageActions/ToTop.vue';
+import SlideBar from '@/components/SlideBar.vue';
+import VirtualList from '@/components/VirtualList.vue';
+import { defaultInfo, useListStore } from '@/stores/list';
+import { getPic, getPrivilegeTags } from '@/utils/music';
+import { ApiInvokeStatus, ListType, PageSize, SearchType } from '@/utils/params';
+import { invoke } from '@/utils/tools';
 
-const route = useRoute()
-const router = useRouter()
+const listType = ListType.Show;
+provide('listType', listType);
 
-const listStore = useListStore()
+const route = useRoute('Search');
+const router = useRouter();
+
+const listStore = useListStore();
 
 const slideOptions: Array<SlideOption<SearchType>> = [
   { label: '单曲', value: SearchType.Song },
   { label: '歌手', value: SearchType.Author },
-  { label: '歌单', value: SearchType.Special }
-]
+  { label: '歌单', value: SearchType.Special },
+];
 const artistTableColumns: TableColumn[] = [
   { key: 'index', slot: true, width: '3rem', padding: 0, align: 'center' },
   { key: 'info', width: 'auto', slot: true },
-  { key: 'fanscount', slot: true, width: 'auto', align: 'center' }
-]
+  { key: 'fanscount', slot: true, width: 'auto', align: 'center' },
+];
 const playlistTableColumns: TableColumn[] = [
   { key: 'index', slot: true, width: '3rem', padding: 0, align: 'center' },
   { key: 'info', slot: true, width: 'auto' },
-  { key: 'playCount', slot: true, width: '20%', align: 'center' }
-]
+  { key: 'playCount', slot: true, width: '20%', align: 'center' },
+];
 
-const tableRef = useTemplateRef('tableRef')
+const tableRef = useTemplateRef('tableRef');
 
-const slideSelection = ref(slideOptions[0])
-const isLoading = ref(false)
-const isFinished = ref(false)
-const page = ref(1)
-const artistList = ref<ArtistInfo[]>([])
-const playlistList = ref<PlaylistInfo[]>([])
+const slideSelection = ref(slideOptions[0]);
+const isLoading = ref(true);
+const isFinishing = ref(false);
+const isFinished = ref(false);
+const page = ref(1);
+const artistList = ref<ArtistInfo[]>([]);
+const playlistList = ref<ListInfo[]>([]);
 
 const handleLoad = async (query: string, type: SearchType) => {
-  if (!query) return
-  isLoading.value = true
+  if (!query) return;
+
+  isLoading.value = true;
 
   try {
-    const api_search = await invoke('api_search', {
+    const { status, data } = await invoke('api_search', {
       keywords: query,
       searchType: type,
       page: page.value,
-      pageSize: PageSize.Default
-    })
-    if (api_search.status === ApiInvokeStatus.Success) {
+      pageSize: PageSize.More,
+    });
+    if (status !== ApiInvokeStatus.Success) {
+      notify.error('搜索失败');
+    } else {
       switch (type) {
         case SearchType.Song:
-          listStore.isLoading = true
+          listStore.isTableLoading = true;
 
-          const info: ListInfo = {
-            id: 'search',
-            cover: '',
-            title: '搜索',
-            artist: '',
-            count: api_search.data.total,
-            tags: []
-          }
-          const list: ListMusic[] = api_search.data.lists.map((song, index) => {
-            return {
-              id: song.Audioid,
-              hash: song.FileHash,
-              path: null,
-              cover: song.trans_param.union_cover,
-              title: song.OriSongName,
-              artist: song.SingerName,
-              album: song.AlbumName,
-              duration: song.Duration,
-              sort: index,
-              privilegeTags: getPrivilegeTags(song.AlbumPrivilege, song.PayType)
-            }
-          })
-
-          listStore.setList(ListType.Show, { info, list })
-          listStore.isLoading = false
-          break
-        case SearchType.Author:
-          artistList.value = api_search.data.lists.map((artist) => ({
-            id: artist.AuthorId,
-            cover: artist.Avatar,
-            name: artist.AuthorName,
-            fanscount: artist.FansNum,
-            descibe: '',
-            url: ''
-          }))
-          break
-        case SearchType.Special:
-          playlistList.value = api_search.data.lists.map((playlist) => ({
-            id: playlist.gid,
-            cover: playlist.img,
-            title: playlist.specialname,
-            artist: playlist.nickname,
-            play_count: playlist.play_count
-          }))
-          break
-      }
-    }
-  } catch (error) {
-    console.error(error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const handleInfinite = async () => {
-  if (isFinished.value) return
-
-  const query = String(route.query.query)
-  const type = slideSelection.value.value
-  if (!query) return
-
-  try {
-    const api_search = await invoke('api_search', {
-      keywords: query,
-      searchType: type,
-      page: ++page.value,
-      pageSize: PageSize.Default
-    })
-    if (api_search.status !== ApiInvokeStatus.Success) return
-
-    switch (type) {
-      case SearchType.Song:
-        const list: ListMusic[] = api_search.data.lists.map((song, index) => {
-          return {
-            id: song.Audioid,
+          const info: ListInfo = { ...defaultInfo, id: 'search', title: '搜索', count: data.total };
+          const list: MusicInfo[] = data.lists.map((song, index) => ({
+            id: song.MixSongID,
             hash: song.FileHash,
             path: null,
             cover: song.trans_param.union_cover,
@@ -143,99 +78,174 @@ const handleInfinite = async () => {
             album: song.AlbumName,
             duration: song.Duration,
             sort: index,
-            privilegeTags: getPrivilegeTags(song.AlbumPrivilege, song.PayType)
-          }
-        })
+            privilegeTags: getPrivilegeTags(song.AlbumPrivilege, song.PayType),
+          }));
 
-        listStore.addList(ListType.Show, list, false)
-        break
-      case SearchType.Author:
-        artistList.value.push(
-          ...api_search.data.lists.map((artist) => ({
+          listStore.setList(listType, { info, list });
+          listStore.isTableLoading = false;
+          break;
+        case SearchType.Author:
+          artistList.value = data.lists.map((artist) => ({
             id: artist.AuthorId,
             cover: artist.Avatar,
             name: artist.AuthorName,
             fanscount: artist.FansNum,
             descibe: '',
-            url: ''
-          }))
-        )
-        break
-      case SearchType.Special:
-        playlistList.value.push(
-          ...api_search.data.lists.map((playlist) => ({
-            id: playlist.gid,
+            url: '',
+          }));
+          break;
+        case SearchType.Special:
+          playlistList.value = data.lists.map((playlist) => ({
+            id: playlist.specialid,
             cover: playlist.img,
             title: playlist.specialname,
             artist: playlist.nickname,
-            play_count: playlist.play_count
-          }))
-        )
-        break
+            count: playlist.song_count,
+            playCount: 0,
+            tags: playlist.abtags?.map((tag) => tag.name),
+            gid: playlist.gid,
+          }));
+          break;
+      }
     }
-
-    if (api_search.data.lists.length < PageSize.Default) isFinished.value = true
-  } catch (error) {
-    console.error(error)
+  } catch {
+    notify.error('搜索失败');
+  } finally {
+    isLoading.value = false;
   }
-}
+};
+
+const handleInfinite = async () => {
+  if (isFinishing.value || isFinished.value) return;
+
+  isFinishing.value = true;
+
+  try {
+    const query = route.query.query as string;
+    const type = slideSelection.value.value;
+
+    const { status, data } = await invoke('api_search', {
+      keywords: query,
+      searchType: type,
+      page: ++page.value,
+      pageSize: PageSize.More,
+    });
+    if (status !== ApiInvokeStatus.Success) {
+      notify.error('搜索失败');
+    } else {
+      switch (type) {
+        case SearchType.Song:
+          const start = page.value * PageSize.More;
+          const musics: MusicInfo[] = data.lists.map((song, index) => ({
+            id: song.MixSongID,
+            hash: song.FileHash,
+            path: null,
+            cover: song.trans_param.union_cover,
+            title: song.OriSongName,
+            artist: song.SingerName,
+            album: song.AlbumName,
+            duration: song.Duration,
+            sort: start + index,
+            privilegeTags: getPrivilegeTags(song.AlbumPrivilege, song.PayType),
+          }));
+
+          listStore.addList(listType, musics);
+          break;
+        case SearchType.Author:
+          const artists = data.lists.map((artist) => ({
+            id: artist.AuthorId,
+            cover: artist.Avatar,
+            name: artist.AuthorName,
+            fanscount: artist.FansNum,
+            descibe: '',
+            url: '',
+          }));
+
+          artistList.value.push(...artists);
+          break;
+        case SearchType.Special:
+          const playlists = data.lists.map((playlist) => ({
+            id: playlist.specialid,
+            cover: playlist.img,
+            title: playlist.specialname,
+            artist: playlist.nickname,
+            count: playlist.song_count,
+            playCount: 0,
+            tags: playlist.abtags?.map((tag) => tag.name),
+            gid: playlist.gid,
+          }));
+
+          playlistList.value.push(...playlists);
+          break;
+      }
+
+      if (data.lists.length < PageSize.More) isFinished.value = true;
+    }
+  } catch {
+    notify.error('搜索失败');
+  } finally {
+    isFinishing.value = false;
+  }
+};
 
 const handleSlideChange = (option: SlideOption) => {
-  slideSelection.value = option
+  slideSelection.value = option;
 
-  listStore.resetList(ListType.Show)
-  artistList.value.length = 0
-  playlistList.value.length = 0
-  page.value = 1
+  listStore.resetList(listType);
+  artistList.value.length = 0;
+  playlistList.value.length = 0;
 
-  handleLoad(route.query.query as string, option.value)
-}
+  isLoading.value = true;
+  isFinishing.value = false;
+  isFinished.value = false;
+  page.value = 1;
+
+  handleLoad(route.query.query as string, option.value);
+  handleToTop();
+};
 
 const handleArtistClick = (row: ArtistInfo) => {
-  router.push({
-    path: '/artist-list-table',
-    query: { id: row.id, cover: row.cover, name: row.name }
-  })
-}
+  router.push(`/artist-list-table/${row.id}`);
+};
 
-const handlePlaylistClick = (row: PlaylistInfo) => {
-  router.push({
-    path: '/top-playlist-table',
-    query: { id: row.id, cover: row.cover, title: row.title }
-  })
-}
+const handlePlaylistClick = (row: ListInfo) => {
+  if (!row.gid) return;
+
+  router.push(`/top-playlist-table/${row.gid}`);
+};
 
 const handleToTop = () => {
-  tableRef.value?.scrollToTop()
-}
+  tableRef.value?.scrollToTop();
+};
 
 watch(
   () => route.query,
   ({ query, type }) => {
-    if (!query || !type) return
+    if (!query || !type) return;
 
-    handleLoad(query as string, type as SearchType)
+    handleLoad(query as string, type as SearchType);
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 
 onMounted(() => {
   slideSelection.value =
-    slideOptions.find((item) => item.value === (route.query.type as SearchType)) || slideOptions[0]
-})
-onUnmounted(() => listStore.resetList(ListType.Show))
+    slideOptions.find((item) => item.value === (route.query.type as SearchType)) || slideOptions[0];
+});
+onUnmounted(() => listStore.resetList(listType));
 </script>
 
 <template>
-  <div class="relative space-y-3 pt-4 w-full h-full flex flex-col">
-    <div class="flex items-center gap-3 mx-8">
-      <div class="font-bold text-xl">搜索:</div>
+  <div class="relative flex h-full w-full flex-col space-y-3 pt-4">
+    <div class="mx-8 flex items-center gap-3">
+      <div class="text-xl font-bold">搜索:</div>
       <SlideBar
         class="flex-1"
         :slide-width="88"
         :options="slideOptions"
         :selection="slideSelection"
-        @change="handleSlideChange" />
+        @change="handleSlideChange"
+      />
     </div>
 
     <template v-if="slideSelection.value === SearchType.Song">
@@ -251,14 +261,15 @@ onUnmounted(() => listStore.resetList(ListType.Show))
       :loading="isLoading"
       :list="artistList"
       @infinite="handleInfinite"
-      @line-click="handleArtistClick">
+      @line-click="handleArtistClick"
+    >
       <template #index="row">
         {{ row.index + 1 }}
       </template>
 
       <template #info="row">
         <div class="flex items-center gap-3">
-          <Image class="size-12" :img="getPic(row.cover)" />
+          <Image class="size-12" :src="getPic(row.cover)" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ row.name }}</div>
         </div>
@@ -275,26 +286,36 @@ onUnmounted(() => listStore.resetList(ListType.Show))
       :loading="isLoading"
       :list="playlistList"
       @infinite="handleInfinite"
-      @lineClick="handlePlaylistClick">
+      @lineClick="handlePlaylistClick"
+    >
       <template #index="row">
         {{ row.index + 1 }}
       </template>
 
       <template #info="row">
         <div class="flex items-center gap-3">
-          <Image class="size-12" :img="getPic(row.cover)" />
+          <Image class="size-12" :src="getPic(row.cover)" />
 
           <div class="w-0 flex-1 overflow-hidden">
-            <div class="music-title">{{ row.title }}</div>
+            <div class="music-title flex items-center gap-2">
+              <div class="min-w-0 truncate">{{ row.title }}</div>
+              <div class="flex flex-1 gap-2">
+                <div
+                  class="card rounded border-info px-1 text-xs font-bold leading-4 text-info"
+                  v-for="(tag, index) in row.tags"
+                  :key="index"
+                >
+                  {{ tag }}
+                </div>
+              </div>
+            </div>
             <div class="music-artist">{{ row.artist }}</div>
           </div>
         </div>
       </template>
-
-      <template #playCount="row">{{ row.play_count }} 次播放</template>
     </VirtualList>
 
-    <div v-if="slideSelection.value !== SearchType.Song" class="absolute right-4 bottom-4">
+    <div v-if="slideSelection.value !== SearchType.Song" class="absolute bottom-4 right-4">
       <ToTop @click="handleToTop" />
     </div>
   </div>

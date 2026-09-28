@@ -1,179 +1,181 @@
-// 纯函数测试无 Tauri 依赖，但 tools.ts 顶部 import 了 @tauri-apps/*，需在 import 被测函数前 mock 掉避免解析失败
-import { cn, formatDuration, formatFileSize, isEnglishText } from '@/utils/tools'
-import { vi } from 'vitest'
-import { describe, expect, it } from 'vitest'
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener';
+import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ setTitle: vi.fn() }) }))
+import {
+  cn,
+  formatDuration,
+  formatFileSize,
+  genRandomNum,
+  interdictHotkeys,
+  invoke,
+  isEnglishText,
+  openDir,
+  revealPath,
+  setAppTitle,
+} from '@/utils/tools';
 
-// ============================================================================
-// cn — class 合并（clsx + tailwind-merge）
-// ============================================================================
-describe('utils/tools cn()', () => {
-  it('空输入 / 全 falsy 输入返回空字符串', () => {
-    expect(cn()).toBe('')
-    expect(cn(null)).toBe('')
-    expect(cn(false, undefined, null, 0, NaN, '')).toBe('')
-  })
+import { invokeMock, notifyMock } from '../helpers/mocks';
 
-  it('单个字符串原样返回', () => {
-    expect(cn('flex')).toBe('flex')
-    expect(cn('w-full h-10')).toBe('w-full h-10')
-  })
+const getCurrentWindowMock = vi.mocked(getCurrentWindow);
+const revealItemInDirMock = vi.mocked(revealItemInDir);
+const openPathMock = vi.mocked(openPath);
 
-  it('条件 class 中条件为 false 的项被过滤，条件为 true 的保留', () => {
-    expect(cn('base', true && 'active', false && 'hidden')).toBe('base active')
-    expect(cn([true && 'a', false && 'b'], 'c')).toBe('a c')
-  })
+describe('invoke 封装', () => {
+  it('成功时透传后端返回值', async () => {
+    invokeMock.mockResolvedValueOnce({ status: 1 });
 
-  it('嵌套数组会被展开并拼接', () => {
-    expect(cn(['a', ['b', ['c', 'd'], 'e']])).toBe('a b c d e')
-  })
+    await expect(invoke('api_song_url', { hash: 'abc' })).resolves.toStrictEqual({ status: 1 });
+    expect(invokeMock).toHaveBeenCalledWith('api_song_url', { hash: 'abc' });
+  });
 
-  it('Tailwind 冲突类被 tailwind-merge 去重（px-2 px-4 → 只保留后者）', () => {
-    expect(cn('px-2', 'px-4')).toBe('px-4')
-    expect(cn('text-red-500', 'text-blue-500')).toBe('text-blue-500')
-  })
+  it('失败时将错误统一包装为 Error 抛出', async () => {
+    invokeMock.mockRejectedValueOnce(new Error('backend boom'));
+    await expect(invoke('music_player_play')).rejects.toThrow('backend boom');
 
-  it('class 对象写法: { active: true, disabled: false } 过滤 false 保留 true', () => {
-    // clsx 按参数从左到右拼接：先处理对象 → active，再处理字符串 → base → 结果为 'active base'
-    expect(cn({ active: true, disabled: false }, 'base')).toBe('active base')
-    // 相反顺序验证
-    expect(cn('base', { active: true, disabled: false })).toBe('base active')
-  })
-})
+    invokeMock.mockRejectedValueOnce('raw string error');
+    await expect(invoke('music_player_play')).rejects.toThrow('raw string error');
+  });
+});
 
-// ============================================================================
-// isEnglishText — 英文判断
-// ============================================================================
-describe('utils/tools isEnglishText()', () => {
-  it('纯英文字母 + 空格 → true', () => {
-    expect(isEnglishText('Hello')).toBe(true)
-    expect(isEnglishText('Hello World')).toBe(true)
-  })
+describe('cn', () => {
+  it('合并多个 class 并忽略假值', () => {
+    expect(cn('a', false, undefined, 'b')).toBe('a b');
+  });
 
-  it('允许的标点符号组合 → true', () => {
-    // 允许: -_ ' , . ! ? ; : ( ) " [ ]
-    expect(isEnglishText("Don't stop - just do_it. ")).toBe(true)
-    expect(isEnglishText("Hello, World! How are you? (I'm fine.)")).toBe(true)
-    expect(isEnglishText('"Quoted"; [brackets]: yes.')).toBe(true)
-  })
+  it('tailwind 冲突类后者覆盖前者', () => {
+    expect(cn('p-2', 'p-4')).toBe('p-4');
+    expect(cn('text-left text-red-500', 'text-center')).toBe('text-red-500 text-center');
+  });
+});
 
-  it('首尾空白字符修剪后再判断', () => {
-    expect(isEnglishText('   Hello   ')).toBe(true)
-  })
+describe('isEnglishText', () => {
+  it('纯英文（含常见标点）返回 true', () => {
+    expect(isEnglishText('Hello, World!')).toBe(true);
+    expect(isEnglishText("It's a test-case.")).toBe(true);
+  });
 
-  it('空字符串 / 纯空白 → false', () => {
-    expect(isEnglishText('')).toBe(false)
-    expect(isEnglishText('     ')).toBe(false)
-  })
+  it('包含中文等非英文字符返回 false', () => {
+    expect(isEnglishText('你好')).toBe(false);
+    expect(isEnglishText('Hello 你好')).toBe(false);
+  });
 
-  it('包含中文字符 → false', () => {
-    expect(isEnglishText('Hello 你好')).toBe(false)
-    expect(isEnglishText('测试')).toBe(false)
-  })
+  it('空字符串返回 false', () => {
+    expect(isEnglishText('')).toBe(false);
+    expect(isEnglishText('   ')).toBe(false);
+  });
+});
 
-  it('包含数字 / 非允许符号 @ $ # % & * → false', () => {
-    expect(isEnglishText('Price is 5')).toBe(false)
-    expect(isEnglishText('hello@world')).toBe(false)
-    expect(isEnglishText('$100')).toBe(false)
-    expect(isEnglishText('a #tag')).toBe(false)
-    expect(isEnglishText('foo & bar')).toBe(false)
-  })
-})
+describe('formatDuration', () => {
+  it('0 与负数返回 00:00', () => {
+    expect(formatDuration(0)).toBe('00:00');
+    expect(formatDuration(-5)).toBe('00:00');
+  });
 
-// ============================================================================
-// formatDuration — 秒 → mm:ss
-// ============================================================================
-describe('utils/tools formatDuration()', () => {
-  it('边界值：≤0 一律返回 00:00', () => {
-    expect(formatDuration(0)).toBe('00:00')
-    expect(formatDuration(-1)).toBe('00:00')
-    expect(formatDuration(-999)).toBe('00:00')
-  })
+  it('秒数转为 mm:ss 并补零', () => {
+    expect(formatDuration(59)).toBe('00:59');
+    expect(formatDuration(61)).toBe('01:01');
+    expect(formatDuration(600)).toBe('10:00');
+  });
 
-  it('秒数不足 1 分钟：补前导 0', () => {
-    expect(formatDuration(1)).toBe('00:01')
-    expect(formatDuration(59)).toBe('00:59')
-  })
+  it('小数秒向下取整', () => {
+    expect(formatDuration(59.9)).toBe('00:59');
+  });
+});
 
-  it('整点分钟', () => {
-    expect(formatDuration(60)).toBe('01:00')
-    expect(formatDuration(120)).toBe('02:00')
-    expect(formatDuration(600)).toBe('10:00')
-  })
+describe('formatFileSize', () => {
+  it('非法输入返回 0 B', () => {
+    expect(formatFileSize(0)).toBe('0 B');
+    expect(formatFileSize(-1)).toBe('0 B');
+    expect(formatFileSize(NaN)).toBe('0 B');
+    expect(formatFileSize(Infinity)).toBe('0 B');
+  });
 
-  it('分钟与秒都有', () => {
-    expect(formatDuration(119)).toBe('01:59')
-    expect(formatDuration(3661)).toBe('61:01') // 61 分 1 秒，不限制小时位
-  })
+  it('按 1024 换算单位', () => {
+    expect(formatFileSize(512)).toBe('512.00 B');
+    expect(formatFileSize(1024)).toBe('1.00 KB');
+    expect(formatFileSize(1536)).toBe('1.50 KB');
+    expect(formatFileSize(1024 ** 2)).toBe('1.00 MB');
+    expect(formatFileSize(1024 ** 3)).toBe('1.00 GB');
+  });
 
-  it('浮点输入向下取整', () => {
-    // 59.999 秒 → 00:59
-    expect(formatDuration(59.999)).toBe('00:59')
-    // 60.999 秒 → 01:00
-    expect(formatDuration(60.999)).toBe('01:00')
-  })
-})
+  it('支持自定义小数位', () => {
+    expect(formatFileSize(1024, 0)).toBe('1 KB');
+    expect(formatFileSize(1536, 1)).toBe('1.5 KB');
+  });
 
-// ============================================================================
-// formatFileSize — 字节 → 带单位格式化
-// SizeUnits = ['B','KB','MB','GB','TB','PB','EB','ZB','YB'] (index 0..8)
-// ============================================================================
-describe('utils/tools formatFileSize()', () => {
-  it('非法 / 零输入 → 0 B', () => {
-    expect(formatFileSize(0)).toBe('0 B')
-    expect(formatFileSize(-1)).toBe('0 B')
-    expect(formatFileSize(NaN)).toBe('0 B')
-    expect(formatFileSize(Infinity)).toBe('0 B')
-  })
+  it('超出最大单位时封顶为 YB', () => {
+    expect(formatFileSize(1024 ** 10)).toContain('YB');
+  });
+});
 
-  it('字节阶段 (0 < bytes < 1024 → B', () => {
-    expect(formatFileSize(1)).toBe('1.00 B')
-    expect(formatFileSize(1023)).toBe('1023.00 B')
-  })
+describe('setAppTitle', () => {
+  it('同时设置 document.title 与窗口标题', () => {
+    setAppTitle('Seraphine');
 
-  it('单位进位准确：1024 = 1.00 KB', () => {
-    expect(formatFileSize(1024)).toBe('1.00 KB')
-  })
+    expect(document.title).toBe('Seraphine');
+    const results = getCurrentWindowMock.mock.results;
+    const windowMock = results[results.length - 1]?.value;
+    expect(windowMock.setTitle).toHaveBeenCalledWith('Seraphine');
+  });
+});
 
-  it('KB → MB → GB → TB → PB 每阶 1024 递增', () => {
-    const KiB = 1024
-    expect(formatFileSize(KiB * KiB)).toBe('1.00 MB')
-    expect(formatFileSize(KiB * KiB * KiB)).toBe('1.00 GB')
-    expect(formatFileSize(Math.pow(KiB, 4))).toBe('1.00 TB')
-    expect(formatFileSize(Math.pow(KiB, 5))).toBe('1.00 PB')
-    expect(formatFileSize(Math.pow(KiB, 6))).toBe('1.00 EB')
-    expect(formatFileSize(Math.pow(KiB, 8))).toBe('1.00 YB') // 最大单位 YB
-  })
+describe('getRandomNumber', () => {
+  it('maxNum 非非负整数时抛错', () => {
+    expect(() => genRandomNum(-1, 0)).toThrow('maxNum 必须是非负整数');
+    expect(() => genRandomNum(1.5, 0)).toThrow('maxNum 必须是非负整数');
+  });
 
-  it('小数倍数的正确显示', () => {
-    // 1.5 MiB
-    expect(formatFileSize(Math.floor(1.5 * 1024 * 1024))).toBe('1.50 MB')
-    // 2.25 KB
-    expect(formatFileSize(Math.floor(2.25 * 1024))).toBe('2.25 KB')
-  })
+  it('maxNum=0 时恒返回 0', () => {
+    expect(genRandomNum(0, 0)).toBe(0);
+  });
 
-  it('超过 YB 时不再进位，保持在最大单位 YB', () => {
-    const YB = Math.pow(1024, 8)
-    expect(formatFileSize(YB * 9999)).toBe('9999.00 YB')
-  })
+  it('maxNum=1 时返回与 srcNum 相反的值', () => {
+    expect(genRandomNum(1, 0)).toBe(1);
+    expect(genRandomNum(1, 1)).toBe(0);
+  });
 
-  describe('decimals 参数：小数位', () => {
-    it('默认 2 位', () => {
-      expect(formatFileSize(1536)).toBe('1.50 KB')
-    })
+  it('结果在 [0, maxNum] 内且不等于 srcNum', () => {
+    for (let i = 0; i < 100; i += 1) {
+      const result = genRandomNum(5, 2);
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThanOrEqual(5);
+      expect(result).not.toBe(2);
+      expect(Number.isInteger(result)).toBe(true);
+    }
+  });
+});
 
-    it('显式 decimals = 0 取整', () => {
-      expect(formatFileSize(1536, 0)).toBe('2 KB')
-    })
+describe('interdictHotkeys', () => {
+  it('测试环境（DEV）下为 no-op，不抛错', () => {
+    expect(() => interdictHotkeys()).not.toThrow();
+    expect(() => interdictHotkeys(false)).not.toThrow();
+  });
+});
 
-    it('显式 decimals = 3 保留 3 位', () => {
-      expect(formatFileSize(1024 + 1, 3)).toBe('1.001 KB')
-    })
+describe('revealPath / openDir', () => {
+  it('空路径直接返回，不调用插件', async () => {
+    await revealPath('');
+    await openDir('');
+    expect(revealItemInDirMock).not.toHaveBeenCalled();
+    expect(openPathMock).not.toHaveBeenCalled();
+  });
 
-    it('decimals = 负数 clamp 到 0', () => {
-      expect(formatFileSize(1536, -5)).toBe('2 KB')
-    })
-  })
-})
+  it('正常路径调用对应插件', async () => {
+    await revealPath('/music/a.mp3');
+    expect(revealItemInDirMock).toHaveBeenCalledWith('/music/a.mp3');
+
+    await openDir('/music');
+    expect(openPathMock).toHaveBeenCalledWith('/music');
+  });
+
+  it('插件失败时 notify.error，不向外抛错', async () => {
+    revealItemInDirMock.mockRejectedValueOnce(new Error('io error'));
+    await expect(revealPath('/music/a.mp3')).resolves.toBeUndefined();
+    expect(notifyMock.error).toHaveBeenCalledWith('打开路径所在位置失败');
+
+    openPathMock.mockRejectedValueOnce(new Error('io error'));
+    await expect(openDir('/music')).resolves.toBeUndefined();
+    expect(notifyMock.error).toHaveBeenCalledWith('打开文件夹失败');
+  });
+});

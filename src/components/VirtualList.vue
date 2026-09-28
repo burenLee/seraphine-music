@@ -1,52 +1,53 @@
 <script lang="ts" setup generic="T extends Record<string, any>">
-import SvgIcon from '@/components/SvgIcon.vue'
-import { Interval } from '@/utils/params'
-import { useEventListener, useThrottleFn } from '@vueuse/core'
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import { useEventListener, useThrottleFn } from '@vueuse/core';
+import { computed, onMounted, ref, useTemplateRef } from 'vue';
 
-type Key = keyof T
+import SvgIcon from '@/components/SvgIcon.vue';
+import { Interval } from '@/utils/params';
+
+type Key = keyof T;
 
 interface Props {
   /**
    * 行的高度
    * @default 64
    */
-  lineHeight?: number
+  lineHeight?: number;
   /**
    * 底部填充高度
    * @default 16
    */
-  bottomPadding?: number
+  bottomPadding?: number;
   /**
    * 行的主键名称
    * @default 'id'
    */
-  lineKey?: Key
+  lineKey?: Key;
   /** 行配置 */
-  columns: TableColumn[]
-  loading?: boolean
-  list: T[]
+  columns: TableColumn[];
+  loading?: boolean;
+  list: T[];
   /** 是否显示复选框 */
-  checking?: boolean
+  checking?: boolean;
   /** 选中项列表 */
-  checkedList?: T[Key][]
+  checkedList?: T[Key][];
 }
 
 interface IEmits {
   /** 滚动事件 */
-  scroll: [e: Event]
+  scroll: [e: Event];
   /** 鼠标滚轮事件 */
-  wheel: [e: WheelEvent]
+  wheel: [e: WheelEvent];
   /** 无限滚动事件 */
-  infinite: [e: Event]
+  infinite: [e: Event];
   /** 选中项点击事件 */
-  check: [value: T[Key]]
+  check: [value: T[Key]];
   /** 右键菜单事件 */
-  contextmenu: [e: MouseEvent, data: T]
+  contextmenu: [e: MouseEvent, data: T];
   /** 行点击事件 */
-  lineClick: [data: T]
+  lineClick: [data: T];
   /** 行双击事件 */
-  lineDblClick: [data: T]
+  lineDblClick: [data: T];
 }
 
 const {
@@ -57,116 +58,120 @@ const {
   loading,
   list,
   checking,
-  checkedList
-} = defineProps<Props>()
-const emits = defineEmits<IEmits>()
+  checkedList,
+} = defineProps<Props>();
+const emits = defineEmits<IEmits>();
 
-const containerRef = useTemplateRef('containerRef')
+const containerRef = useTemplateRef('containerRef');
 
-let lastScrollTop = 0 // 最后滚动位置
+const preCount = 5; // 预加载条目数量
+let lastScrollTop = 0; // 最后滚动位置
 
-const containerHeight = ref(0) // 容器高度
-const containerOffsetY = ref(0) // 容器滚动距离
+const containerHeight = ref(0); // 容器高度
+const containerOffsetY = ref(0); // 容器滚动距离
 
 // 内容总高度
-const totalHeight = computed(() => lineHeight * list.length + bottomPadding)
+const totalHeight = computed(() => lineHeight * list.length + bottomPadding);
 // 开始索引
-const startIndex = computed(() => Math.floor(containerOffsetY.value / lineHeight))
+const startIndex = computed(() =>
+  Math.max(0, Math.floor(containerOffsetY.value / lineHeight) - preCount),
+);
 // 可见列表
 const visibleLines = computed(() => {
-  // 可见数量, 可能出现上下都为半个的情况,所以多 +1
-  const visibleCount = Math.ceil(containerHeight.value / lineHeight) + 1
-  return list.slice(startIndex.value, startIndex.value + visibleCount)
-})
+  const visibleCount = Math.ceil(containerHeight.value / lineHeight) + preCount * 2;
+
+  return list.slice(startIndex.value, startIndex.value + visibleCount);
+});
 
 // 设置容器高度
 const setContainerHeight = () => {
-  containerHeight.value = containerRef.value?.clientHeight || 0
-}
+  containerHeight.value = containerRef.value?.clientHeight || 0;
+};
 
-const handleInfinite = useThrottleFn((e: Event) => emits('infinite', e), Interval.Long)
+const handleInfinite = useThrottleFn((e: Event) => emits('infinite', e), Interval.Long);
 
 // 滚动事件
 const handleScroll = (e: Event) => {
-  const target = e.target as HTMLDivElement
-  containerOffsetY.value = target.scrollTop
-  emits('scroll', e)
+  const target = e.target as HTMLDivElement;
+  containerOffsetY.value = target.scrollTop;
+  emits('scroll', e);
 
-  const toBottom = target.scrollTop > lastScrollTop
-  const onBottom = target.clientHeight + target.scrollTop + 1 >= target.scrollHeight
-  if (toBottom && onBottom) handleInfinite(e)
-  lastScrollTop = target.scrollTop
-}
+  const toBottom = target.scrollTop > lastScrollTop;
+  const onBottom = target.clientHeight + target.scrollTop + 1 >= target.scrollHeight;
+  if (toBottom && onBottom) handleInfinite(e);
+  lastScrollTop = target.scrollTop;
+};
 
 // 鼠标滚轮事件
 const handleWheel = (e: WheelEvent) => {
-  emits('wheel', e)
-}
+  emits('wheel', e);
+};
 
 // 行点击事件
 const handleLineClick = (line: T) => {
   if (!checking) {
-    emits('lineClick', line)
+    emits('lineClick', line);
   } else {
-    emits('check', line[lineKey])
+    emits('check', line[lineKey]);
   }
-}
+};
 
 // 行双击事件
 const handleLineDblClick = (line: T) => {
-  if (checking) return
+  if (checking) return;
 
-  emits('lineDblClick', line)
-}
+  emits('lineDblClick', line);
+};
 
 // 滚动到顶部
 const scrollToTop = (behavior: ScrollBehavior = 'auto') => {
-  containerRef.value?.scrollTo({ top: 0, behavior })
-}
+  containerRef.value?.scrollTo({ top: 0, behavior });
+};
 
 // 滚动到指定行
 const scrollToIndex = (
   index: number,
-  options: ScrollOptions = { position: 'top', behavior: 'auto' }
+  options: ScrollOptions = { position: 'top', behavior: 'auto' },
 ) => {
-  if (index < 0 || index >= list.length) return
+  if (index < 0 || index >= list.length) return;
 
-  let scrollTop = lineHeight * index
+  let scrollTop = lineHeight * index;
 
   switch (options?.position) {
     case 'top':
-      break
+      break;
     case 'center':
-      scrollTop += (lineHeight - containerHeight.value) / 2
-      break
+      scrollTop += (lineHeight - containerHeight.value) / 2;
+      break;
     case 'bottom':
-      scrollTop += lineHeight - containerHeight.value
-      break
+      scrollTop += lineHeight - containerHeight.value;
+      break;
   }
 
-  const maxScrollTop = totalHeight.value - containerHeight.value + bottomPadding
-  const top = Math.min(Math.max(0, scrollTop), maxScrollTop)
+  const maxScrollTop = totalHeight.value - containerHeight.value + bottomPadding;
+  const top = Math.min(Math.max(0, scrollTop), maxScrollTop);
 
-  containerRef.value?.scrollTo({ top, behavior: options?.behavior })
-}
+  containerRef.value?.scrollTo({ top, behavior: options?.behavior });
+};
 
 // 滚动到指定项
 const scrollToTarget = (
   target: T[Key],
-  options: ScrollOptions = { position: 'top', behavior: 'auto' }
+  options: ScrollOptions = { position: 'top', behavior: 'auto' },
 ) => {
-  if (!target) return
+  if (!target) return;
 
-  const index = list.findIndex((item) => item[lineKey] === target)
-  if (index === -1) return
+  const index = list.findIndex((item) => item[lineKey] === target);
+  if (index === -1) return;
 
-  scrollToIndex(index, options)
-}
+  scrollToIndex(index, options);
+};
 
-onMounted(setContainerHeight)
-useEventListener('resize', setContainerHeight)
+useEventListener('resize', setContainerHeight);
 
-defineExpose({ scrollToTarget, scrollToIndex, scrollToTop })
+onMounted(setContainerHeight);
+
+defineExpose({ scrollToTarget, scrollToIndex, scrollToTop });
 </script>
 
 <template>
@@ -175,7 +180,8 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop })
     class="relative overflow-y-auto"
     :style="{ '--line-height': `${lineHeight}px` }"
     @scroll.passive="handleScroll"
-    @wheel.passive="handleWheel">
+    @wheel.passive="handleWheel"
+  >
     <!-- 撑起容器高度 -->
     <div class="absolute inset-0" :style="{ height: `${totalHeight}px` }"></div>
 
@@ -185,7 +191,8 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop })
 
     <div
       v-else-if="!list.length"
-      class="flex items-center justify-center size-full flex-col text-minor">
+      class="flex size-full flex-col items-center justify-center text-minor"
+    >
       <SvgIcon name="Empty" size="64" />
       <div class="text-xl font-bold">列表为空</div>
     </div>
@@ -197,12 +204,14 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop })
         class="group/line card-hover flex h-[var(--line-height)] items-center rounded-lg"
         @click="handleLineClick(line)"
         @dblclick="handleLineDblClick(line)"
-        @contextmenu.prevent="!checking && emits('contextmenu', $event, line)">
+        @contextmenu.prevent="!checking && emits('contextmenu', $event, line)"
+      >
         <input
           v-if="checking"
           class="basis-8"
           type="checkbox"
-          :checked="checkedList?.includes(line[lineKey])" />
+          :checked="checkedList?.includes(line[lineKey])"
+        />
 
         <div
           v-for="(column, columnIndex) in columns"
@@ -213,8 +222,9 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop })
             textAlign: column.align || 'left',
             paddingInline:
               typeof column.padding === 'number' ? `${column.padding}px` : column.padding || '8px',
-            '--basis': typeof column.width === 'number' ? `${column.width}px` : column.width
-          }">
+            '--basis': typeof column.width === 'number' ? `${column.width}px` : column.width,
+          }"
+        >
           <slot :name="column.key" v-bind="{ ...line, index: startIndex + lineIndex }">
             <template v-if="line[column.key]">{{ line[column.key] }}</template>
           </slot>

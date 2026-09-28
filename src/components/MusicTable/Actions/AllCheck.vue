@@ -1,28 +1,35 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import { useListStore } from '@/stores/list'
-import { ListType } from '@/utils/params'
-import { computed, inject } from 'vue'
+import { computed, inject } from 'vue';
 
-const listType = inject<ListType>('listType', ListType.Show)
+import ActionButton from '@/components/ActionButton.vue';
+import { useListStore } from '@/stores/list';
+import { ListType } from '@/utils/params';
 
-const listStore = useListStore()
+const listType = inject<ListType>('listType', ListType.Show);
 
-const list = computed(() => listStore[listType])
-const isChecked = computed(
-  () => listStore.checkedList.length > 0 && listStore.checkedList.length == list.value.list.length
-)
+const listStore = useListStore();
+
+const musicList = computed(() => listStore[listType]);
+const isAllChecked = computed(
+  () =>
+    listStore.checkedList.length > 0 && listStore.checkedList.length == musicList.value.list.length,
+);
 
 const handleClick = () => {
-  listStore.setChecked(isChecked.value ? [] : list.value.list.map((item) => item.id))
-}
+  if (isAllChecked.value) {
+    listStore.clearCheckedList();
+  } else {
+    listStore.setCheckedList(musicList.value.list.map((item) => item.id));
+  }
+};
 </script>
 
 <template>
   <ActionButton
-    :prefix-icon="isChecked ? 'UnreadBold' : 'Unread'"
-    :disabled="list.list.length === 0"
-    @click="handleClick">
+    :prefix-icon="isAllChecked ? 'UnreadBold' : 'Unread'"
+    :disabled="musicList.list.length === 0"
+    @click="handleClick"
+  >
     全选
   </ActionButton>
 </template>

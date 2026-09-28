@@ -1,195 +1,148 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// 读取入口源码文本，用于静态约束断言
-const entrySource = readFileSync(
-  resolve(process.cwd(), 'src/windows/desktop-lyric/desktop-lyric.ts'),
-  'utf-8'
-)
+import SelectModal from '@/components/SelectModal.vue';
+import { DesktopLyricEmit, LyricFormat, WindowEvent, WindowTarget } from '@/utils/params';
+import DesktopLyric from '@/windows/desktop-lyric/DesktopLyric.vue';
 
-// ============================================================================
-// Mock：入口在 import 时执行 createApp(DesktopLyric).use(pinia).mount('#app')
-// 必须在动态 import 入口前完成所有 mock 注册
-// vi.mock 会被提升到文件顶部，所有 mock 变量必须通过 vi.hoisted 创建，
-// 否则 factory 执行时变量处于 TDZ，引发 "Cannot access 'xxx' before initialization"
-// ============================================================================
+import {
+  createTestPinia,
+  makeLyricInfo,
+  makeLyricLine,
+  makeLyricWord,
+  makePlayingMusic,
+} from '../../helpers/factories';
+import { emitToMock, flushAsync, listenMock, triggerListen } from '../../helpers/mocks';
 
-const {
-  createAppMock,
-  appUseMock,
-  appMountMock,
-  createPiniaMock,
-  piniaPluginPersistedstateMock,
-  disableHotkeysMock
-} = vi.hoisted(() => ({
-  createAppMock: vi.fn(),
-  appUseMock: vi.fn().mockReturnThis(),
-  appMountMock: vi.fn(),
-  createPiniaMock: vi.fn(() => {
-    const instance = { __isPinia: true }
-    ;(instance as any).use = (plugin: unknown) => {
-      if (typeof plugin === 'function') plugin()
-      return instance
-    }
-    return instance
-  }),
-  piniaPluginPersistedstateMock: vi.fn(() => ({ __isPersistPlugin: true })),
-  disableHotkeysMock: vi.fn()
-}))
+/** 固定 getCurrentWindow 返回值，便于断言窗口方法调用 */
+const setupWindow = () => {
+  const win = vi.mocked(getCurrentWindow)();
+  vi.mocked(getCurrentWindow).mockReturnValue(win);
+  return win;
+};
 
-vi.mock('vue', () => ({
-  createApp: (...args: unknown[]) => {
-    createAppMock(...args)
-    return {
-      use: appUseMock,
-      mount: appMountMock
-    }
-  }
-}))
+const mountComponent = () => mount(DesktopLyric);
 
-vi.mock('pinia', () => ({
-  createPinia: createPiniaMock
-}))
+beforeEach(() => createTestPinia());
 
-vi.mock('pinia-plugin-persistedstate', () => ({
-  default: piniaPluginPersistedstateMock
-}))
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
-vi.mock('@/utils/tools', () => ({
-  disableHotkeys: disableHotkeysMock
-}))
+describe('DesktopLyric 桌面歌词窗口', () => {
+  it('挂载时向主窗口发送 Init 并监听事件', () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-// 入口 import 的 CSS，避免 vite 处理样式
-vi.mock('@/styles/global.css', () => ({}))
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Init,
+    });
+    expect(listenMock).toHaveBeenCalledWith(WindowEvent.DesktopLyric, expect.any(Function));
+    expect(wrapper.text()).toContain('Seraphine');
+  });
 
-// 入口组件静态依赖（避免触发 DesktopLyric.vue 内部对 Tauri API 的调用）
-vi.mock('@/windows/desktop-lyric/DesktopLyric.vue', () => ({
-  default: { name: 'DesktopLyric', template: '<div>mock</div>' }
-}))
+  it('Audio 事件同步音频信息并渲染歌曲名', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
+    const music = makePlayingMusic({ title: '海阔天空', artist: 'Beyond' });
 
-describe('windows/desktop-lyric/desktop-lyric.ts — 桌面歌词入口（M7.2）', () => {
-  beforeEach(async () => {
-    createAppMock.mockClear()
-    appUseMock.mockClear()
-    appMountMock.mockClear()
-    createPiniaMock.mockClear()
-    piniaPluginPersistedstateMock.mockClear()
-    disableHotkeysMock.mockClear()
+    triggerListen(WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Audio,
+      data: { isLoading: false, isPlaying: true, music },
+    });
+    await flushAsync();
 
-    // 重置模块缓存，确保入口副作用在每个用例中重新执行
-    vi.resetModules()
+    expect(wrapper.text()).toContain('海阔天空 - Beyond');
+  });
 
-    // 动态 import 入口，触发副作用执行
-    await import('@/windows/desktop-lyric/desktop-lyric')
-  })
+  it('Lyric 事件同步歌词并渲染歌词行', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
+    const lyric = makeLyricInfo({
+      id: 'lyric-x',
+      fmt: LyricFormat.Lrc,
+      lines: [
+        makeLyricLine({ offset: 1000, words: [makeLyricWord({ text: '第一句' })] }),
+        makeLyricLine({ offset: 2000, words: [makeLyricWord({ text: '第二句' })] }),
+      ],
+    });
 
-  // ==========================================================================
-  // 1. 入口初始化
-  // ==========================================================================
-  describe('1. 入口初始化', () => {
-    it('调用 disableHotkeys() 拦截浏览器快捷键', () => {
-      expect(disableHotkeysMock).toHaveBeenCalledTimes(1)
-      expect(disableHotkeysMock).toHaveBeenCalledWith()
-    })
+    triggerListen(WindowEvent.DesktopLyric, { type: DesktopLyricEmit.Lyric, data: lyric });
+    await flushAsync();
 
-    it('调用 createApp(DesktopLyric) 创建应用实例', () => {
-      expect(createAppMock).toHaveBeenCalledTimes(1)
-      const component = createAppMock.mock.calls[0][0]
-      expect(component).toBeTruthy()
-      expect((component as any).name).toBe('DesktopLyric')
-    })
+    expect(wrapper.text()).toContain('第一句');
+  });
 
-    it('createPinia() 创建 pinia 实例', () => {
-      expect(createPiniaMock).toHaveBeenCalledTimes(1)
-    })
+  it('Fonts 事件将字体项映射为 SelectModal 选项', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-    it('pinia-plugin-persistedstate 被作为插件应用', () => {
-      expect(piniaPluginPersistedstateMock).toHaveBeenCalledTimes(1)
-    })
+    triggerListen(WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Fonts,
+      data: [
+        ['系统默认', 'system-ui'],
+        ['衬线', 'serif'],
+      ],
+    });
+    await flushAsync();
 
-    it('app.use(pinia + persistedstate 插件) 链式调用', () => {
-      expect(appUseMock).toHaveBeenCalledTimes(1)
-      const piniaInstance = appUseMock.mock.calls[0][0]
-      expect(piniaInstance).toBeTruthy()
-      expect((piniaInstance as any).__isPinia).toBe(true)
-    })
+    expect(wrapper.findComponent(SelectModal).props('options')).toEqual([
+      { label: '系统默认', value: 'system-ui' },
+      { label: '衬线', value: 'serif' },
+    ]);
+  });
 
-    it("app.mount('#app') 挂载到根节点", () => {
-      expect(appMountMock).toHaveBeenCalledTimes(1)
-      expect(appMountMock.mock.calls[0][0]).toBe('#app')
-    })
-  })
+  it('点击播放/暂停按钮发送 Play / Pause 事件', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-  // ==========================================================================
-  // 2. 静态约束：不引用主窗口 store
-  // ==========================================================================
-  describe('2. 静态约束：不引用主窗口 store', () => {
-    it('入口源码不 import @/main 任何模块', () => {
-      // 子窗口禁止直接引用主窗口业务，避免循环依赖与状态污染
-      expect(entrySource).not.toMatch(/from\s+['"]@\/main\b/)
-    })
+    // 初始未播放 → 显示「播放」
+    emitToMock.mockClear();
+    await wrapper.find('[title="播放"]').trigger('click');
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Play,
+      data: undefined,
+    });
 
-    it('入口源码不 import @/stores/music', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/music['"]/)
-    })
+    // 切换到播放中 → 显示「暂停」
+    triggerListen(WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Audio,
+      data: { isLoading: false, isPlaying: true, music: null },
+    });
+    await flushAsync();
 
-    it('入口源码不 import @/stores/list', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/list['"]/)
-    })
+    emitToMock.mockClear();
+    await wrapper.find('[title="暂停"]').trigger('click');
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Pause,
+      data: undefined,
+    });
+  });
 
-    it('入口源码不 import @/stores/lyric', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/lyric['"]/)
-    })
+  it('点击工具栏按钮发送 Main / Prev / Next 事件', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-    it('入口源码不 import @/stores/user', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/user['"]/)
-    })
+    emitToMock.mockClear();
+    await wrapper.find('[title="打开主界面"]').trigger('click');
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Main,
+      data: undefined,
+    });
 
-    it('入口源码不 import @/stores/setting', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/setting['"]/)
-    })
+    emitToMock.mockClear();
+    await wrapper.find('[title="上一首"]').trigger('click');
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Prev,
+      data: undefined,
+    });
 
-    it('入口源码不 import @/stores/playing', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/playing['"]/)
-    })
-
-    it('入口源码仅引用子窗口本地 store（./stores/desktop-lyric）', () => {
-      // 桌面歌词窗口的业务 store 必须是子窗口本地 store，而非主窗口 store
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/desktop-lyric['"]/)
-    })
-  })
-
-  // ==========================================================================
-  // 3. 依赖范围
-  // ==========================================================================
-  describe('3. 依赖范围', () => {
-    it('入口源码 import 入口组件 ./DesktopLyric.vue', () => {
-      expect(entrySource).toMatch(/from\s+['"]\.\/DesktopLyric\.vue['"]/)
-    })
-
-    it('入口源码 import 全局样式 @/styles/global.css（side-effect import）', () => {
-      expect(entrySource).toMatch(/import\s+['"]@\/styles\/global\.css['"]/)
-    })
-
-    it('入口源码 import disableHotkeys 自 @/utils/tools', () => {
-      expect(entrySource).toMatch(/from\s+['"]@\/utils\/tools['"]/)
-      expect(entrySource).toMatch(/\bdisableHotkeys\b/)
-    })
-
-    it('入口源码 import createPinia 自 pinia', () => {
-      // desktop-lyric.ts 显式 import createPinia（与 mini-player.ts 不同）
-      expect(entrySource).toMatch(/from\s+['"]pinia['"]/)
-      expect(entrySource).toMatch(/\bcreatePinia\b/)
-    })
-
-    it('入口源码 import pinia-plugin-persistedstate', () => {
-      expect(entrySource).toMatch(/from\s+['"]pinia-plugin-persistedstate['"]/)
-    })
-
-    it('入口源码 import createApp 自 vue', () => {
-      expect(entrySource).toMatch(/from\s+['"]vue['"]/)
-      expect(entrySource).toMatch(/\bcreateApp\b/)
-    })
-  })
-})
+    emitToMock.mockClear();
+    await wrapper.find('[title="下一首"]').trigger('click');
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.DesktopLyric, {
+      type: DesktopLyricEmit.Next,
+      data: undefined,
+    });
+  });
+});

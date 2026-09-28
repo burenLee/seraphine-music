@@ -1,182 +1,138 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// 读取入口源码文本，用于静态约束断言
-const entrySource = readFileSync(
-  resolve(process.cwd(), 'src/windows/mini-player/mini-player.ts'),
-  'utf-8'
-)
+import { MiniPlayerEmit, PlayingOrigin, WindowEvent, WindowTarget } from '@/utils/params';
+import MiniPlayer from '@/windows/mini-player/MiniPlayer.vue';
 
-// ============================================================================
-// Mock：入口在 import 时执行 createApp(MiniPlayer).use(pinia).mount('#app')
-// 必须在动态 import 入口前完成所有 mock 注册
-// ============================================================================
+import { createTestPinia, makeListMusic, makePlayingMusic } from '../../helpers/factories';
+import { emitToMock, flushAsync, listenMock, triggerListen } from '../../helpers/mocks';
 
-const createAppMock = vi.fn()
-const appUseMock = vi.fn().mockReturnThis()
-const appMountMock = vi.fn()
+/** 固定 getCurrentWindow 返回值，便于断言窗口方法调用 */
+const setupWindow = () => {
+  const win = vi.mocked(getCurrentWindow)();
+  vi.mocked(getCurrentWindow).mockReturnValue(win);
+  return win;
+};
 
-vi.mock('vue', () => ({
-  createApp: (...args: unknown[]) => {
-    createAppMock(...args)
-    return {
-      use: appUseMock,
-      mount: appMountMock
-    }
-  }
-}))
+const mountComponent = () => mount(MiniPlayer);
 
-const createPiniaMock = vi.fn(() => {
-  const instance = { __isPinia: true }
-  ;(instance as any).use = (plugin: unknown) => {
-    if (typeof plugin === 'function') plugin()
-    return instance
-  }
-  return instance
-})
+beforeEach(() => createTestPinia());
 
-const piniaPluginPersistedstateMock = vi.fn(() => ({ __isPersistPlugin: true }))
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
-vi.mock('pinia', () => ({
-  createPinia: createPiniaMock
-}))
+describe('MiniPlayer 迷你播放器窗口', () => {
+  it('挂载时向主窗口发送 Init 并监听事件', () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-vi.mock('pinia-plugin-persistedstate', () => ({
-  default: piniaPluginPersistedstateMock
-}))
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Init,
+    });
+    expect(listenMock).toHaveBeenCalledWith(WindowEvent.MiniPlayer, expect.any(Function));
+    expect(wrapper.text()).toContain('Seraphine');
+  });
 
-const disableHotkeysMock = vi.fn()
-vi.mock('@/utils/tools', () => ({
-  disableHotkeys: (...args: unknown[]) => disableHotkeysMock(...args)
-}))
+  it('Audio 事件同步音频信息并渲染歌曲名', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
+    const music = makePlayingMusic({ title: '稻香', artist: '周杰伦' });
 
-// 入口 import 的 CSS，避免 vite 处理样式
-vi.mock('@/styles/global.css', () => ({}))
+    triggerListen(WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Audio,
+      data: { isLoading: false, isPlaying: true, music, origin: PlayingOrigin.Online },
+    });
+    await flushAsync();
 
-// 入口组件静态依赖（避免触发 MiniPlayer.vue 内部对 Tauri API 的调用）
-vi.mock('@/windows/mini-player/MiniPlayer.vue', () => ({
-  default: { name: 'MiniPlayer', template: '<div>mock</div>' }
-}))
+    expect(wrapper.text()).toContain('稻香 - 周杰伦');
+  });
 
-describe('windows/mini-player/mini-player.ts — 迷你播放器入口（M7.1）', () => {
-  beforeEach(async () => {
-    createAppMock.mockClear()
-    appUseMock.mockClear()
-    appMountMock.mockClear()
-    createPiniaMock.mockClear()
-    piniaPluginPersistedstateMock.mockClear()
-    disableHotkeysMock.mockClear()
+  it('Lyric 事件同步当前歌词并优先展示', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-    // 重置模块缓存，确保入口副作用在每个用例中重新执行
-    vi.resetModules()
+    triggerListen(WindowEvent.MiniPlayer, { type: MiniPlayerEmit.Lyric, data: '当前歌词' });
+    await flushAsync();
 
-    // 动态 import 入口，触发副作用执行
-    await import('@/windows/mini-player/mini-player')
-  })
+    expect(wrapper.text()).toContain('当前歌词');
+  });
 
-  // ==========================================================================
-  // 1. 入口初始化
-  // ==========================================================================
-  describe('1. 入口初始化', () => {
-    it('调用 disableHotkeys() 拦截浏览器快捷键', () => {
-      expect(disableHotkeysMock).toHaveBeenCalledTimes(1)
-      // 默认参数 disabled=true
-      expect(disableHotkeysMock).toHaveBeenCalledWith()
-    })
+  it('点击播放/暂停按钮发送 Play / Pause 事件', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-    it('调用 createApp(MiniPlayer) 创建应用实例', () => {
-      expect(createAppMock).toHaveBeenCalledTimes(1)
-      // 第一个参数是 MiniPlayer 组件
-      const component = createAppMock.mock.calls[0][0]
-      expect(component).toBeTruthy()
-      expect((component as any).name).toBe('MiniPlayer')
-    })
+    // 初始未播放，点击 PlayBold → Play
+    emitToMock.mockClear();
+    const playIcon = wrapper
+      .findAllComponents({ name: 'SvgIcon' })
+      .find((icon) => icon.props('name') === 'PlayBold');
+    expect(playIcon).toBeTruthy();
+    await playIcon!.trigger('click');
 
-    it('createPinia() 创建 pinia 实例', () => {
-      expect(createPiniaMock).toHaveBeenCalledTimes(1)
-    })
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Play,
+      data: undefined,
+    });
 
-    it('pinia-plugin-persistedstate 被作为插件应用', () => {
-      expect(piniaPluginPersistedstateMock).toHaveBeenCalledTimes(1)
-    })
+    // 切换到播放中 → PauseBold → Pause
+    triggerListen(WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Audio,
+      data: { isLoading: false, isPlaying: true, music: null, origin: PlayingOrigin.Local },
+    });
+    await flushAsync();
 
-    it('app.use(pinia + persistedstate 插件) 链式调用', () => {
-      expect(appUseMock).toHaveBeenCalledTimes(1)
-      const piniaInstance = appUseMock.mock.calls[0][0]
-      expect(piniaInstance).toBeTruthy()
-      expect((piniaInstance as any).__isPinia).toBe(true)
-    })
+    emitToMock.mockClear();
+    const pauseIcon = wrapper
+      .findAllComponents({ name: 'SvgIcon' })
+      .find((icon) => icon.props('name') === 'PauseBold');
+    expect(pauseIcon).toBeTruthy();
+    await pauseIcon!.trigger('click');
 
-    it("app.mount('#app') 挂载到根节点", () => {
-      expect(appMountMock).toHaveBeenCalledTimes(1)
-      expect(appMountMock.mock.calls[0][0]).toBe('#app')
-    })
-  })
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Pause,
+      data: undefined,
+    });
+  });
 
-  // ==========================================================================
-  // 2. 静态约束：不引用主窗口 store
-  // ==========================================================================
-  describe('2. 静态约束：不引用主窗口 store', () => {
-    it('入口源码不 import @/main 任何模块', () => {
-      // 子窗口禁止直接引用主窗口业务，避免循环依赖与状态污染
-      expect(entrySource).not.toMatch(/from\s+['"]@\/main\b/)
-    })
+  it('点击播放列表按钮切换列表并调整窗口尺寸', async () => {
+    const miniWindow = setupWindow();
+    const wrapper = mountComponent();
 
-    it('入口源码不 import @/stores/music', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/music['"]/)
-    })
+    triggerListen(WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Playlist,
+      data: [makeListMusic({ id: 1, title: '第一首', artist: 'A' })],
+    });
+    await flushAsync();
 
-    it('入口源码不 import @/stores/list', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/list['"]/)
-    })
+    await wrapper.find('[title="播放列表"]').trigger('click');
+    await flushAsync();
 
-    it('入口源码不 import @/stores/lyric', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/lyric['"]/)
-    })
+    expect(miniWindow.setSize).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain('第一首 - A');
+  });
 
-    it('入口源码不 import @/stores/user', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/user['"]/)
-    })
+  it('双击播放列表行发送 Set 事件', async () => {
+    setupWindow();
+    const wrapper = mountComponent();
 
-    it('入口源码不 import @/stores/setting', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/setting['"]/)
-    })
+    const song = makeListMusic({ id: 1, title: '第一首', artist: 'A' });
+    triggerListen(WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Playlist,
+      data: [song],
+    });
+    await flushAsync();
 
-    it('入口源码不 import @/stores/playing', () => {
-      expect(entrySource).not.toMatch(/from\s+['"]@\/stores\/playing['"]/)
-    })
-  })
+    await wrapper.find('[title="播放列表"]').trigger('click');
+    await flushAsync();
 
-  // ==========================================================================
-  // 3. 依赖范围
-  // ==========================================================================
-  describe('3. 依赖范围', () => {
-    it('入口源码 import 入口组件 ./MiniPlayer.vue', () => {
-      expect(entrySource).toMatch(/from\s+['"]\.\/MiniPlayer\.vue['"]/)
-    })
+    emitToMock.mockClear();
+    await wrapper.find('li').trigger('dblclick');
 
-    it('入口源码 import 全局样式 @/styles/global.css（side-effect import）', () => {
-      expect(entrySource).toMatch(/import\s+['"]@\/styles\/global\.css['"]/)
-    })
-
-    it('入口源码 import disableHotkeys 自 @/utils/tools', () => {
-      expect(entrySource).toMatch(/from\s+['"]@\/utils\/tools['"]/)
-      expect(entrySource).toMatch(/\bdisableHotkeys\b/)
-    })
-
-    it('入口源码 import pinia-plugin-persistedstate', () => {
-      expect(entrySource).toMatch(/from\s+['"]pinia-plugin-persistedstate['"]/)
-    })
-
-    it('入口源码 import createApp 自 vue', () => {
-      expect(entrySource).toMatch(/from\s+['"]vue['"]/)
-      expect(entrySource).toMatch(/\bcreateApp\b/)
-    })
-
-    it('入口源码调用 createPinia（由 unplugin-auto-import 自动注入）', () => {
-      // createPinia 不显式 import，由 unplugin-auto-import/vite 在编译期注入
-      expect(entrySource).toMatch(/\bcreatePinia\b/)
-    })
-  })
-})
+    expect(emitToMock).toHaveBeenCalledWith(WindowTarget.Main, WindowEvent.MiniPlayer, {
+      type: MiniPlayerEmit.Set,
+      data: expect.objectContaining({ id: 1 }),
+    });
+  });
+});

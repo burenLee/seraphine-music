@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "sortImports": {
+    "groups": [
+      "side_effect",
+      "builtin",
+      "external",
+      "internal",
+      "parent",
+      "sibling",
+      "index",
+      "style",
+      "unknown"
+    ]
+  },
+  "sortTailwindcss": {
+    "config": "./tailwind.config.js",
+    "functions": ["clsx", "cn"]
+  },
+  "sortPackageJson": {
+    "sortScripts": true
+  },
+  "ignorePatterns": [".github/", "src-tauri/"]
+}

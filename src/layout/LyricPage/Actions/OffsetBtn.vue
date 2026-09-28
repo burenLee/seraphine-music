@@ -1,8 +1,8 @@
 ﻿<script lang="ts" setup>
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useLyricStore } from '@/stores/lyric'
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useLyricStore } from '@/stores/lyric';
 
-const { setOffsetMap } = useLyricStore()
+const { setOffsetMap } = useLyricStore();
 </script>
 
 <template>
@@ -10,8 +10,9 @@ const { setOffsetMap } = useLyricStore()
     <SvgIcon
       class="action-icon"
       name="ForwardRight"
-      title="歌词进度 -0.2 秒"
-      @click="setOffsetMap('sub')" />
+      title="歌词进度 + 0.2 秒"
+      @click="setOffsetMap('add')"
+    />
 
     <div class="h-px w-full bg-border"></div>
 
@@ -19,14 +20,16 @@ const { setOffsetMap } = useLyricStore()
       class="action-icon"
       name="Restart"
       title="重置歌词进度"
-      @click="setOffsetMap('restart')" />
+      @click="setOffsetMap('restart')"
+    />
 
     <div class="h-px w-full bg-border"></div>
 
     <SvgIcon
       class="action-icon"
       name="ForwardLeft"
-      title="歌词进度 +0.2 秒"
-      @click="setOffsetMap('add')" />
+      title="歌词进度 - 0.2 秒"
+      @click="setOffsetMap('sub')"
+    />
   </div>
 </template>

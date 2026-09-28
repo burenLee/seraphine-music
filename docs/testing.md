@@ -14,7 +14,7 @@ pnpm test                     # 单次运行所有测试
 
 - 测试文件独立放在 `tests/` 目录，目录结构**镜像** `src/`（如 `tests/utils/music.spec.ts` 对应 `src/utils/music.ts`）
 - 测试范围：`tests/**/*.spec.ts`（见 `vitest.config.ts`）
-- 测试环境使用 `happy-dom`，通过 `unplugin-auto-import` 自动注入 Vue/Pinia API
+- 测试环境使用 `happy-dom`
 - 源码模块引用统一使用 `@/` 别名（如 `from '@/stores/music'`），避免相对导入层级混乱
 - **构造测试夹具时如不确定类型，必须去查类型声明，不要猜测**：项目全局类型定义在 [src/types/global.d.ts](../src/types/global.d.ts)（如 `LyricLine`、`PlayingMusic`、`ListMusic`、`UserInfo`、`Invoke` 等），枚举定义在 [src/utils/params.ts](../src/utils/params.ts)（如 `LyricFormat`、`LyricTransMode`、`PlayingMode`、`PlayingQuality` 等）。夹具字段缺失或字段名错误会导致类型断言失效和隐性 bug
 
@@ -61,24 +61,24 @@ pnpm build              # vue-tsc --noEmit && vite build
 
 ## 代码风格
 
-### ESLint / Prettier
+### Oxlint / Oxfmt
 
 ```bash
-pnpm lint-format               # eslint . --fix && prettier . --write
+pnpm lint-format               # oxlint --fix && oxfmt
 ```
 
-ESLint 配置（`eslint.config.js`）：
+Oxlint 配置（`.oxlintrc.json`）：
 
-- Vue 3 essential + TypeScript recommended
-- 关闭 `vue/multi-word-component-names`
-- 关闭 `@typescript-eslint/no-explicit-any`
-- `@typescript-eslint/no-unused-vars` 设为 `warn`
+- Vue essential + TypeScript recommended 规则经 `@oxlint/migrate` 迁移而来
+- `no-unused-vars` 设为 `warn`，默认 correctness 类别开启
+- 原配置关闭的 `vue/multi-word-component-names` 等规则在 Oxlint 中默认未启用
 - 排除 `src-tauri/**`（Rust 代码）
 
-Prettier 配置（`prettier.config.js`）：
+Oxfmt 配置（`.oxfmtrc.json`）：
 
-- `@trivago/prettier-plugin-sort-imports` 自动排序 import
-- `prettier-plugin-tailwindcss` 格式化 Tailwind 类名
+- 内置 import 排序（`sortImports`），`@/` 别名归为 internal 分组
+- 内置 Tailwind 类名排序（`sortTailwindcss`）
+- 与 Prettier 输出兼容（printWidth 100 / 无分号 / 单引号 / 无尾逗号）
 
 ## 构建验证
 
@@ -87,9 +87,3 @@ pnpm tauri build        # 完整构建（前端 + Rust + 打包）
 ```
 
 Release profile 优化：`opt-level = "s"` + `lto = true` + `codegen-units = 1` + `strip = true`。
-
-## 版本一致性检查
-
-```bash
-pnpm check-ver          # 检查 package.json / Cargo.toml / tauri.conf.json 版本一致
-```

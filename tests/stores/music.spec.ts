@@ -1,686 +1,545 @@
-import { useListStore } from '@/stores/list'
-import { useMusicStore } from '@/stores/music'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useListStore } from '@/stores/list';
+import { useMusicStore } from '@/stores/music';
+import { Interval, ListType, PlayingMode, PlayingOrigin, PlayingQuality } from '@/utils/params';
+
 import {
-  ApiInvokeStatus,
-  Interval,
-  PlayingMode,
-  PlayingOrigin,
-  PlayingQuality
-} from '@/utils/params'
-import { createPinia, setActivePinia } from 'pinia'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+  createTestPinia,
+  makeListMusic,
+  makeMusicList,
+  makePlayingMusic,
+} from '../helpers/factories';
+import { invokeMock, mockInvoke, notifyMock } from '../helpers/mocks';
 
-// ============================================================================
-// Mock 变量声明（必须在 vi.hoisted 内创建，vi.mock 会被提升到文件顶部）
-// ============================================================================
-const {
-  mockInvoke,
-  mockNotifyError,
-  mockSetAppTitle,
-  mockGetRandomNumber,
-  mockLyricLoad,
-  mockListen,
-  mockChannelInstances
-} = vi.hoisted(() => ({
-  mockInvoke: vi.fn(),
-  mockNotifyError: vi.fn(),
-  mockSetAppTitle: vi.fn(),
-  mockGetRandomNumber: vi.fn(),
-  mockLyricLoad: vi.fn(),
-  mockListen: vi.fn().mockResolvedValue(() => {}),
-  // 记录每次 new Channel() 返回的实例，便于测试中取出 playChannel/downloadChannel
-  mockChannelInstances: [] as Array<{ onmessage: (pg: number) => void }>
-}))
+// 水合 watch（pause/monitor）与 setMusic 链路均为微任务，fake timers 下用 advanceTimersByTimeAsync(0) 排空
+const flush = () => vi.advanceTimersByTimeAsync(0);
 
-vi.mock('@/utils/tools', async (importOriginal) => {
-  const actual: any = await importOriginal()
-  return {
-    ...actual,
-    invoke: mockInvoke,
-    setAppTitle: mockSetAppTitle,
-    getRandomNumber: mockGetRandomNumber
-  }
-})
+// 水合 watch 启动 monitorPlay 时会注册播放进度 Channel，需在清空调用记录前缓存
+let playChannelCache: { onmessage: ((pg: number) => void) | null } | null = null;
 
-vi.mock('@/components/Notification.vue', () => ({
-  notify: {
-    error: mockNotifyError,
-    success: vi.fn(),
-    info: vi.fn(),
-    warning: vi.fn()
-  }
-}))
+const setupStore = async () => {
+  const store = useMusicStore();
+  const listStore = useListStore();
+  await flush();
+  const playCall = invokeMock.mock.calls.find(([cmd]) => cmd === 'music_player_monitor_play');
+  playChannelCache = playCall
+    ? (playCall[1] as { channel: { onmessage: ((pg: number) => void) | null } }).channel
+    : null;
+  invokeMock.mockClear();
+  return { store, listStore };
+};
 
-vi.mock('@/stores/lyric', () => ({
-  useLyricStore: vi.fn(() => ({
-    load: mockLyricLoad
-  }))
-}))
+/** 构造 count 首本地歌曲组成的播放列表，并让 store 播放第 currentIndex 首（isPlaying=true） */
+const setupPlaying = async (count = 3, currentIndex = 1) => {
+  const { store, listStore } = await setupStore();
+  const list = Array.from({ length: count }, (_, i) =>
+    makeListMusic({ id: i + 1, hash: null, path: `/music/t${i + 1}.mp3`, title: `T${i + 1}` }),
+  );
+  listStore.setList(ListType.Play, makeMusicList(list, { id: 'play' }));
+  await store.setMusic(list[currentIndex], { origin: PlayingOrigin.Local });
+  invokeMock.mockClear();
+  return { store, listStore, list };
+};
 
-// Channel 必须是可 new 的构造函数（monitorPlay/monitorDownload 都使用 new Channel）
-vi.mock('@tauri-apps/api/core', () => ({
-  Channel: vi.fn(function ChannelMock(this: { onmessage: (pg: number) => void }) {
-    this.onmessage = () => {}
-    mockChannelInstances.push(this)
-  })
-}))
+/** 取水合后注册的播放进度 Channel（setupStore 已缓存） */
+const getPlayChannel = () => playChannelCache!;
 
-vi.mock('@tauri-apps/api/event', () => ({
-  listen: mockListen
-}))
+/** 模拟播放进度跨越「距结束 0.3s」阈值，触发 playAutoNext */
+const triggerAutoNext = async () => {
+  const channel = getPlayChannel();
+  channel.onmessage?.(100); // 建立 lastProgress（未达阈值）
+  channel.onmessage?.(179.9); // 跨越阈值（duration=180）
+  await flush();
+};
 
-vi.mock('@tauri-apps/api/window', () => ({
-  getCurrentWindow: vi.fn(() => ({
-    setTitle: vi.fn()
-  }))
-}))
+beforeEach(() => {
+  vi.useFakeTimers();
+  createTestPinia();
+});
 
-// ============================================================================
-// 夹具 + 测试辅助
-// ============================================================================
-const mkSong = (id: string, extra: Partial<ListMusic> = {}): ListMusic => ({
-  id,
-  hash: id.startsWith('online') ? `${id}-hash` : null,
-  path:
-    extra.path !== undefined ? extra.path : id.startsWith('local') ? `C:/music/${id}.mp3` : null,
-  cover: null,
-  title: `Song ${id}`,
-  artist: 'Artist',
-  album: null,
-  duration: 200,
-  sort: 0,
-  ...extra
-})
+afterEach(() => {
+  vi.useRealTimers();
+});
 
-const SONGS: ListMusic[] = [mkSong('local-1'), mkSong('local-2'), mkSong('local-3')]
-const LAST_INDEX = SONGS.length - 1
+describe('初始默认值', () => {
+  it('状态机各标志与字段均为初始值', async () => {
+    const { store } = await setupStore();
 
-/**
- * 刷新所有微任务队列（fake timers 下不使用真实 setTimeout，否则永远挂起）
- * 通过 8 层以上的 Promise.resolve() 微任务链保证：
- *   invoke() → mockResolvedValue → then() 回调
- *   setMusic → stop()→load()→play() 多层 async/await
- *  全部兑现完毕
- */
-const flushPromises = async (depth: number = 8) => {
-  for (let i = 0; i < depth; i++) {
-    // 先让所有 microtasks 执行（Promise 回调链）
-    await Promise.resolve()
-  }
-  // fake timer 下再推进 0ms，处理 timer 开头的微任务
-  await vi.advanceTimersByTimeAsync(0)
-}
+    expect(store.isHydrated).toBe(true);
+    expect(store.isLoading).toBe(false);
+    expect(store.isLoaded).toBe(false);
+    expect(store.isPlaying).toBe(false);
+    expect(store.isDragging).toBe(false);
+    expect(store.music).toBeUndefined();
+    expect(store.origin).toBe(PlayingOrigin.Local);
+    expect(store.mode).toBe(PlayingMode.OrderPlay);
+    expect(store.volume).toBe(100);
+    expect(store.lastVolumn).toBe(100);
+    expect(store.quality).toBe(PlayingQuality.Bitrate128);
+    expect(store.playProgress).toBe(0);
+    expect(store.downloadProgress).toBe(0);
+  });
+});
 
-/**
- * 触发 playAutoNext 间接调用：
- * - 先设置 isHydrated=true 触发 watch，安装 monitorPlay + playChannel
- * - 再设置 isPlaying=true 且 isLoading=false（否则 monitorPlay 守卫直接 return）
- * - 最后通过 playChannel.onmessage 推送越阈值的 pg
- */
-const triggerPlayAutoNextViaMonitorPlay = async (musicStore: ReturnType<typeof useMusicStore>) => {
-  mockChannelInstances.length = 0
-  ;(musicStore as any).isHydrated = true
-  await flushPromises()
-  // monitorPlay 第一个 new Channel = playChannel；monitorDownload 第二个 new Channel = downloadChannel
-  const playChannel = mockChannelInstances[0]
-  expect(playChannel).toBeDefined()
-  expect(typeof playChannel.onmessage).toBe('function')
+describe('setMusic 加载流程', () => {
+  it('传入 null 时停止播放', async () => {
+    const { store } = await setupStore();
 
-  // 打开守卫条件：monitorPlay onmessage 开头判断 !music || !isPlaying || isLoading → return
-  ;(musicStore as any).isPlaying = true
-  ;(musicStore as any).isLoading = false
+    await store.setMusic(undefined);
 
-  const dur = musicStore.music!.duration
-  // 推两次：第一次建立 lastProgress 基线；第二次跨过阈值触发 playAutoNext
-  playChannel.onmessage(0)
-  playChannel.onmessage(dur)
-  await flushPromises()
-  // setMusic → playAutoNext 的 stop/load/play 链都是异步的，再 flush 一轮
-  await flushPromises()
-}
+    expect(invokeMock).toHaveBeenCalledWith('music_player_stop', undefined);
+  });
 
-// ============================================================================
-describe('stores/music 播放状态机（M2：状态机切换核心）', () => {
-  let musicStore: ReturnType<typeof useMusicStore>
-  let listStore: ReturnType<typeof useListStore>
+  it('相同 id 且非 loop 时不重复加载', async () => {
+    const { store } = await setupStore();
+    const music = makePlayingMusic({ path: '/music/a.mp3' });
+    await store.setMusic(music);
+    invokeMock.mockClear();
 
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    vi.useFakeTimers()
+    await store.setMusic({ ...music });
 
-    mockInvoke.mockReset()
-    mockNotifyError.mockReset()
-    mockSetAppTitle.mockReset()
-    mockGetRandomNumber.mockReset()
-    mockLyricLoad.mockReset()
-    mockListen.mockReset()
-    mockChannelInstances.length = 0
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_load_file', expect.anything());
+  });
 
-    mockInvoke.mockResolvedValue({})
-    mockGetRandomNumber.mockImplementation((maxNum: number) => maxNum)
+  it('本地音频：停止 → 加载文件 → 自动播放', async () => {
+    const { store } = await setupStore();
+    const music = makePlayingMusic({ path: '/music/a.mp3', title: 'Song', artist: 'Artist' });
 
-    listStore = useListStore()
-    musicStore = useMusicStore()
-  })
+    await store.setMusic(music, { origin: PlayingOrigin.Local });
 
-  afterEach(() => {
-    vi.useRealTimers()
-    vi.clearAllMocks()
-  })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_stop', undefined);
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: '/music/a.mp3' });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_play', undefined);
+    expect(store.music?.id).toBe(music.id);
+    expect(store.isLoaded).toBe(true);
+    expect(store.isPlaying).toBe(true);
+    expect(document.title).toBe('Song - Artist');
+  });
 
-  // ==========================================================================
-  // 1. 初始默认值 & setters（基础契约）
-  // ==========================================================================
-  describe('1. 初始默认值 & 基础 setter 契约', () => {
-    it('初始状态：未播放、未加载、未拖动、空曲目、默认模式/音量/音质', () => {
-      expect(musicStore.isHydrated).toBe(false)
-      expect(musicStore.isLoading).toBe(false)
-      expect(musicStore.isLoaded).toBe(false)
-      expect(musicStore.isPlaying).toBe(false)
-      expect(musicStore.isDragging).toBe(false)
-      expect(musicStore.music).toBeNull()
-      expect(musicStore.origin).toBe(PlayingOrigin.Local)
-      expect(musicStore.mode).toBe(PlayingMode.OrderPlay)
-      expect(musicStore.volume).toBe(100)
-      expect(musicStore.quality).toBe(PlayingQuality.Bitrate128)
-      expect(musicStore.playProgress).toBe(0)
-      expect(musicStore.downloadProgress).toBe(0)
-    })
+  it('autoPlay=false 时只加载不播放', async () => {
+    const { store } = await setupStore();
 
-    it('setMode / setQuality：直接修改对应字段', () => {
-      musicStore.setMode(PlayingMode.SingleLoop)
-      expect(musicStore.mode).toBe(PlayingMode.SingleLoop)
-      musicStore.setQuality(PlayingQuality.BitrateFlac)
-      expect(musicStore.quality).toBe(PlayingQuality.BitrateFlac)
-    })
+    await store.setMusic(makePlayingMusic(), { autoPlay: false });
 
-    it('setVolume 正常取值（0~100 之间），lastVolumn 随正音量更新', async () => {
-      await musicStore.setVolume(75)
-      expect(musicStore.volume).toBe(75)
-      expect(musicStore.lastVolumn).toBe(75)
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_set_volume', { volume: 75 })
-    })
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_play', undefined);
+    expect(store.isLoaded).toBe(true);
+    expect(store.isPlaying).toBe(false);
+  });
 
-    it('setVolume clamp：<0→0，>100→100，0 值不改 lastVolumn', async () => {
-      ;(musicStore as any).lastVolumn = 42
-      await musicStore.setVolume(-5)
-      expect(musicStore.volume).toBe(0)
-      expect(musicStore.lastVolumn).toBe(42)
-      expect(mockInvoke).toHaveBeenLastCalledWith('music_player_set_volume', { volume: 0 })
+  it('在线音频：先取 URL 再加载，music.path 被写为播放地址', async () => {
+    const { store } = await setupStore();
+    mockInvoke({
+      api_song_url: { status: 1, backupUrl: ['https://cdn.example.com/a.mp3'] },
+    });
+    const music = makePlayingMusic({ hash: 'hash-abc', path: null });
 
-      await musicStore.setVolume(200)
-      expect(musicStore.volume).toBe(100)
-      expect(musicStore.lastVolumn).toBe(100)
-    })
-  })
+    await store.setMusic(music, { origin: PlayingOrigin.Online });
 
-  // ==========================================================================
-  // 2. Play / Pause / Stop 状态切换
-  // ==========================================================================
-  describe('2. Play/Pause/Stop 标志位与守卫', () => {
-    beforeEach(() => {
-      ;(musicStore as any).music = SONGS[0]
-      ;(musicStore as any).origin = PlayingOrigin.Local
-      ;(musicStore as any).isLoaded = true
-      ;(musicStore as any).isLoading = false
-    })
+    expect(invokeMock).toHaveBeenCalledWith('api_song_url', {
+      hash: 'hash-abc',
+      quality: PlayingQuality.Bitrate128,
+    });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_url', {
+      url: 'https://cdn.example.com/a.mp3',
+      hash: 'hash-abc',
+    });
+    expect(store.music?.path).toBe('https://cdn.example.com/a.mp3');
+    expect(store.isLoaded).toBe(true);
+  });
 
-    it('play()：正常调用 invoke，isPlaying 置 true', async () => {
-      await musicStore.play()
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_play')
-      expect(musicStore.isPlaying).toBe(true)
-    })
+  it('在线音频取 URL 失败时提示错误且不加载', async () => {
+    const { store } = await setupStore();
+    mockInvoke({ api_song_url: { status: 0 } });
+    const music = makePlayingMusic({ title: 'BadSong', hash: 'hash-x', path: null });
 
-    it('play() 守卫：music=null / isLoading=true / isLoaded=false 任一→不调 invoke', async () => {
-      ;(musicStore as any).music = null
-      await musicStore.play()
-      expect(mockInvoke).not.toHaveBeenCalled()
-      expect(musicStore.isPlaying).toBe(false)
+    await store.setMusic(music, { origin: PlayingOrigin.Online });
 
-      ;(musicStore as any).music = SONGS[0]
-      ;(musicStore as any).isLoading = true
-      await musicStore.play()
-      expect(mockInvoke).not.toHaveBeenCalled()
+    expect(store.isLoaded).toBe(false);
+    expect(store.isPlaying).toBe(false);
+    expect(notifyMock.warning).toHaveBeenCalledWith('无法播放：《BadSong》，自动切换下一首...');
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_load_url', expect.anything());
+  });
 
-      ;(musicStore as any).isLoading = false
-      ;(musicStore as any).isLoaded = false
-      await musicStore.play()
-      expect(mockInvoke).not.toHaveBeenCalled()
-    })
+  it('本地音频缺 path 时提示错误', async () => {
+    const { store } = await setupStore();
+    const music = makePlayingMusic({ title: 'NoPath', path: null });
 
-    it('pause()：无条件调 invoke + isPlaying=false', async () => {
-      ;(musicStore as any).isPlaying = false
-      await musicStore.pause()
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_pause')
-      expect(musicStore.isPlaying).toBe(false)
-    })
+    await store.setMusic(music, { origin: PlayingOrigin.Local });
 
-    it('stop()：invoke stop + isPlaying=false + progress/下载归零（music 不清空）', async () => {
-      const beforeMusic = musicStore.music
-      ;(musicStore as any).isPlaying = true
-      ;(musicStore as any).playProgress = 55
-      ;(musicStore as any).downloadProgress = 0.8
-      await musicStore.stop()
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_stop')
-      expect(musicStore.isPlaying).toBe(false)
-      expect(musicStore.playProgress).toBe(0)
-      expect(musicStore.downloadProgress).toBe(0)
-      expect(musicStore.music).toBe(beforeMusic)
-    })
+    expect(store.isLoaded).toBe(false);
+    expect(notifyMock.warning).toHaveBeenCalledWith('无法播放：《NoPath》，自动切换下一首...');
+  });
+});
 
-    it('Play→Pause→Play 连续切换：状态与调用次数正确', async () => {
-      await musicStore.play()
-      expect(musicStore.isPlaying).toBe(true)
-      await musicStore.pause()
-      expect(musicStore.isPlaying).toBe(false)
-      await musicStore.play()
-      expect(musicStore.isPlaying).toBe(true)
-      expect(mockInvoke).toHaveBeenNthCalledWith(1, 'music_player_play')
-      expect(mockInvoke).toHaveBeenNthCalledWith(2, 'music_player_pause')
-      expect(mockInvoke).toHaveBeenNthCalledWith(3, 'music_player_play')
-    })
-  })
+describe('播放控制', () => {
+  it('play 守卫：无音频 / 加载中 / 未加载时不调用后端', async () => {
+    const { store } = await setupStore();
 
-  // ==========================================================================
-  // 3. setMusic 核心加载流程
-  // ==========================================================================
-  describe('3. setMusic 核心加载流程', () => {
-    beforeEach(() => {
-      listStore.play.list = [...SONGS]
-      listStore.play.info.count = SONGS.length
-    })
+    await store.play(); // 无 music
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_play', undefined);
 
-    const wasInvoked = (cmd: string) => mockInvoke.mock.calls.some((c: any[]) => c[0] === cmd)
+    store.isLoading = true;
+    store.music = makePlayingMusic();
+    await store.play();
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_play', undefined);
+  });
 
-    it('setMusic(null) → 走 stop()，isPlaying/progress 归零，music id 不变', async () => {
-      const priorMusic = SONGS[0]
-      ;(musicStore as any).music = priorMusic
-      ;(musicStore as any).isPlaying = true
-      ;(musicStore as any).playProgress = 30
+  it('play/pause 更新 isPlaying 标志', async () => {
+    const { store } = await setupPlaying();
 
-      await musicStore.setMusic(null as any)
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_stop')
-      expect(musicStore.isPlaying).toBe(false)
-      expect(musicStore.playProgress).toBe(0)
-      // Pinia 可能包装 ref，用 toStrictEqual 比较内容而非引用
-      expect(musicStore.music?.id).toStrictEqual(priorMusic.id)
-    })
+    await store.pause();
+    expect(store.isPlaying).toBe(false);
+    expect(invokeMock).toHaveBeenCalledWith('music_player_pause', undefined);
 
-    it('同 id + loop=false → 短路返回，不触发任何 invoke', async () => {
-      ;(musicStore as any).music = SONGS[0]
-      await musicStore.setMusic(SONGS[0], { loop: false })
-      expect(mockInvoke).not.toHaveBeenCalled()
-    })
+    await store.play();
+    expect(store.isPlaying).toBe(true);
+  });
 
-    it('同 id + loop=true → 不短路，stop→load→play 整链路', async () => {
-      ;(musicStore as any).music = SONGS[0]
-      ;(musicStore as any).isLoaded = true
-      await musicStore.setMusic(SONGS[0], { loop: true })
-      expect(wasInvoked('music_player_stop')).toBe(true)
-      expect(wasInvoked('music_player_load_file')).toBe(true)
-      expect(wasInvoked('music_player_play')).toBe(true)
-      expect(musicStore.isLoaded).toBe(true)
-      expect(musicStore.isPlaying).toBe(true)
-    })
+  it('play/pause 后端失败时提示错误且状态不变', async () => {
+    const { store } = await setupPlaying();
+    invokeMock.mockRejectedValueOnce(new Error('io'));
+    await store.pause();
+    expect(store.isPlaying).toBe(true);
+    expect(notifyMock.error).toHaveBeenCalledWith('无法暂停音频');
+  });
 
-    it('Local 新曲目 autoPlay=true：全链路 + isLoaded/isPlaying=true', async () => {
-      await musicStore.setMusic(SONGS[1], { autoPlay: true })
-      expect(mockInvoke).toHaveBeenNthCalledWith(1, 'music_player_stop')
-      expect(mockInvoke).toHaveBeenNthCalledWith(2, 'music_player_load_file', {
-        path: SONGS[1].path
-      })
-      expect(mockInvoke).toHaveBeenNthCalledWith(3, 'music_player_play')
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-      expect(musicStore.origin).toBe(PlayingOrigin.Local)
-      expect(musicStore.isLoaded).toBe(true)
-      expect(musicStore.isPlaying).toBe(true)
-      expect(mockSetAppTitle).toHaveBeenCalled()
-      expect(mockLyricLoad).toHaveBeenCalledWith(musicStore.music)
-    })
+  it('stop 复位播放与下载进度', async () => {
+    const { store } = await setupPlaying();
+    store.playProgress = 66;
+    store.downloadProgress = 0.5;
 
-    it('Local 新曲目 autoPlay=false：load 后不调 play', async () => {
-      await musicStore.setMusic(SONGS[2], { autoPlay: false })
-      expect(wasInvoked('music_player_load_file')).toBe(true)
-      expect(wasInvoked('music_player_play')).toBe(false)
-      expect(musicStore.isPlaying).toBe(false)
-      expect(musicStore.isLoaded).toBe(true)
-    })
+    await store.stop();
 
-    it('Local 但 path=null → 抛错 + notify + startWaitNext（timer 推进后切下一首）', async () => {
-      const bad: ListMusic = { ...SONGS[0], path: null }
-      await musicStore.setMusic(bad)
-      expect(mockNotifyError).toHaveBeenCalled()
-      expect(mockNotifyError.mock.calls[0][0]).toContain('即将切换下一首')
-      // startWaitNext 内部 setTimeout(Interval.PoN)
-      await vi.advanceTimersByTimeAsync(Interval.PoN + 1)
-      await flushPromises()
-      // 切歌之后会再次尝试 load 下一首 SONGS[1]，应调用 load_file
-      expect(wasInvoked('music_player_load_file')).toBe(true)
-    })
+    expect(store.isPlaying).toBe(false);
+    expect(store.playProgress).toBe(0);
+    expect(store.downloadProgress).toBe(0);
+    expect(document.title).toBe('Seraphine');
+  });
 
-    it('Online OK：api_song_url 返回 backupUrl → load_url → play', async () => {
-      const online = mkSong('online-ok')
-      mockInvoke
-        .mockResolvedValueOnce({}) // stop
-        .mockResolvedValueOnce({
-          status: ApiInvokeStatus.Success,
-          backupUrl: ['https://cdn/x.mp3']
-        })
-        .mockResolvedValueOnce({}) // load_url
-        .mockResolvedValueOnce({}) // play
-      await musicStore.setMusic(online, { origin: PlayingOrigin.Online })
-      expect(mockInvoke).toHaveBeenNthCalledWith(2, 'api_song_url', {
-        hash: 'online-ok-hash',
-        quality: PlayingQuality.Bitrate128
-      })
-      expect(mockInvoke).toHaveBeenNthCalledWith(3, 'music_player_load_url', {
-        path: 'https://cdn/x.mp3',
-        hash: 'online-ok-hash'
-      })
-      expect(musicStore.music?.path).toBe('https://cdn/x.mp3')
-      expect(musicStore.origin).toBe(PlayingOrigin.Online)
-      expect(musicStore.isLoaded).toBe(true)
-    })
+  it('seek 透传位置参数', async () => {
+    const { store } = await setupPlaying();
 
-    it('Online FAIL：api 无 backupUrl → notify + startWaitNext → timer 后切歌', async () => {
-      const online = mkSong('online-bad')
-      mockInvoke
-        .mockResolvedValueOnce({}) // stop
-        .mockResolvedValueOnce({ status: ApiInvokeStatus.Success, backupUrl: [] })
-      await musicStore.setMusic(online, { origin: PlayingOrigin.Online })
-      expect(mockNotifyError).toHaveBeenCalled()
-      await vi.advanceTimersByTimeAsync(Interval.PoN + 1)
-      await flushPromises()
-      // 下一首 SONGS[1] 是本地的，会走 load_file
-      expect(wasInvoked('music_player_load_file')).toBe(true)
-    })
-  })
+    await store.seek(42);
 
-  // ==========================================================================
-  // 4. 5 种播放模式逻辑（通过触发 monitorPlay 阈值调用 playAutoNext）
-  // ==========================================================================
-  describe('4. 5 种播放模式逻辑（playAutoNext 阈值触发）', () => {
-    beforeEach(() => {
-      listStore.play.list = [...SONGS]
-      listStore.play.info.count = SONGS.length
-    })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_seek', { pos: 42 });
+  });
+});
 
-    const setCurrent = (idx: number) => {
-      ;(musicStore as any).music = SONGS[idx]
-      ;(musicStore as any).origin = PlayingOrigin.Local
+describe('音量与模式设置', () => {
+  it('setVolume 夹在 [0,100] 并同步后端', async () => {
+    const { store } = await setupStore();
+
+    await store.setVolume(150);
+    expect(store.volume).toBe(100);
+    expect(invokeMock).toHaveBeenCalledWith('music_player_set_volume', { volume: 100 });
+
+    await store.setVolume(-10);
+    expect(store.volume).toBe(0);
+  });
+
+  it('lastVolumn 记录最后的非零音量', async () => {
+    const { store } = await setupStore();
+
+    await store.setVolume(30);
+    expect(store.lastVolumn).toBe(30);
+
+    await store.setVolume(0);
+    expect(store.lastVolumn).toBe(30);
+  });
+
+  it('setVolume 失败时提示错误', async () => {
+    const { store } = await setupStore();
+    invokeMock.mockRejectedValueOnce(new Error('io'));
+
+    await store.setVolume(50);
+
+    expect(store.volume).toBe(100);
+    expect(notifyMock.error).toHaveBeenCalledWith('无法设置音量');
+  });
+
+  it('setMode / setQuality 直接更新状态', async () => {
+    const { store } = await setupStore();
+
+    store.setMode(PlayingMode.RandomPlay);
+    store.setQuality(PlayingQuality.BitrateFlac);
+
+    expect(store.mode).toBe(PlayingMode.RandomPlay);
+    expect(store.quality).toBe(PlayingQuality.BitrateFlac);
+  });
+});
+
+describe('playPrevOrNext 手动切歌', () => {
+  it('列表为空时循环重载当前音频', async () => {
+    const { store } = await setupStore();
+    const music = makePlayingMusic({ path: '/music/solo.mp3' });
+    await store.setMusic(music);
+    invokeMock.mockClear();
+
+    store.playPrevOrNext('next');
+    await flush();
+
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: '/music/solo.mp3' });
+  });
+
+  it('顺序模式：next 到下一首，末位环绕到开头', async () => {
+    const { store, list } = await setupPlaying(3, 1);
+
+    store.playPrevOrNext('next');
+    await flush();
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[2].path });
+
+    invokeMock.mockClear();
+    store.playPrevOrNext('next');
+    await flush();
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[0].path });
+  });
+
+  it('顺序模式：prev 到上一首，开头环绕到末位', async () => {
+    const { store, list } = await setupPlaying(3, 0);
+
+    store.playPrevOrNext('prev');
+    await flush();
+
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[2].path });
+  });
+
+  it('当前音频不在列表时从开头播放', async () => {
+    const { store, listStore, list } = await setupPlaying(3, 1);
+    await store.setMusic(makePlayingMusic({ id: 999, path: '/music/outside.mp3' }));
+    invokeMock.mockClear();
+
+    store.playPrevOrNext('next');
+    await flush();
+
+    expect(listStore.play.list).toHaveLength(3);
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[0].path });
+  });
+
+  it('随机模式：切到的不是当前索引 0 之外的确定性行为（结果 ∈ 列表且不恒等于原曲）', async () => {
+    const { store, list } = await setupPlaying(3, 1);
+    store.setMode(PlayingMode.RandomPlay);
+
+    const paths = new Set<string>();
+    for (let i = 0; i < 20; i += 1) {
+      store.playPrevOrNext('next');
+      await flush();
+      const calls = invokeMock.mock.calls.filter(([cmd]) => cmd === 'music_player_load_file');
+      const call = calls[calls.length - 1];
+      if (call) paths.add((call[1] as { path: string }).path);
+      invokeMock.mockClear();
     }
 
-    it('OrderPlay 普通 index → index+1（autoPlay=true）', async () => {
-      musicStore.setMode(PlayingMode.OrderPlay)
-      setCurrent(0)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-      expect(mockInvoke.mock.calls.some((c: any[]) => c[0] === 'music_player_play')).toBe(true)
-    })
+    // 随机源 srcNum=0，因此不会切到列表第 0 首；多次采样应命中过其他曲目
+    expect(paths.has(list[0].path!)).toBe(false);
+    expect(paths.size).toBeGreaterThan(0);
+  });
+});
 
-    it('OrderPlay 末尾 index → loop=true, autoPlay=false（停在本曲）', async () => {
-      musicStore.setMode(PlayingMode.OrderPlay)
-      setCurrent(LAST_INDEX)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[LAST_INDEX].id)
-      // autoPlay=false → setMusic 里 load 后不调 play → music_player_play 不应出现
-      // 注意：triggerPlayAutoNextViaMonitorPlay 内部会设置 isPlaying=true 来打开守卫
-      // 但 setMusic(loop=true, autoPlay=false) 会先 stop → isPlaying=false，然后 load，不再 play
-      expect(mockInvoke.mock.calls.filter((c: any[]) => c[0] === 'music_player_play').length).toBe(
-        0
-      )
-    })
+describe('playAutoNext 自动切歌（5 种播放模式）', () => {
+  it('OrderPlay：非末位自动切下一首', async () => {
+    const { list } = await setupPlaying(3, 1);
 
-    it('SinglePlay — loop=true, autoPlay=false（播完停在当前）', async () => {
-      musicStore.setMode(PlayingMode.SinglePlay)
-      setCurrent(1)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-      expect(mockInvoke.mock.calls.filter((c: any[]) => c[0] === 'music_player_play').length).toBe(
-        0
-      )
-    })
+    await triggerAutoNext();
 
-    it('OrderLoop 普通 index → index+1', async () => {
-      musicStore.setMode(PlayingMode.OrderLoop)
-      setCurrent(1)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[2].id)
-    })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[2].path });
+  });
 
-    it('OrderLoop 末尾 index → 回到 0（循环）', async () => {
-      musicStore.setMode(PlayingMode.OrderLoop)
-      setCurrent(LAST_INDEX)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-    })
+  it('OrderPlay：末位循环重载但不自动播放', async () => {
+    const { list } = await setupPlaying(3, 2);
 
-    it('SingleLoop — loop=true, autoPlay=true（无限重播当前）', async () => {
-      musicStore.setMode(PlayingMode.SingleLoop)
-      setCurrent(1)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-      expect(mockInvoke.mock.calls.some((c: any[]) => c[0] === 'music_player_play')).toBe(true)
-    })
+    await triggerAutoNext();
 
-    it('RandomPlay — getRandomNumber(lastIndex, currentIndex)', async () => {
-      musicStore.setMode(PlayingMode.RandomPlay)
-      setCurrent(1)
-      mockGetRandomNumber.mockImplementationOnce(() => 2)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(mockGetRandomNumber).toHaveBeenCalledWith(LAST_INDEX, 1)
-      expect(musicStore.music?.id).toBe(SONGS[2].id)
-    })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[2].path });
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_play', undefined);
+  });
 
-    it('空列表 lastIndex=-1 → reload 自身（loop=true）', async () => {
-      listStore.play.list = []
-      listStore.play.info.count = 0
-      ;(musicStore as any).music = SONGS[0]
-      musicStore.setMode(PlayingMode.OrderLoop)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-      const called = mockInvoke.mock.calls.some((c: any[]) => c[0] === 'music_player_load_file')
-      expect(called).toBe(true)
-    })
+  it('SinglePlay：重载当前曲且不自动播放', async () => {
+    const { store, list } = await setupPlaying(3, 1);
+    store.setMode(PlayingMode.SinglePlay);
 
-    it('当前曲目不在列表（findIndex=-1）→ OrderLoop fallback index=0', async () => {
-      musicStore.setMode(PlayingMode.OrderLoop)
-      ;(musicStore as any).music = mkSong('external-001', { path: '/x.mp3' })
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-    })
+    await triggerAutoNext();
 
-    it('当前曲目不在列表 + RandomPlay → getRandomNumber(lastIndex, -1)', async () => {
-      musicStore.setMode(PlayingMode.RandomPlay)
-      ;(musicStore as any).music = mkSong('external-002', { path: '/y.mp3' })
-      mockGetRandomNumber.mockImplementationOnce(() => 1)
-      await triggerPlayAutoNextViaMonitorPlay(musicStore)
-      expect(mockGetRandomNumber).toHaveBeenCalledWith(LAST_INDEX, -1)
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-    })
-  })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[1].path });
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_play', undefined);
+  });
 
-  // ==========================================================================
-  // 5. playPrevOrNext('prev' | 'next') 用户手动切歌
-  // ==========================================================================
-  describe('5. playPrevOrNext — 用户手动切歌', () => {
-    beforeEach(() => {
-      listStore.play.list = [...SONGS]
-      listStore.play.info.count = SONGS.length
-    })
+  it('OrderLoop：末位回到开头并继续播放', async () => {
+    const { store, list } = await setupPlaying(3, 2);
+    store.setMode(PlayingMode.OrderLoop);
 
-    const setCurrent = (idx: number) => {
-      ;(musicStore as any).music = SONGS[idx]
-      ;(musicStore as any).origin = PlayingOrigin.Local
-    }
+    await triggerAutoNext();
 
-    it('next：index=last → 回到 0（循环）', async () => {
-      setCurrent(LAST_INDEX)
-      musicStore.playPrevOrNext('next')
-      await flushPromises()
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-    })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[0].path });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_play', undefined);
+  });
 
-    it('next：普通 index → index+1', async () => {
-      setCurrent(0)
-      musicStore.playPrevOrNext('next')
-      await flushPromises()
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-    })
+  it('SingleLoop：重载当前曲并继续播放', async () => {
+    const { store, list } = await setupPlaying(3, 1);
+    store.setMode(PlayingMode.SingleLoop);
 
-    it('prev：index=0 → 回到 lastIndex（循环）', async () => {
-      setCurrent(0)
-      musicStore.playPrevOrNext('prev')
-      await flushPromises()
-      expect(musicStore.music?.id).toBe(SONGS[LAST_INDEX].id)
-    })
+    await triggerAutoNext();
 
-    it('prev：普通 index → index-1', async () => {
-      setCurrent(2)
-      musicStore.playPrevOrNext('prev')
-      await flushPromises()
-      expect(musicStore.music?.id).toBe(SONGS[1].id)
-    })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: list[1].path });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_play', undefined);
+  });
 
-    it('RandomPlay → getRandomNumber 决定切歌目标', async () => {
-      musicStore.setMode(PlayingMode.RandomPlay)
-      setCurrent(1)
-      mockGetRandomNumber.mockImplementationOnce(() => 0)
-      musicStore.playPrevOrNext('next')
-      await flushPromises()
-      expect(mockGetRandomNumber).toHaveBeenCalled()
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-    })
+  it('RandomPlay：切到非当前索引的曲目', async () => {
+    const { store, list } = await setupPlaying(3, 1);
+    store.setMode(PlayingMode.RandomPlay);
 
-    it('空列表 → fallback reload 自身', async () => {
-      listStore.play.list = []
-      listStore.play.info.count = 0
-      ;(musicStore as any).music = SONGS[0]
-      ;(musicStore as any).origin = PlayingOrigin.Local
-      musicStore.playPrevOrNext('next')
-      await flushPromises()
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-    })
+    await triggerAutoNext();
 
-    it('当前曲目不在列表（findIndex=-1）→ 直接 fallback 到 index=0 的曲目', async () => {
-      ;(musicStore as any).music = mkSong('ext-orphan', { path: '/o.mp3' })
-      musicStore.playPrevOrNext('next')
-      await flushPromises()
-      // 源码 playPrevOrNext：findIndex===-1 时直接 index=0，不再进入 type==='next' 的 +1 分支
-      expect(musicStore.music?.id).toBe(SONGS[0].id)
-    })
-  })
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', expect.anything());
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_load_file', { path: list[1].path });
+  });
 
-  // ==========================================================================
-  // 6. 进度拖动：startChangeProgress / stopChangeProgress 在线等待下载
-  // ==========================================================================
-  describe('6. 进度拖动（isDragging + 在线下载等待）', () => {
-    beforeEach(() => {
-      ;(musicStore as any).music = SONGS[0]
-      ;(musicStore as any).isLoaded = true
-    })
+  it('未播放状态下进度推进不触发自动切歌', async () => {
+    const { store } = await setupPlaying(3, 1);
+    await store.pause();
+    invokeMock.mockClear();
 
-    it('startChangeProgress：有 music + 未拖动 → isDragging=true', () => {
-      expect(musicStore.isDragging).toBe(false)
-      musicStore.startChangeProgress()
-      expect(musicStore.isDragging).toBe(true)
-    })
+    const channel = getPlayChannel();
+    channel.onmessage?.(100);
+    channel.onmessage?.(179.9);
+    await flush();
 
-    it('startChangeProgress：已经在拖 → 忽略', () => {
-      ;(musicStore as any).isDragging = true
-      musicStore.startChangeProgress()
-      expect(musicStore.isDragging).toBe(true)
-    })
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_load_file', expect.anything());
+  });
+});
 
-    it('startChangeProgress：music=null → 直接返回', () => {
-      ;(musicStore as any).music = null
-      musicStore.startChangeProgress()
-      expect(musicStore.isDragging).toBe(false)
-    })
+describe('进度拖拽', () => {
+  it('startChangeProgress 守卫与标志', async () => {
+    const { store } = await setupPlaying();
 
-    it('stopChangeProgress（Local）：直接 seek + play + isDragging=false', async () => {
-      musicStore.startChangeProgress()
-      await musicStore.stopChangeProgress(50)
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_seek', { pos: 50 })
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_play')
-      expect(musicStore.isDragging).toBe(false)
-    })
+    store.startChangeProgress();
+    expect(store.isDragging).toBe(true);
 
-    it('stopChangeProgress（Online 已下载覆盖目标）→ 直接 seek+play', async () => {
-      ;(musicStore as any).origin = PlayingOrigin.Online
-      // 下载进度 >= 目标进度 (50/200 = 0.25)
-      ;(musicStore as any).downloadProgress = 0.6
-      musicStore.startChangeProgress()
-      await musicStore.stopChangeProgress(50)
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_seek', { pos: 50 })
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_play')
-      expect(musicStore.isDragging).toBe(false)
-    })
+    store.startChangeProgress(); // 重复调用保持
+    expect(store.isDragging).toBe(true);
+  });
 
-    it('stopChangeProgress（Online 未覆盖）→ pause + 等下载够后 seek+play', async () => {
-      ;(musicStore as any).origin = PlayingOrigin.Online
-      // 目标进度 = 50/200 = 0.25，当前下载 0.1 < 0.25 → 走等待下载
-      ;(musicStore as any).downloadProgress = 0.1
-      musicStore.startChangeProgress()
+  it('无音频时不进入拖拽状态', async () => {
+    const { store } = await setupStore();
 
-      await musicStore.stopChangeProgress(50)
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_pause')
-      expect(musicStore.isLoading).toBe(true)
-      expect(musicStore.isDragging).toBe(false)
+    store.startChangeProgress();
 
-      // 还没下载够 → interval tick 一次，不应有 seek
-      await vi.advanceTimersByTimeAsync(Interval.Long)
-      await flushPromises()
-      const seekBefore = mockInvoke.mock.calls.some((c: any[]) => c[0] === 'music_player_seek')
-      expect(seekBefore).toBe(false)
+    expect(store.isDragging).toBe(false);
+  });
 
-      // 下载追上 (0.3 >= 0.25) → tick → seek + play
-      ;(musicStore as any).downloadProgress = 0.3
-      await vi.advanceTimersByTimeAsync(Interval.Long)
-      await flushPromises()
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_seek', { pos: 50 })
-      expect(mockInvoke).toHaveBeenCalledWith('music_player_play')
-      expect(musicStore.isLoading).toBe(false)
-    })
+  it('本地音频：松手即 seek 并恢复播放', async () => {
+    const { store } = await setupPlaying();
 
-    it('stopChangeProgress：未拖过（isDragging=false）→ 忽略返回', async () => {
-      await musicStore.stopChangeProgress(40)
-      expect(mockInvoke).not.toHaveBeenCalled()
-    })
-  })
+    store.startChangeProgress();
+    await store.stopChangeProgress(60);
 
-  // ==========================================================================
-  // 7. 失败重试 MAX_RETRY_COUNT=3（播放列表全是坏曲 → 连续失败累加）
-  // ==========================================================================
-  describe('7. 加载失败重试计数（MAX_RETRY_COUNT=3）', () => {
-    it('连续 3 次自动切歌仍失败 → notify「重试次数过多」并停止', async () => {
-      const badPlaylist: ListMusic[] = [1, 2, 3, 4].map((i) => mkSong(`bad-${i}`, { path: null }))
-      listStore.play.list = badPlaylist
-      listStore.play.info.count = badPlaylist.length
-      const firstBad = badPlaylist[0]
+    expect(invokeMock).toHaveBeenCalledWith('music_player_seek', { pos: 60 });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_play', undefined);
+    expect(store.isDragging).toBe(false);
+  });
 
-      // 第 1 次 setMusic：load 失败（path=null）→ retryCount=1 → startWaitNext
-      await musicStore.setMusic(firstBad)
-      expect(
-        mockNotifyError.mock.calls.some((c: any[]) => String(c[0]).includes('即将切换下一首'))
-      ).toBe(true)
+  it('在线音频下载进度充足：直接 seek 播放', async () => {
+    const { store } = await setupStore();
+    mockInvoke({ api_song_url: { status: 1, backupUrl: ['https://cdn.example.com/a.mp3'] } });
+    await store.setMusic(makePlayingMusic({ hash: 'h1', path: null, duration: 180 }), {
+      origin: PlayingOrigin.Online,
+    });
+    invokeMock.mockClear();
 
-      // 第 1 个 timer：retryCount++ 到 2 → playPrevOrNext('next') → 下一首仍然坏
-      await vi.advanceTimersByTimeAsync(Interval.PoN + 1)
-      await flushPromises()
+    store.downloadProgress = 0.8;
+    store.startChangeProgress();
+    await store.stopChangeProgress(90); // 90/180 = 0.5 <= 0.8
 
-      // 第 2 个 timer：retryCount++ 到 3 → 下一首仍然坏，触发 MAX
-      await vi.advanceTimersByTimeAsync(Interval.PoN + 1)
-      await flushPromises()
+    expect(invokeMock).toHaveBeenCalledWith('music_player_seek', { pos: 90 });
+    expect(store.isDragging).toBe(false);
+  });
 
-      // 第 3 个 timer：retryCount++ 到 4 ≥ MAX → notify「重试次数过多」
-      await vi.advanceTimersByTimeAsync(Interval.PoN + 1)
-      await flushPromises()
+  it('在线音频下载进度不足：暂停等待，下载达标后再 seek 播放', async () => {
+    const { store } = await setupStore();
+    mockInvoke({ api_song_url: { status: 1, backupUrl: ['https://cdn.example.com/a.mp3'] } });
+    await store.setMusic(makePlayingMusic({ hash: 'h1', path: null, duration: 180 }), {
+      origin: PlayingOrigin.Online,
+    });
+    invokeMock.mockClear();
 
-      const overLimitCalls = mockNotifyError.mock.calls.filter((c: any[]) =>
-        String(c[0]).includes('重试次数过多')
-      )
-      expect(overLimitCalls.length).toBeGreaterThanOrEqual(1)
-    })
-  })
-})
+    store.downloadProgress = 0.1;
+    store.startChangeProgress();
+    const pending = store.stopChangeProgress(90); // 90/180 = 0.5 > 0.1 → 进入等待
+    await flush();
+
+    expect(store.isLoading).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith('music_player_pause', undefined);
+    expect(invokeMock).not.toHaveBeenCalledWith('music_player_seek', { pos: 90 });
+
+    // 模拟后端下载推进
+    store.downloadProgress = 0.9;
+    await vi.advanceTimersByTimeAsync(Interval.Long);
+    await pending;
+
+    expect(invokeMock).toHaveBeenCalledWith('music_player_seek', { pos: 90 });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_play', undefined);
+    expect(store.isLoading).toBe(false);
+  });
+});
+
+describe('加载失败自动重试（MAX_RETRY_COUNT）', () => {
+  it('连续失败重试切歌，达到上限后停止并提示', async () => {
+    const { store, listStore } = await setupStore();
+    const bad1 = makeListMusic({ id: 'bad-1', title: 'Bad1', hash: null, path: null });
+    const bad2 = makeListMusic({ id: 'bad-2', title: 'Bad2', hash: null, path: null });
+    listStore.setList(ListType.Play, makeMusicList([bad1, bad2], { id: 'play' }));
+
+    await store.setMusic(bad1, { origin: PlayingOrigin.Local });
+    expect(notifyMock.warning).toHaveBeenCalledWith('无法播放：《Bad1》，自动切换下一首...');
+
+    // 第 1 次重试：切到 bad2 → 同样失败
+    await vi.advanceTimersByTimeAsync(Interval.PoN);
+    expect(notifyMock.warning).toHaveBeenCalledWith('无法播放：《Bad2》，自动切换下一首...');
+    expect(notifyMock.error).not.toHaveBeenCalledWith('重试次数过多, 停止重试');
+
+    // 第 2 次重试：切回 bad1 → 失败
+    await vi.advanceTimersByTimeAsync(Interval.PoN);
+    expect(notifyMock.error).not.toHaveBeenCalledWith('重试次数过多, 停止重试');
+
+    // 第 3 次：达到 MAX_RETRY_COUNT，停止重试
+    notifyMock.error.mockClear();
+    await vi.advanceTimersByTimeAsync(Interval.PoN);
+    expect(notifyMock.error).toHaveBeenCalledWith('重试次数过多, 停止重试');
+
+    // 不再发起新的切歌
+    const stopCalls = invokeMock.mock.calls.filter(([cmd]) => cmd === 'music_player_stop').length;
+    await vi.advanceTimersByTimeAsync(Interval.PoN * 5);
+    expect(invokeMock.mock.calls.filter(([cmd]) => cmd === 'music_player_stop').length).toBe(
+      stopCalls,
+    );
+  });
+});
+
+describe('持久化水合', () => {
+  it('恢复持久化字段并重新加载音频/音量/进度', async () => {
+    const persistedMusic = makePlayingMusic({ id: 'old', path: '/music/old.mp3' });
+    localStorage.setItem(
+      'music-store',
+      JSON.stringify({
+        music: persistedMusic,
+        origin: PlayingOrigin.Local,
+        volume: 50,
+        mode: PlayingMode.OrderLoop,
+        quality: PlayingQuality.Bitrate320,
+        playProgress: 30,
+      }),
+    );
+
+    const store = useMusicStore();
+    await flush();
+
+    expect(store.music?.id).toBe('old');
+    expect(store.volume).toBe(50);
+    expect(store.mode).toBe(PlayingMode.OrderLoop);
+    expect(store.quality).toBe(PlayingQuality.Bitrate320);
+    // 水合 watch：音量非默认 → 同步后端；有音频 → 重载；有进度 → seek
+    expect(invokeMock).toHaveBeenCalledWith('music_player_set_volume', { volume: 50 });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_load_file', { path: '/music/old.mp3' });
+    expect(invokeMock).toHaveBeenCalledWith('music_player_seek', { pos: 30 });
+  });
+});

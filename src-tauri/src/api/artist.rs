@@ -1,19 +1,20 @@
 use chrono::Utc;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tauri_plugin_http::reqwest::Method;
 
 use crate::{
-  api::libs::ApiResult,
+  api::types::ApiResult,
   http::{
-    config::HttpConfig,
-    server::{request, RequestOptions},
+    config::{DynamicModeConfig, HttpConfig, StaticConfigMode},
+    request::HttpRequest,
   },
   utils::helper::sign_key_params,
 };
 
+use crate::utils::logger::LogErrExt;
+
 #[tauri::command]
-/// 歌手列表
+/// ## 歌手列表
 ///
 /// ### 可选参数
 /// * `area_type` - 0：全部，1：华语，2：欧美，3：日韩，4：其他，5：日本，6：韩国
@@ -38,15 +39,37 @@ pub async fn api_artist_list(
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/ocean/v6/singer/list")
-    .params(params);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .params(params)
+    .builder()
+    .json()
+    .await
+    .log_command("api_artist_list", "请求失败")
 }
 
 #[tauri::command]
-/// 歌手单曲
+/// ## 歌手详情
+///
+/// ### 必选参数
+/// * `id` - 歌手 id
+pub async fn api_artist_detail(id: &str) -> ApiResult<HashMap<String, Value>> {
+  let data = json!({ "author_id": id });
+
+  HttpRequest::new()
+    .url("/kmr/v3/author")
+    .post()
+    .header("x-router", "openapi.kugou.com")
+    .header("kg-tid", "36")
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_artist_detail", " 请求失败")
+}
+
+#[tauri::command]
+/// ## 歌手单曲
 ///
 /// ### 必选参数
 /// * `id` - 歌手 id
@@ -56,21 +79,26 @@ pub async fn api_artist_list(
 /// * `page` - 默认 1
 /// * `page_size` - 默认 10
 pub async fn api_artist_audios(
-  id: u64,
+  id: &str,
   sort: Option<u8>,
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
-  let kg_static_config = HttpConfig::get_kg_static_config();
+  let static_config = match HttpConfig::get_static_config() {
+    StaticConfigMode::KgMobile(config) => config,
+    StaticConfigMode::KgLite(config) => config,
+  };
+  let dynamic_config = match HttpConfig::get_dynamic_config() {
+    DynamicModeConfig::KgMobile(config) => config,
+    DynamicModeConfig::KgLite(config) => config,
+  };
 
-  let mid = kg_dynamic_config.mid;
   let client_time = Utc::now().timestamp();
 
   let data = json!({
-    "appid": kg_static_config.appid,
-    "clientver": kg_static_config.client_ver,
-    "mid": mid,
+    "appid": static_config.appid,
+    "clientver": static_config.client_ver,
+    "mid": dynamic_config.mid,
     "clienttime": client_time,
     "key": sign_key_params(&client_time.to_string(), None, None),
     "author_id": id,
@@ -80,48 +108,15 @@ pub async fn api_artist_audios(
     "pagesize": page_size.unwrap_or(10),
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .base_url("https://openapi.kugou.com")
     .url("/kmr/v1/audio_group/author")
-    .method(Method::POST)
-    .add_header("x-router", "openapi.kugou.com")
-    .add_header("kg-tid", "220")
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn test_artist_list_url_path() {
-    let path = "/ocean/v6/singer/list";
-    assert!(path.starts_with("/ocean"));
-    assert!(path.ends_with("list"));
-  }
-
-  #[test]
-  fn test_artist_audios_base_url() {
-    let url = "https://openapi.kugou.com";
-    assert!(url.starts_with("https://"));
-  }
-
-  #[test]
-  fn test_artist_audios_url_path() {
-    let path = "/kmr/v1/audio_group/author";
-    assert!(path.starts_with("/kmr"));
-  }
-
-  #[test]
-  fn test_kg_tid_220_constant() {
-    assert_eq!("220", "220");
-  }
-
-  #[test]
-  fn test_command_signatures_exist() {
-    let _ = api_artist_list;
-    let _ = api_artist_audios;
-  }
+    .post()
+    .header("x-router", "openapi.kugou.com")
+    .header("kg-tid", "220")
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_artist_audios", "请求失败")
 }

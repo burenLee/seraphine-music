@@ -1,173 +1,146 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import Image from '@/components/Image.vue'
-import Modal from '@/components/Modal.vue'
-import { notify } from '@/components/Notification.vue'
-import { formatFileSize, invoke } from '@/utils/tools'
-import { convertFileSrc } from '@tauri-apps/api/core'
-import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-import { revealItemInDir } from '@tauri-apps/plugin-opener'
-import { ref, watch } from 'vue'
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { computed, ref, watch } from 'vue';
+
+import ActionButton from '@/components/ActionButton.vue';
+import Image from '@/components/Image.vue';
+import Modal from '@/components/Modal.vue';
+import { notify } from '@/components/Notification.vue';
+import { formatFileSize, invoke, revealPath } from '@/utils/tools';
 
 interface Props {
-  path: string
+  path: string;
 }
 
-const visible = defineModel({ required: true, default: false })
-const { path } = defineProps<Props>()
+const visible = defineModel({ required: true, default: false });
+const { path } = defineProps<Props>();
 
-const isLoading = ref(false)
-const musicDetail = ref<MusicDetail>()
+const isLoading = ref(false);
+const musicDetail = ref<MusicDetail>();
+
+const cover = computed(() =>
+  musicDetail.value?.cover ? convertFileSrc(musicDetail.value.cover) : '',
+);
 
 const handleCancel = () => {
-  visible.value = false
-}
-
-const handleCopy = async (txt: string | number | null) => {
-  if (txt === '' || txt === null) return
-
-  try {
-    await writeText(String(txt))
-    notify.success('复制成功')
-  } catch (error) {
-    console.error('复制失败', error)
-  }
-}
-
-const handleView = async () => {
-  if (!musicDetail.value) return
-
-  try {
-    await revealItemInDir(musicDetail.value.path)
-  } catch (error) {
-    console.error(error)
-    notify.error('打开文件失败')
-  }
-}
+  visible.value = false;
+};
 
 watch(visible, async (visible) => {
   if (visible) {
-    isLoading.value = true
+    isLoading.value = true;
 
-    const get_detail = await invoke('music_file_detail', { filePath: path })
-    if (!get_detail) {
-      isLoading.value = false
-      return
+    try {
+      musicDetail.value = await invoke('music_file_detail', { path });
+    } catch {
+      notify.error('获取文件详情失败');
+    } finally {
+      isLoading.value = false;
     }
-
-    musicDetail.value = get_detail
-    isLoading.value = false
   } else {
-    musicDetail.value = undefined
-    isLoading.value = false
+    musicDetail.value = undefined;
   }
-})
+});
 </script>
 
 <template>
-  <Modal
-    v-model="visible"
-    class="w-96"
-    title="歌曲详情"
-    hideConfirm
-    cancelLabel="返回"
-    @cancel="handleCancel">
-    <div v-if="isLoading" class="font-bold text-minor text-center leading-[8rem]">获取中...</div>
+  <Modal v-model="visible" class="w-96" title="歌曲详情" hideFooter @cancel="handleCancel">
+    <div v-if="isLoading" class="text-center font-bold leading-[8rem] text-minor">获取中...</div>
 
-    <div v-else-if="!musicDetail" class="font-bold text-center leading-[8rem]">
+    <div v-else-if="!musicDetail" class="text-center font-bold leading-[8rem]">
       未获取到歌曲详情
     </div>
 
-    <div v-else class="px-4">
+    <div v-else class="space-y-1 px-6 pb-6">
       <div class="flex gap-3">
-        <Image class="size-12" :img="musicDetail.cover ? convertFileSrc(musicDetail.cover) : ''" />
+        <Image class="size-12" :src="cover" />
 
-        <div>
-          <div class="music-title cursor-copy" @click="handleCopy(musicDetail.title)">
+        <div class="min-w-0 flex-1">
+          <div class="music-title cursor-copy truncate" v-copy="musicDetail.artist">
             {{ musicDetail.title }}
           </div>
-          <div class="music-artist cursor-copy" @click="handleCopy(musicDetail.artist)">
+          <div class="music-artist cursor-copy truncate" v-copy="musicDetail.artist">
             {{ musicDetail.artist }}
           </div>
         </div>
       </div>
 
-      <div class="mt-2">
-        专辑：<span class="font-bold cursor-copy" @click="handleCopy(musicDetail.album)">
-          {{ musicDetail.album || '未知' }}
+      <div>
+        专辑：
+        <span class="cursor-copy font-bold" v-copy="musicDetail.album">
+          {{ musicDetail.album }}
         </span>
       </div>
 
-      <div class="mt-1">
-        流派：<span class="font-bold cursor-copy" @click="handleCopy(musicDetail.genre)">
-          {{ musicDetail.genre || '未知' }}
+      <div>
+        流派：
+        <span class="cursor-copy font-bold" v-copy="musicDetail.genre">
+          {{ musicDetail.genre }}
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         声道：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.channels)">
-          {{ musicDetail.channels ?? '未知' }}
+        <span class="cursor-copy font-bold" v-copy="musicDetail.channels">
+          {{ musicDetail.channels }}
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         总比特率：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.overall_bitrate)">
-          {{ musicDetail.overall_bitrate ?? '未知' }} kbps
+        <span class="cursor-copy font-bold" v-copy="musicDetail.overall_bitrate">
+          {{ musicDetail.overall_bitrate ?? 0 }} kbps
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         音频比特率：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.audio_bitrate)">
-          {{ musicDetail.audio_bitrate ?? '未知' }} kbps
+        <span class="cursor-copy font-bold" v-copy="musicDetail.audio_bitrate">
+          {{ musicDetail.audio_bitrate ?? 0 }} kbps
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         采样率：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.sample_rate)">
-          {{ musicDetail.sample_rate ?? '未知' }} Hz
+        <span class="cursor-copy font-bold" v-copy="musicDetail.sample_rate">
+          {{ musicDetail.sample_rate ?? 0 }} Hz
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         比特深度：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.bit_depth)">
-          {{ musicDetail.bit_depth ?? '未知' }} bits
+        <span class="cursor-copy font-bold" v-copy="musicDetail.bit_depth">
+          {{ musicDetail.bit_depth ?? 0 }} bits
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         时长：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.duration)">
-          {{ musicDetail.duration ?? '未知' }} s
+        <span class="cursor-copy font-bold" v-copy="musicDetail.duration">
+          {{ musicDetail.duration ?? 0 }} s
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         文件大小：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.size)">
+        <span class="cursor-copy font-bold" v-copy="musicDetail.size">
           {{ formatFileSize(musicDetail.size) }}
         </span>
       </div>
 
-      <div class="mt-1">
+      <div>
         文件类型：
-        <span class="font-bold cursor-copy" @click="handleCopy(musicDetail.format)">
+        <span class="cursor-copy font-bold" v-copy="musicDetail.format">
           {{ musicDetail.format }}
         </span>
       </div>
 
-      <div class="flex items-center flex-wrap mt-1">
+      <div class="mt-1 flex flex-wrap items-center">
         文件位置：
-        <span
-          class="font-bold cursor-copy w-0 flex-1 truncate"
-          @click="handleCopy(musicDetail.path)">
+        <span class="w-0 flex-1 cursor-copy truncate font-bold" v-copy="musicDetail.path">
           {{ musicDetail.path }}
         </span>
-        <ActionButton theme="success" @click="handleView">浏览</ActionButton>
+        <ActionButton theme="success" @click="revealPath(musicDetail.path)">浏览</ActionButton>
       </div>
     </div>
   </Modal>

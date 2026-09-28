@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import SvgIcon from '@/components/SvgIcon.vue'
+import SvgIcon from '@/components/SvgIcon.vue';
 
 interface Emits {
-  click: []
+  click: [];
 }
 
-const emits = defineEmits<Emits>()
+const emits = defineEmits<Emits>();
 </script>
 
 <template>
@@ -13,5 +13,6 @@ const emits = defineEmits<Emits>()
     class="action-icon card shadow-md shadow-shadow"
     name="Up"
     title="滚到顶部"
-    @click="emits('click')" />
+    @click="emits('click')"
+  />
 </template>

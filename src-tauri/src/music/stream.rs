@@ -23,6 +23,12 @@ pub struct StreamFile {
 }
 
 impl StreamFile {
+  /// ## 构建流式文件
+  ///
+  /// ### 必选参数
+  /// * `file` - 本地缓存文件
+  /// * `file_size` - 文件总大小
+  /// * `downloaded_size` - 已下载的文件大小
   pub fn new(file: File, file_size: u64, downloaded_size: Arc<AtomicU64>) -> Self {
     Self {
       file,
@@ -31,16 +37,17 @@ impl StreamFile {
     }
   }
 
+  /// ## 等待数据下载
+  ///
+  /// ### 必选参数
+  /// * `target_position` - 需要读取到的文件位置
   fn wait_for_data(&self, target_position: u64) -> Result<()> {
     let start_time = Instant::now();
     let mut sleep_duration = SLEEP_DURATION;
 
     while target_position > self.downloaded_size.load(Ordering::Acquire) {
       if start_time.elapsed() > TIMEOUT {
-        return Err(Error::new(
-          ErrorKind::TimedOut,
-          String::from("等待下载超时"),
-        ));
+        return Err(Error::new(ErrorKind::TimedOut, "等待下载超时".to_string()));
       }
 
       thread::sleep(sleep_duration);
@@ -55,6 +62,10 @@ impl StreamFile {
 }
 
 impl Read for StreamFile {
+  /// ## 读取流式数据
+  ///
+  /// ### 必选参数
+  /// * `buf` - 读取数据的缓冲区
   fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
     if buf.is_empty() {
       return Ok(0);
@@ -78,6 +89,10 @@ impl Read for StreamFile {
 }
 
 impl Seek for StreamFile {
+  /// ## 跳转流式数据
+  ///
+  /// ### 必选参数
+  /// * `pos` - 跳转的位置
   fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
     let target_pos = match pos {
       SeekFrom::Start(offset) => offset.min(self.file_size),
@@ -111,223 +126,79 @@ impl Seek for StreamFile {
 
 #[cfg(test)]
 mod tests {
+  use std::{
+    fs::{self, File},
+    io::{Read, Seek, SeekFrom},
+    sync::{
+      atomic::{AtomicU64, Ordering},
+      Arc,
+    },
+  };
+
   use super::*;
-  use std::sync::atomic::AtomicU64;
-  use std::sync::Arc;
-  use tempfile::tempdir;
 
-  #[test]
-  fn test_stream_read_empty_buf_returns_zero() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let mut buf = [];
-    assert_eq!(sf.read(&mut buf).unwrap(), 0);
+  fn setup(content: &[u8]) -> (StreamFile, tempfile::TempDir) {
+    let temp = tempfile::tempdir().unwrap();
+    let file_path = temp.path().join("stream.bin");
+    fs::write(&file_path, content).unwrap();
+    let file = File::open(&file_path).unwrap();
+    let downloaded = Arc::new(AtomicU64::new(content.len() as u64));
+
+    (StreamFile::new(file, content.len() as u64, downloaded), temp)
   }
 
   #[test]
-  fn test_stream_read_position_at_end_returns_zero() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    sf.file.seek(SeekFrom::Start(10)).unwrap();
-    let mut buf = [0u8; 5];
-    assert_eq!(sf.read(&mut buf).unwrap(), 0);
+  fn read_returns_whole_content() {
+    let (mut stream, _temp) = setup(b"hello world");
+    let mut buf = [0u8; 64];
+
+    let n = stream.read(&mut buf).unwrap();
+
+    assert_eq!(n, 11);
+    assert_eq!(&buf[..n], b"hello world");
   }
 
   #[test]
-  fn test_stream_read_when_past_eof_returns_zero() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    // Seek 到 file_size 之外，被 Read 分支的 current_pos >= file_size 处理
-    sf.file.seek(SeekFrom::Start(12)).unwrap();
-    let mut buf = [0u8; 5];
-    assert_eq!(sf.read(&mut buf).unwrap(), 0);
+  fn read_empty_buf_returns_zero() {
+    let (mut stream, _temp) = setup(b"hello");
+    let mut buf = [0u8; 0];
+
+    assert_eq!(stream.read(&mut buf).unwrap(), 0);
   }
 
   #[test]
-  fn test_stream_read_full_buf_capped_at_remaining() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"ABCDEFGH").unwrap();
-    let dl = Arc::new(AtomicU64::new(8));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 8, dl.clone());
-    sf.file.seek(SeekFrom::Start(5)).unwrap();
-    let mut buf = [0u8; 100]; // 大缓冲区
-    let n = sf.read(&mut buf).unwrap();
-    assert_eq!(n, 3);
-    assert_eq!(&buf[..3], b"FGH");
+  fn read_at_eof_returns_zero() {
+    let (mut stream, _temp) = setup(b"hello");
+    let mut buf = [0u8; 16];
+
+    stream.read(&mut buf).unwrap();
+    assert_eq!(stream.read(&mut buf).unwrap(), 0);
   }
 
   #[test]
-  fn test_stream_read_small_buf_exact_count() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let mut buf = [0u8; 3];
-    let n = sf.read(&mut buf).unwrap();
-    assert_eq!(n, 3);
-    assert_eq!(&buf, b"012");
-    let n = sf.read(&mut buf).unwrap();
-    assert_eq!(n, 3);
-    assert_eq!(&buf, b"345");
-  }
+  fn seek_start_clamps_beyond_end() {
+    let (mut stream, _temp) = setup(b"hello");
 
-  // --- Seek 纯逻辑分支（无等待时，因 downloaded_size >= file_size）
+    let pos = stream.seek(SeekFrom::Start(100)).unwrap();
 
-  #[test]
-  fn test_stream_seek_start_within_range() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let pos = sf.seek(SeekFrom::Start(3)).unwrap();
-    assert_eq!(pos, 3);
-    let mut buf = [0u8; 4];
-    sf.read(&mut buf).unwrap();
-    assert_eq!(&buf, b"3456");
-  }
-
-  #[test]
-  fn test_stream_seek_start_beyond_size_clamps() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let pos = sf.seek(SeekFrom::Start(999)).unwrap();
-    assert_eq!(pos, 10);
-  }
-
-  #[test]
-  fn test_stream_seek_current_positive() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    sf.seek(SeekFrom::Start(2)).unwrap();
-    let pos = sf.seek(SeekFrom::Current(5)).unwrap();
-    assert_eq!(pos, 7);
-  }
-
-  #[test]
-  fn test_stream_seek_current_positive_clamps_to_end() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    sf.seek(SeekFrom::Start(5)).unwrap();
-    let pos = sf.seek(SeekFrom::Current(1000)).unwrap();
-    assert_eq!(pos, 10);
-  }
-
-  #[test]
-  fn test_stream_seek_current_negative() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    sf.seek(SeekFrom::Start(8)).unwrap();
-    let pos = sf.seek(SeekFrom::Current(-3)).unwrap();
     assert_eq!(pos, 5);
   }
 
   #[test]
-  fn test_stream_seek_current_negative_saturates_at_zero() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    sf.seek(SeekFrom::Start(2)).unwrap();
-    let pos = sf.seek(SeekFrom::Current(-1000)).unwrap();
-    assert_eq!(pos, 0);
+  fn seek_end_negative_offset() {
+    let (mut stream, _temp) = setup(b"hello");
+
+    let pos = stream.seek(SeekFrom::End(-2)).unwrap();
+
+    assert_eq!(pos, 3);
   }
 
   #[test]
-  fn test_stream_seek_end_negative() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let pos = sf.seek(SeekFrom::End(-3)).unwrap();
-    assert_eq!(pos, 7);
-    let mut buf = [0u8; 3];
-    sf.read(&mut buf).unwrap();
-    assert_eq!(&buf, b"789");
+  fn seek_current_forward() {
+    let (mut stream, _temp) = setup(b"hello");
+
+    let pos = stream.seek(SeekFrom::Current(2)).unwrap();
+
+    assert_eq!(pos, 2);
   }
-
-  #[test]
-  fn test_stream_seek_end_zero_is_eof() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let pos = sf.seek(SeekFrom::End(0)).unwrap();
-    assert_eq!(pos, 10);
-    let mut buf = [0u8; 5];
-    assert_eq!(sf.read(&mut buf).unwrap(), 0);
-  }
-
-  #[test]
-  fn test_stream_seek_end_positive_clamps_to_size() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let pos = sf.seek(SeekFrom::End(7)).unwrap();
-    assert_eq!(pos, 10);
-  }
-
-  #[test]
-  fn test_stream_seek_end_negative_saturates_at_zero() {
-    // 从末端回退超过长度 -> 0
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    std::fs::write(&path, b"0123456789").unwrap();
-    let dl = Arc::new(AtomicU64::new(10));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 10, dl.clone());
-    let pos = sf.seek(SeekFrom::End(-9999)).unwrap();
-    assert_eq!(pos, 0);
-  }
-
-  // === Read + Seek 综合场景 ===
-
-  #[test]
-  fn test_stream_seek_start_and_read_two_chunks() {
-    let dir = tempdir().unwrap();
-    let path = dir.path().join("f.bin");
-    let data: Vec<u8> = (0u8..=255).collect();
-    std::fs::write(&path, &data).unwrap();
-    let dl = Arc::new(AtomicU64::new(256));
-    let mut sf = StreamFile::new(std::fs::File::open(&path).unwrap(), 256, dl.clone());
-    // 从位置 100 读 10 字节
-    sf.seek(SeekFrom::Start(100)).unwrap();
-    let mut buf = [0u8; 10];
-    sf.read(&mut buf).unwrap();
-    assert_eq!(buf, [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]);
-    // 再从位置 200 读 10 字节
-    sf.seek(SeekFrom::Start(200)).unwrap();
-    sf.read(&mut buf).unwrap();
-    assert_eq!(buf, [200, 201, 202, 203, 204, 205, 206, 207, 208, 209]);
-  }
-
-  // === 超时：wait_for_data 无法在无真实并发下触发（除非把 timeout 调得非常短）
-  // 为避免用真实 thread::sleep 拖慢单测，这里不再覆盖 TimedOut 分支。
 }

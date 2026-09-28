@@ -1,160 +1,154 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import Modal from '@/components/Modal.vue'
-import { notify } from '@/components/Notification.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import VirtualList from '@/components/VirtualList.vue'
-import { useListStore } from '@/stores/list'
-import { getFullName } from '@/utils/music'
-import { ListType, ScanStatus } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { open } from '@tauri-apps/plugin-dialog'
-import { computed, inject, ref, watch } from 'vue'
+import { open } from '@tauri-apps/plugin-dialog';
+import { computed, inject, ref, watch } from 'vue';
+
+import ActionButton from '@/components/ActionButton.vue';
+import Modal from '@/components/Modal.vue';
+import { notify } from '@/components/Notification.vue';
+import SvgIcon from '@/components/SvgIcon.vue';
+import VirtualList from '@/components/VirtualList.vue';
+import { useListStore } from '@/stores/list';
+import { getFullName } from '@/utils/music';
+import { ListType, ScanStatus } from '@/utils/params';
+import { invoke } from '@/utils/tools';
 
 interface Props {
-  scanTypes: string[]
+  scanTypes: string[];
 }
 
 interface Emits {
-  close: []
+  close: [];
 }
 
-const visible = defineModel({ required: true, default: false })
-const { scanTypes: musicTypes } = defineProps<Props>()
-const emits = defineEmits<Emits>()
+const visible = defineModel({ required: true, default: false });
+const { scanTypes: musicTypes } = defineProps<Props>();
+const emits = defineEmits<Emits>();
 
-const listType = inject<ListType>('listType', ListType.Show)
+const listType = inject<ListType>('listType', ListType.Show);
 
-const listStore = useListStore()
+const listStore = useListStore();
 
 const tableColumns = [
   { key: 'index', slot: true, width: '2.5rem', padding: 0 },
   { key: 'info', slot: true, width: 'auto' },
-  { key: 'action', slot: true, width: '2.5rem', padding: 0 }
-]
+  { key: 'action', slot: true, width: '2.5rem', padding: 0 },
+];
 
-const scanTypes = ref<string[]>([]) // 扫描类型
-const scanPaths = ref<string[]>([]) // 扫描路径
-const scanStatus = ref(ScanStatus.Ready) // 扫描状态
-const scanList = ref<ListMusic[]>([]) // 扫描结果
+const scanTypes = ref<string[]>([]); // 扫描类型
+const scanPaths = ref<string[]>([]); // 扫描路径
+const scanStatus = ref(ScanStatus.Ready); // 扫描状态
+const scanList = ref<MusicInfo[]>([]); // 扫描结果
 
-const list = computed(() => listStore[listType])
+const musicList = computed(() => listStore[listType]);
 // 扫描状态文本
 const scanStatusText = computed(() => {
   switch (scanStatus.value) {
     case ScanStatus.Ready:
-      return '准备扫描'
+      return '准备扫描';
     case ScanStatus.Loading:
-      return '正在扫描...'
+      return '正在扫描...';
     case ScanStatus.Fail:
-      return '扫描失败'
+      return '扫描失败';
     case ScanStatus.Success:
-      return `扫描完成, 找到 ${scanList.value.length} 首`
+      return `扫描完成, 找到 ${scanList.value.length} 首`;
     default:
-      return ''
+      return '准备扫描';
   }
-})
+});
 
 const selectAllType = () => {
-  scanTypes.value = scanTypes.value.includes('all') ? [] : ['all', ...musicTypes]
-}
+  scanTypes.value = scanTypes.value.includes('all') ? [] : ['all', ...musicTypes];
+};
 
 const selectType = (type: string) => {
   scanTypes.value = scanTypes.value.includes(type)
     ? scanTypes.value.filter((item) => item !== type)
-    : scanTypes.value.concat(type)
-}
+    : scanTypes.value.concat(type);
+};
 
 const addPath = async () => {
-  const dirPaths = await open({ directory: true, multiple: true, title: '选择扫描目录' })
-  if (!dirPaths) return
+  const dirPaths = await open({ directory: true, multiple: true, title: '选择扫描目录' });
+  if (!dirPaths) return;
 
-  scanPaths.value.push(...dirPaths)
-}
+  scanPaths.value.push(...dirPaths);
+};
 
 const removePath = (index: number) => {
-  scanPaths.value.splice(index, 1)
+  scanPaths.value.splice(index, 1);
 
   // 重置扫描结果
-  scanList.value.length = 0
-  scanStatus.value = ScanStatus.Ready
-}
+  scanList.value.length = 0;
+  scanStatus.value = ScanStatus.Ready;
+};
 
 const scanMusic = async () => {
-  if (scanStatus.value === ScanStatus.Loading) return
+  if (scanStatus.value === ScanStatus.Loading) return;
   if (!scanPaths.value.length) {
-    notify.error('请选择扫描目录')
-    return
+    notify.warning('请选择扫描目录');
+    return;
   }
 
-  scanStatus.value = ScanStatus.Loading
+  scanStatus.value = ScanStatus.Loading;
 
   try {
-    const music_scan_dir = await invoke('music_scan_dir', {
+    const scan_dir = await invoke('music_scan_dir', {
       dirPaths: scanPaths.value,
       scanTypes: scanTypes.value.filter((type) => type !== 'all'),
-      startIndex: list.value.list.length
-    })
+      startIndex: musicList.value.list.length,
+    });
     // 中断返回null
-    if (music_scan_dir === null) {
-      scanStatus.value = ScanStatus.Ready
-      return
+    if (scan_dir === null) {
+      scanStatus.value = ScanStatus.Ready;
+      return;
     }
-    if (music_scan_dir === undefined) {
-      scanStatus.value = ScanStatus.Fail
-      return
-    }
-    scanList.value = music_scan_dir
-    scanStatus.value = ScanStatus.Success
-  } catch (error) {
-    console.error(error)
-    notify.error('扫描歌曲失败')
 
-    scanStatus.value = ScanStatus.Fail
+    scanList.value = scan_dir;
+    scanStatus.value = ScanStatus.Success;
+  } catch {
+    scanStatus.value = ScanStatus.Fail;
   }
-}
+};
 
 const addMusic = () => {
   if (!scanList.value.length) {
-    notify.error('没有可添加歌曲')
-    return
+    notify.warning('没有可添加歌曲');
+    return;
   }
 
-  const addLen = listStore.addList(listType, scanList.value)
-  notify.success(`成功添加 ${addLen} 首歌曲`)
+  const addLen = listStore.addList(listType, scanList.value);
+  notify.success(`成功添加 ${addLen} 首歌曲`);
 
-  handleCancel()
-}
+  handleCancel();
+};
 
 const removeMusic = (index: number) => {
-  scanList.value.splice(index, 1)
-}
+  scanList.value.splice(index, 1);
+};
 
 const handleReset = () => {
-  scanPaths.value.length = 0
-  scanList.value.length = 0
-  scanStatus.value = ScanStatus.Ready
-}
+  scanPaths.value.length = 0;
+  scanList.value.length = 0;
+  scanStatus.value = ScanStatus.Ready;
+};
 
 const handleCancel = async () => {
   // 如果正在扫描中,取消扫描
   if (scanStatus.value === ScanStatus.Loading) {
     try {
-      await invoke('music_scan_cancel')
-    } catch (error) {
-      console.error(error)
-      notify.error('取消扫描失败')
+      await invoke('music_scan_cancel');
+    } catch {
+      notify.warning('无法取消扫描');
     }
   }
 
-  handleReset()
-  emits('close')
-}
+  handleReset();
+  emits('close');
+};
 
 watch(
   () => musicTypes,
-  (types) => (scanTypes.value = ['all', ...types])
-)
+  (types) => (scanTypes.value = ['all', ...types]),
+);
 </script>
 
 <template>
@@ -164,14 +158,16 @@ watch(
     title="扫描歌曲"
     confirmLabel="添加"
     @cancel="handleCancel"
-    @confirm="addMusic">
-    <div class="flex gap-3 px-4">
+    @confirm="addMusic"
+  >
+    <div class="flex gap-3 px-6">
       <div class="w-1/2">
         <ActionButton theme="success" @click="addPath">添加文件夹</ActionButton>
         <ul class="card mt-3 h-56 overflow-auto p-2">
           <div
             v-if="!scanPaths.length"
-            class="flex flex-col items-center justify-center size-full text-minor">
+            class="flex size-full flex-col items-center justify-center text-minor"
+          >
             <SvgIcon name="Empty" size="56" />
             <div class="text-xl font-bold">列表为空</div>
           </div>
@@ -180,8 +176,9 @@ watch(
             <li
               v-for="(path, index) in scanPaths"
               :key="index"
-              class="group/path flex items-center justify-between card-hover gap-2 rounded-lg leading-10">
-              <div class="truncate text-minor w-10 text-center">
+              class="group/path card-hover flex items-center justify-between gap-2 rounded-lg leading-10"
+            >
+              <div class="w-10 truncate text-center text-minor">
                 {{ index + 1 }}
               </div>
 
@@ -190,7 +187,8 @@ watch(
               <SvgIcon
                 class="action-icon w-10 hover:text-error"
                 name="Close"
-                @click="removePath(index)" />
+                @click="removePath(index)"
+              />
             </li>
           </template>
         </ul>
@@ -206,19 +204,22 @@ watch(
                   type="checkbox"
                   name="all"
                   :checked="scanTypes.includes('all')"
-                  @change="selectAllType" />
+                  @change="selectAllType"
+                />
                 全部
               </label>
 
               <label
                 v-for="(type, index) in musicTypes"
                 :key="index"
-                class="flex items-center gap-1">
+                class="flex items-center gap-1"
+              >
                 <input
                   type="checkbox"
                   :name="type"
                   :checked="scanTypes.includes(type)"
-                  @change="selectType(type)" />
+                  @change="selectType(type)"
+                />
                 {{ type }}
               </label>
             </div>
@@ -236,7 +237,8 @@ watch(
           class="card mt-3 h-56 overflow-auto border border-border p-2"
           :line-height="40"
           :columns="tableColumns"
-          :list="scanList">
+          :list="scanList"
+        >
           <template #index="row">
             <div class="truncate text-center text-minor">
               {{ row.index + 1 }}
@@ -251,7 +253,8 @@ watch(
             <SvgIcon
               class="action-icon hover:text-error"
               name="Close"
-              @click="removeMusic(row.index)" />
+              @click="removeMusic(row.index)"
+            />
           </template>
         </VirtualList>
       </div>

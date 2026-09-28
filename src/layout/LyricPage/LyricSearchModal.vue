@@ -1,71 +1,70 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import Modal from '@/components/Modal.vue'
-import { notify } from '@/components/Notification.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useLyricStore } from '@/stores/lyric'
-import { useMusicStore } from '@/stores/music'
-import { getFullName } from '@/utils/music'
-import { invoke } from '@/utils/tools'
-import { ref, watch } from 'vue'
+import { ref, watch } from 'vue';
 
-const visible = defineModel({ required: true, default: false })
+import ActionButton from '@/components/ActionButton.vue';
+import Modal from '@/components/Modal.vue';
+import { notify } from '@/components/Notification.vue';
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useLyricStore } from '@/stores/lyric';
+import { useMusicStore } from '@/stores/music';
+import { getFullName } from '@/utils/music';
+import { invoke } from '@/utils/tools';
 
-const lyricStore = useLyricStore()
-const musicStore = useMusicStore()
+const visible = defineModel({ required: true, default: false });
 
-const searchQuery = ref('')
-const searchLoading = ref(false)
-const searchList = ref<LyricCandidate[]>([])
-const selectLyric = ref<LyricCandidate>()
+const lyricStore = useLyricStore();
+const musicStore = useMusicStore();
+
+const searchQuery = ref('');
+const searchLoading = ref(false);
+const searchList = ref<ApiLyricCandidate[]>([]);
+const selectLyric = ref<ApiLyricCandidate>();
 
 const handleSearch = async () => {
-  if (searchLoading.value || !musicStore.music) return
-  searchLoading.value = true
+  if (searchLoading.value || !musicStore.music) return;
+  searchLoading.value = true;
 
   try {
-    const lyric_search = await invoke('api_lyric_search', {
+    const { status, candidates } = await invoke('api_lyric_search', {
       keyword: searchQuery.value,
-      hash: musicStore.music.hash
-    })
-    if (lyric_search.status !== 200) {
-      searchLoading.value = false
-      searchList.value.length = 0
-      return
+      hash: musicStore.music.hash,
+    });
+    if (status !== 200) {
+      notify.error('获取歌词列表失败');
+      searchList.value.length = 0;
+    } else {
+      searchList.value = candidates;
     }
-
-    searchList.value = lyric_search.candidates
-  } catch (error) {
-    console.error(error)
-    notify.error('搜索失败')
+  } catch {
+    notify.error('获取歌词列表失败');
   } finally {
-    searchLoading.value = false
+    searchLoading.value = false;
   }
-}
+};
 
 const handleReset = (refresh = false) => {
-  if (!musicStore.music) return
+  if (!musicStore.music) return;
 
-  searchQuery.value = getFullName(musicStore.music, 'at')
-  searchList.value.length = 0
-  selectLyric.value = searchList.value.find((item) => item.id === lyricStore.lyric?.id)
+  searchQuery.value = getFullName(musicStore.music, 'at');
+  searchList.value.length = 0;
+  selectLyric.value = searchList.value.find((item) => item.id === lyricStore.lyric?.id);
 
-  if (refresh) handleSearch()
-}
+  if (refresh) handleSearch();
+};
 
 const handleCancel = () => {
-  visible.value = false
+  visible.value = false;
 
-  handleReset()
-}
+  handleReset();
+};
 
 const handleConfirm = () => {
-  if (!musicStore.music || !selectLyric.value) return
+  if (!musicStore.music || !selectLyric.value) return;
 
-  lyricStore.load(musicStore.music, selectLyric.value)
-}
+  lyricStore.load(musicStore.music, selectLyric.value);
+};
 
-watch(visible, (visible) => visible && handleReset(true))
+watch(visible, (visible) => visible && handleReset(true));
 </script>
 
 <template>
@@ -76,32 +75,36 @@ watch(visible, (visible) => visible && handleReset(true))
     :maskClosed="false"
     confirmLabel="选择"
     @cancel="handleCancel"
-    @confirm="handleConfirm">
-    <div class="px-4">
-      <div class="flex justify-between items-center gap-3">
+    @confirm="handleConfirm"
+  >
+    <div class="px-6">
+      <div class="flex items-center justify-between gap-3">
         <div class="relative w-full">
           <input
-            class="leading-8 border bg-card border-border pl-3 pr-9 rounded-lg w-full"
+            class="w-full rounded-lg border border-border bg-card pl-3 pr-9 leading-8"
             placeholder="请输入搜索关键词"
-            v-model="searchQuery" />
+            v-model="searchQuery"
+          />
           <SvgIcon
             v-if="searchQuery"
-            class="absolute right-0 top-0 bottom-0 px-3 hover:text-error flex items-center justify-center cursor-pointer"
+            class="absolute bottom-0 right-0 top-0 flex cursor-pointer items-center justify-center px-3 hover:text-error"
             name="Close"
-            @click="searchQuery = ''" />
+            @click="searchQuery = ''"
+          />
         </div>
 
         <ActionButton theme="success" @click="handleSearch">搜索</ActionButton>
       </div>
 
-      <div class="card border overflow-y-auto p-2 border-border rounded-lg h-64 mt-4">
+      <div class="card mt-4 h-64 overflow-y-auto rounded-lg border border-border p-2">
         <template v-if="searchLoading">
-          <div v-for="count in 3" :key="count" class="h-7 my-1 rounded-lg bg-card w-full"></div>
+          <div v-for="count in 3" :key="count" class="my-1 h-7 w-full rounded-lg bg-card"></div>
         </template>
 
         <div
           v-else-if="!searchList.length"
-          class="font-bold text-minor text-xl size-full flex items-center justify-center">
+          class="flex size-full items-center justify-center text-xl font-bold text-minor"
+        >
           暂无歌词
         </div>
 
@@ -109,10 +112,11 @@ watch(visible, (visible) => visible && handleReset(true))
           <div
             v-for="(lyric, index) in searchList"
             :key="index"
-            class="p-2 rounded-lg flex justify-between cursor-pointer"
+            class="flex cursor-pointer justify-between rounded-lg p-2"
             :class="selectLyric?.id === lyric.id ? 'card-actived' : 'card-hover'"
-            @click="selectLyric = lyric">
-            <div class="flex-1 w-0 truncate pr-2">{{ lyric.singer }} - {{ lyric.song }}</div>
+            @click="selectLyric = lyric"
+          >
+            <div class="w-0 flex-1 truncate pr-2">{{ lyric.singer }} - {{ lyric.song }}</div>
             <div class="w-28 truncate">{{ lyric.product_from }}</div>
             <div class="w-14 truncate">{{ lyric.score }} 分</div>
             <div class="w-8">

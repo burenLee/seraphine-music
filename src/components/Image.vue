@@ -1,42 +1,63 @@
 <script lang="ts" setup>
-import SvgIcon from '@/components/SvgIcon.vue'
-import { IconName } from '@/utils/icons'
-import { cn } from '@/utils/tools'
-import { ref, useAttrs, watch } from 'vue'
+import { ref, watch } from 'vue';
+
+import SvgIcon from '@/components/SvgIcon.vue';
+import { IconName } from '@/utils/icons';
+import { cn } from '@/utils/tools';
 
 interface Props {
-  img: string
-  icon?: IconName
-  iconSize?: number
+  src: string;
+  icon?: IconName;
+  iconSize?: number;
 }
 
-const { img, icon = 'Music', iconSize = 20 } = defineProps<Props>()
+const props = defineProps<Props>();
 
-const attrs = useAttrs()
-const isLoaded = ref(false)
+const isLoading = ref(false);
+const isReady = ref(false);
 
-const handlePreload = (img: string) => {
-  isLoaded.value = false
-  if (!img) return
+watch(
+  () => props.src,
+  (src) => {
+    // 空字符串不发起加载，直接回落到占位图标
+    if (!src) {
+      isLoading.value = false;
+      isReady.value = false;
+      return;
+    }
 
-  const image = new Image()
-  image.src = img
+    isLoading.value = true;
+    isReady.value = false;
 
-  image.onload = () => (isLoaded.value = true)
-  image.onerror = () => (isLoaded.value = false)
-}
+    const img = new Image();
+    img.onload = () => {
+      isLoading.value = false;
+      isReady.value = true;
+    };
+    img.onerror = () => {
+      isLoading.value = false;
+      isReady.value = false;
+    };
 
-watch(() => img, handlePreload, { immediate: true })
+    img.src = src;
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
+  <SvgIcon
+    v-if="!props.src || isLoading || !isReady"
+    :class="cn('card', $attrs.class)"
+    :name="props.icon || 'Music'"
+    :size="props.iconSize || 20"
+  />
   <img
-    v-if="isLoaded"
-    :class="cn('card', attrs.class)"
-    :src="img"
-    loading="lazy"
-    decoding="async"
+    v-else
+    :class="cn('card', $attrs.class)"
+    :src="props.src"
     alt=""
-    :draggable="false" />
-  <SvgIcon v-else :class="cn('card ', attrs.class)" :name="icon" :size="iconSize" />
+    decoding="async"
+    :draggable="false"
+  />
 </template>

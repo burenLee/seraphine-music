@@ -1,87 +1,99 @@
 <script setup lang="ts">
-import MusicActions from '@/components/MusicTable/MusicActions.vue'
-import MusicHeader from '@/components/MusicTable/MusicHeader.vue'
-import MusicTable from '@/components/MusicTable/MusicTable.vue'
-import { useListStore } from '@/stores/list'
-import { getPrivilegeTags } from '@/utils/music'
-import { ApiInvokeStatus, ListType, PageSize } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { onMounted, onUnmounted, provide } from 'vue'
-import { useRoute } from 'vue-router'
+import { onUnmounted, provide, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
-provide('listType', ListType.Show)
+import MusicActions from '@/components/MusicTable/MusicActions.vue';
+import MusicHeader from '@/components/MusicTable/MusicHeader.vue';
+import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import { notify } from '@/components/Notification.vue';
+import { defaultInfo, useListStore } from '@/stores/list';
+import { getPrivilegeTags } from '@/utils/music';
+import { ApiInvokeStatus, ListType, PageSize } from '@/utils/params';
+import { invoke } from '@/utils/tools';
 
-const route = useRoute()
-const listStore = useListStore()
+const listType = ListType.Show;
+provide('listType', listType);
 
-const handleLoad = async () => {
-  const id = String(route.query.id)
-  if (!id) return
-  listStore.isLoading = true
+const route = useRoute('UserPlaylistTable');
+const listStore = useListStore();
+
+const handleLoad = async (gid: string) => {
+  listStore.isHeaderLoading = true;
+  listStore.isTableLoading = true;
 
   try {
-    const playlist_detail = await invoke('api_playlist_detail', { gids: [id] })
-    if (playlist_detail.status === ApiInvokeStatus.Success) {
-      const { pic, name, musiclib_tags, count, list_create_listid, list_create_username } =
-        playlist_detail.data[0]
-
-      let page = 1
-      const allSongs: PlaylistSong[] = []
-      while (allSongs.length < playlist_detail.data[0].count) {
-        const playlist_tracks_all = await invoke('api_playlist_tracks_all', {
-          gid: playlist_detail.data[0].list_create_gid,
-          page: page++,
-          pageSize: PageSize.Max
-        })
-        if (playlist_tracks_all?.status !== 1) break
-
-        allSongs.push(...playlist_tracks_all.data.songs)
-      }
-
+    const playlist_detail = await invoke('api_playlist_detail', { gids: [gid] });
+    if (playlist_detail.status !== ApiInvokeStatus.Success || !playlist_detail.data[0]) {
+      notify.error('获取歌单信息失败');
+    } else {
+      const playlist = playlist_detail.data[0];
       const info: ListInfo = {
-        id: list_create_listid,
-        cover: pic,
-        title: name,
-        artist: list_create_username,
-        tags: musiclib_tags.map((tag: any) => tag.tag_name),
-        count: count
+        ...defaultInfo,
+        id: playlist.list_create_listid,
+        cover: playlist.pic,
+        title: playlist.name,
+        artist: playlist.list_create_username,
+        tags: playlist.musiclib_tags.map((tag) => tag.tag_name),
+        count: playlist.count,
+        gid,
+      };
+      listStore.setListInfo(listType, info);
+      listStore.isHeaderLoading = false;
+
+      let page = 1;
+      let total = 0;
+      const list: MusicInfo[] = [];
+
+      while (total < playlist.count) {
+        const playlist_tracks_all = await invoke('api_playlist_tracks_all', {
+          gid,
+          page: page++,
+          pageSize: PageSize.Max,
+        });
+        if (playlist_tracks_all.status !== ApiInvokeStatus.Success) break;
+
+        total += playlist_tracks_all.data.count;
+
+        playlist_tracks_all.data.songs.forEach((song) => {
+          if (song.shield !== undefined) return;
+
+          const [artist, title] = song.name.split(' - ');
+
+          list.push({
+            id: song.mixsongid,
+            path: null,
+            hash: song.hash,
+            cover: song.trans_param.union_cover,
+            title: title,
+            artist: artist,
+            album: song.albuminfo.name,
+            duration: song.timelen / 1000,
+            sort: song.sort,
+            privilegeTags: getPrivilegeTags(song.privilege, song.download[0].pay_type),
+            fileId: song.fileid,
+          });
+        });
       }
-      const list: ListMusic[] = []
 
-      allSongs.forEach((song) => {
-        if (!song.hash) return
-
-        const [artist, title] = song.name.split('-')
-
-        list.push({
-          id: song.fileid,
-          path: null,
-          hash: song.hash,
-          cover: song.trans_param.union_cover,
-          title: title.trim(),
-          artist: artist.trim(),
-          album: song.albuminfo.name,
-          duration: song.timelen / 1000,
-          sort: song.sort,
-          privilegeTags: getPrivilegeTags(song.privilege, song.download[0].pay_type)
-        })
-      })
-
-      listStore.setList(ListType.Show, { info, list })
+      listStore.setListRaw(listType, list);
     }
-  } catch (error) {
-    console.error(error)
+  } catch {
+    notify.error('获取歌单歌曲失败');
   } finally {
-    listStore.isLoading = false
+    listStore.isTableLoading = false;
   }
-}
+};
 
-onMounted(handleLoad)
-onUnmounted(() => listStore.resetList(ListType.Show))
+watch(() => route.params.gid, handleLoad, { immediate: true });
+onUnmounted(() => {
+  listStore.resetList(listType);
+  listStore.isHeaderLoading = true;
+  listStore.isTableLoading = true;
+});
 </script>
 
 <template>
-  <div class="relative space-y-3 pt-4 w-full h-full flex flex-col">
+  <div class="relative flex h-full w-full flex-col space-y-3 pt-4">
     <MusicHeader />
     <MusicActions />
     <MusicTable class="h-0 flex-1" />

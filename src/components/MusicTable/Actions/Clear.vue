@@ -1,34 +1,36 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import Modal from '@/components/Modal.vue'
-import { useListStore } from '@/stores/list'
-import { ListType } from '@/utils/params'
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref } from 'vue';
 
-const listType = inject<ListType>('listType', ListType.Show)
+import ActionButton from '@/components/ActionButton.vue';
+import Modal from '@/components/Modal.vue';
+import { useListStore } from '@/stores/list';
+import { ListType } from '@/utils/params';
 
-const listStore = useListStore()
+const listType = inject<ListType>('listType', ListType.Show);
 
-const visible = ref(false)
+const listStore = useListStore();
 
-const list = computed(() => listStore[listType])
+const visible = ref(false);
+
+const musicList = computed(() => listStore[listType]);
 
 const handleCancel = () => {
-  visible.value = false
-}
+  visible.value = false;
+};
 
 const handleConfirm = () => {
-  listStore.clearList(listType)
-  handleCancel()
-}
+  listStore.clearList(listType);
+  handleCancel();
+};
 </script>
 
 <template>
   <ActionButton
     theme="error"
     prefix-icon="Bin"
-    :disabled="list.list.length === 0"
-    @click="visible = true">
+    :disabled="musicList.list.length === 0"
+    @click="visible = true"
+  >
     清空
   </ActionButton>
 
@@ -37,8 +39,9 @@ const handleConfirm = () => {
     class="w-80"
     title="清空"
     @cancel="handleCancel"
-    @confirm="handleConfirm">
-    <div class="px-4 font-bold">确认清空列表?</div>
-    <div class="px-4 py-2">tips: 仅删除显示, 不删除本地文件</div>
+    @confirm="handleConfirm"
+  >
+    <div class="px-6 font-bold">确认清空列表?</div>
+    <div class="px-6 py-2">tips: 仅删除显示</div>
   </Modal>
 </template>

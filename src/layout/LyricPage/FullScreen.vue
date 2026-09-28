@@ -1,31 +1,33 @@
 ﻿<script lang="ts" setup>
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useSettingStore } from '@/stores/setting'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { useEventListener } from '@vueuse/core'
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useEventListener } from '@vueuse/core';
 
-const settingStore = useSettingStore()
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useSettingStore } from '@/stores/setting';
 
-const currentWindow = getCurrentWindow()
+const settingStore = useSettingStore();
+
+const currentWindow = getCurrentWindow();
 
 const toggleFullScreen = async () => {
-  const isFullscreen = await currentWindow.isFullscreen()
+  const isFullscreen = await currentWindow.isFullscreen();
 
-  await currentWindow.setFullscreen(!isFullscreen)
-  settingStore.toggleFullscreenState(!isFullscreen)
-}
+  await currentWindow.setFullscreen(!isFullscreen);
+  settingStore.toggleFullscreenState(!isFullscreen);
+};
 
-useEventListener('keydown', async (e) => {
-  if (e.key !== 'Escape') return
+useEventListener('keyup', async (e) => {
+  if (e.key !== 'Escape') return;
 
-  await currentWindow.setFullscreen(false)
-  settingStore.toggleFullscreenState(false)
-})
+  await currentWindow.setFullscreen(false);
+  settingStore.toggleFullscreenState(false);
+});
 </script>
 
 <template>
   <SvgIcon
     class="action-icon"
     :name="settingStore.isFullscreen ? 'QuitFullScreen' : 'FullScreen'"
-    @click="toggleFullScreen" />
+    @click="toggleFullScreen"
+  />
 </template>

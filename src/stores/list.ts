@@ -1,261 +1,371 @@
-import { ListType, SortOrder, SortType } from '@/utils/params'
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
 
+import { notify } from '@/components/Notification.vue';
+import { ListType, SortOrder, SortType } from '@/utils/params';
+
+import { useMusicStore } from './music';
+
+export const defaultInfo: ListInfo = {
+  id: '',
+  cover: '',
+  title: '',
+  artist: '',
+  count: 0,
+  playCount: 0,
+};
+
+/** 列表配置 */
 export const useListStore = defineStore(
   'list',
   () => {
     // 本地列表
     const local = ref<MusicList>({
-      info: { id: 'local', cover: '', title: '本地歌曲', artist: '', count: 0, tags: [] },
-      list: []
-    })
+      info: { ...defaultInfo, id: 'local', title: '本地歌曲' },
+      list: [],
+    });
     // 展示列表
-    const show = ref<MusicList>({
-      info: { id: '', cover: '', title: '', artist: '', count: 0, tags: [] },
-      list: []
-    })
+    const show = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
     // 播放列表
-    const play = ref<MusicList>({
-      info: { id: '', cover: '', title: '', artist: '', count: 0, tags: [] },
-      list: []
-    })
-    // 我喜欢列表
-    const like = ref<MusicList<ID>>({
-      info: { id: 'like', cover: '', title: '我喜欢', artist: '', count: 0, tags: [] },
-      list: []
-    })
+    const play = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
+    // 喜欢列表
+    const like = ref<MusicList<Map<number, ID>>>({ info: { ...defaultInfo }, list: new Map() });
 
-    const isLoading = ref(false) // 加载状态
-    const isInfiniting = ref(false) // 无限加载中
-    const isChecking = ref(false) // 框选状态
-    const checkedList = ref<any[]>([]) // 框选列表
-    const searchList = ref<ListMusic[]>() // 查询结果
-    const sortMap = ref<Record<ID, SortInfo>>({}) // 排序列表
+    const isHeaderLoading = ref(true); // 页头加载中
+    const isTableLoading = ref(true); // 表格加载中
+    const isInfiniting = ref(false); // 无限加载中
+    const isInfinited = ref(false); // 无限加载完毕
+    const isChecking = ref(false); // 框选中
+    const checkedList = ref<any[]>([]); // 框选列表
+    const searchList = ref<MusicInfo[]>(); // 查询结果, undefined代表不在查询中, []代表查询结果为空
+    const sortMap = ref<Record<ID, SortInfo>>({}); // 排序列表
 
     // 列表映射
     const LIST_MAP = {
       [ListType.Local]: local,
       [ListType.Show]: show,
-      [ListType.Play]: play
-    } as const
+      [ListType.Play]: play,
+    } as const;
 
-    // 添加列表项
-    const addList = (type: ListType, newList: ListMusic[], start: boolean = true) => {
-      const target = LIST_MAP[type]
-      if (!target || newList.length === 0) return 0
+    const musicStore = useMusicStore();
 
-      // 去重
-      const idSet = new Set(target.value.list.map((music) => music.id))
-      const filterList = newList.filter((music) => !idSet.has(music.id))
+    /** 设置列表 */
+    const setList = (type: ListType, newMusicList: MusicList) => {
+      const musicList = LIST_MAP[type];
 
-      target.value.list = start
-        ? filterList.concat(target.value.list)
-        : target.value.list.concat(filterList)
-      target.value.info.count += filterList.length
+      musicList.value = newMusicList;
+      sort(type);
+    };
 
-      return filterList.length
-    }
+    /** 设置列表属性 */
+    const setListInfo = (type: ListType, newInfo: ListInfo) => {
+      const musicList = LIST_MAP[type];
 
-    // 设置列表
-    const setList = (type: ListType, newTargetList: MusicList) => {
-      const target = LIST_MAP[type]
-      if (!target) return
+      musicList.value.info = newInfo;
+    };
 
-      target.value = newTargetList
+    /** 设置列表项 */
+    const setListRaw = (type: ListType, newList: MusicInfo[]) => {
+      if (newList.length === 0) return;
+      const musicList = LIST_MAP[type];
 
-      // 如果存在排序则执行一次排序
-      if (sortMap.value[target.value.info.id]) handleSort(type)
-    }
+      musicList.value.list = newList;
+      sort(type);
+    };
 
-    //移除列表项
-    const removeList = (type: ListType, id: ID) => {
-      const target = LIST_MAP[type]
-      if (!target || id === '') return
+    /**
+     * 添加列表项
+     * @returns 实际添加的数量
+     */
+    const addList = (type: ListType, newList: MusicInfo[]) => {
+      if (newList.length === 0) return 0;
+      const musicList = LIST_MAP[type];
 
-      checkedList.value = checkedList.value.filter((checkedId) => checkedId !== id)
-      target.value.list = target.value.list.filter((music) => music.id !== id)
-      target.value.info.count--
-    }
+      const oldIds = new Set(musicList.value.list.map((music) => music.id));
+      const filterList = newList.filter((newMusic) => !oldIds.has(newMusic.id));
 
-    // 清空列表
+      musicList.value.list.push(...filterList);
+      musicList.value.info.count += filterList.length;
+      sort(type);
+
+      return filterList.length;
+    };
+
+    /**
+     * 添加列表项
+     * @description 不做 `去重` 和 `同步count` 的操作
+     */
+    const addListRaw = (type: ListType, newList: MusicInfo[]) => {
+      if (newList.length === 0) return;
+      const musicList = LIST_MAP[type];
+
+      musicList.value.list.push(...newList);
+      sort(type);
+    };
+
+    /** 移除列表项 */
+    // const removeList = (type: ListType, id: ID) => {
+    //   const musicList = LIST_MAP[type];
+
+    //   const index = musicList.value.list.findIndex((music) => music.id === id);
+    //   if (index === -1) return;
+
+    //   musicList.value.list.splice(index, 1);
+    //   musicList.value.info.count--;
+    // };
+
+    /** 移除列表项 */
+    const removeList = (type: ListType, ids: ID[]) => {
+      const musicList = LIST_MAP[type];
+
+      const filterList = musicList.value.list.filter((music) => !ids.includes(music.id));
+
+      musicList.value.list = filterList;
+      musicList.value.info.count = filterList.length;
+
+      clearCheckedList();
+
+      // 如果删除当前的是播放歌曲,则清除播放
+      if (musicStore.music && ids.includes(musicStore.music.id)) musicStore.setMusic(undefined);
+    };
+
+    /** 清空列表项 */
     const clearList = (type: ListType) => {
-      const target = LIST_MAP[type]
-      if (!target) return
+      const musicList = LIST_MAP[type];
 
-      target.value.list.length = 0
-      target.value.info.count = 0
+      // 如果删除当前的是播放歌曲,则清除播放
+      if (musicList.value.list.some((item) => item.id === musicStore.music?.id))
+        musicStore.setMusic(undefined);
 
-      clearChecked()
-    }
+      musicList.value.list.length = 0;
+      musicList.value.info.count = 0;
 
-    // 重置列表
+      clearCheckedList();
+    };
+
+    /** 重置列表 */
     const resetList = (type: ListType) => {
-      const target = LIST_MAP[type]
-      if (!target) return
+      const musicList = LIST_MAP[type];
 
-      target.value = {
-        info: { id: '', cover: '', title: '', artist: '', count: 0, tags: [] },
-        list: []
+      // 如果删除当前的是播放歌曲,则清除播放
+      if (musicList.value.list.some((item) => item.id === musicStore.music?.id))
+        musicStore.setMusic(undefined);
+
+      musicList.value.list.length = 0;
+      musicList.value.info = { ...defaultInfo };
+
+      resetChecked();
+    };
+
+    /** 设置喜欢列表属性 */
+    const setLikeListInfo = (newInfo: ListInfo) => {
+      like.value.info = newInfo;
+    };
+
+    /** 设置喜欢列表项 */
+    const setLikeListRaw = (newList: MusicInfo[]) => {
+      like.value.list = new Map(newList.map((item) => [Number(item.id), item.fileId || '']));
+    };
+
+    /** 添加喜欢列表项 */
+    const addLikeList = (newList: MusicInfo[]) => {
+      newList.forEach((item) => like.value.list.set(Number(item.id), item.fileId || ''));
+    };
+
+    /** 移除喜欢列表项 */
+    const removeLikeList = (newList: MusicInfo[]) => {
+      newList.forEach((item) => like.value.list.delete(Number(item.id)));
+    };
+
+    /** 清空喜欢列表项 */
+    const clearLikeList = () => {
+      like.value.list.clear();
+      like.value.info.count = 0;
+    };
+
+    /** 重置喜欢列表 */
+    const resetLikeList = () => {
+      like.value.list.clear();
+      like.value.info = { ...defaultInfo };
+    };
+
+    /** 下一首播放 */
+    const addNextPlay = (newMusic: MusicInfo) => {
+      const playingIndex = play.value.list.findIndex((item) => item.id === musicStore.music?.id);
+
+      // 会出现同一首歌曲, 所以 id 要不同
+      // 后面操作这条数据的时候去掉 ` - `及后面的数据
+      if (play.value.list.some((item) => item.id === newMusic.id)) {
+        newMusic.id = `${newMusic.id} - ${crypto.randomUUID()}`;
       }
 
-      resetChecked()
-    }
+      play.value.list.splice(playingIndex + 1, 0, newMusic);
+      play.value.info.count++;
+      notify.success('已添加到下一首播放');
+    };
 
-    // 下一首播放
-    const addNextList = (index: number, music: ListMusic) => {
-      // 会出现同一首歌曲, 所以 id要不同
-      play.value.list.splice(index + 1, 0, { ...music, id: `${music.id}-${crypto.randomUUID()}` })
-      play.value.info.count++
-    }
-
-    // 设置最喜欢列表
-    const setLikeList = (newTarget: { info: ListInfo; list: ID[] }) => {
-      like.value = newTarget
-    }
-
-    const addLikeList = (newId: ID) => {
-      like.value.list.push(newId)
-      like.value.info.count++
-    }
-
-    const removeLikeList = (newId: ID) => {
-      like.value.list = like.value.list.filter((id) => id !== newId)
-      like.value.info.count--
-    }
-
-    const clearLikeList = () => {
-      like.value.list.length = 0
-      like.value.info.count = 0
-    }
-
-    // 切换框选状态
+    /** 切换框选状态 */
     const toggleChecked = () => {
-      isChecking.value = !isChecking.value
-      clearChecked()
-    }
+      isChecking.value = !isChecking.value;
+      clearCheckedList();
+    };
 
-    // 设置框选列表
-    const setChecked = <T>(newList: T[]) => {
-      if (!isChecking.value) return
+    /** 设置框选列表项 */
+    const setCheckedList = <T>(newList: T[]) => {
+      if (!isChecking.value) return;
 
-      checkedList.value = newList
-    }
+      checkedList.value = newList;
+    };
 
-    // 处理框选项
-    const handleChecked = <T>(checked: T) => {
-      if (!isChecking.value || !checked) return
+    /** 添加/删除框选项 */
+    const handleChecked = <T>(newChecked: T) => {
+      if (!isChecking.value) return;
 
-      checkedList.value = checkedList.value.includes(checked)
-        ? checkedList.value.filter((checkedId) => checkedId !== checked)
-        : checkedList.value.concat(checked)
-    }
+      const index = checkedList.value.findIndex((checked) => checked === newChecked);
+      if (index === -1) {
+        checkedList.value.push(newChecked);
+      } else {
+        checkedList.value.splice(index, 1);
+      }
+    };
 
-    // 清空框选列表
-    const clearChecked = () => {
-      checkedList.value.length = 0
-    }
+    /** 清空框选项 */
+    const clearCheckedList = () => {
+      checkedList.value.length = 0;
+    };
 
-    // 重置框选状态
+    /** 重置框选状态 */
     const resetChecked = () => {
-      isChecking.value = false
-      checkedList.value.length = 0
-    }
+      isChecking.value = false;
+      checkedList.value.length = 0;
+    };
 
-    // 移除框选的列表项
-    const removeCheckedList = (type: ListType) => {
-      if (!isChecking.value || checkedList.value.length === 0) return
+    /** 移除框选的列表项 */
+    const removeListChecked = (type: ListType) => {
+      if (!isChecking.value || checkedList.value.length === 0) return;
+      const musicList = LIST_MAP[type];
 
-      const target = LIST_MAP[type]
-      if (!target) return
+      const filterList = musicList.value.list.filter(
+        (music) => !checkedList.value.includes(music.id),
+      );
 
-      const len = target.value.list.length
-      target.value.list = target.value.list.filter((music) => !checkedList.value.includes(music.id))
-      target.value.info.count -= len - target.value.list.length
+      musicList.value.list = filterList;
+      musicList.value.info.count = filterList.length;
 
-      clearChecked()
-    }
+      clearCheckedList();
+    };
 
-    // 搜索
-    const handleSearch = (type: ListType, query: string) => {
-      const target = LIST_MAP[type]
-      if (!target) return
+    /** 列表搜索 */
+    const search = (type: ListType, searchQuery: string) => {
+      const musicList = LIST_MAP[type];
+      const query = searchQuery.trim();
 
-      searchList.value = query
-        ? target.value.list.filter(({ title, artist, album }) =>
-            [title, artist, album].filter(Boolean).some((item) => item!.includes(query))
-          )
-        : undefined
-    }
+      if (query) {
+        const list = [];
+        for (const music of musicList.value.list) {
+          if (music.title.includes(query)) {
+            list.push(music);
+            continue;
+          }
 
+          if (music.artist?.includes(query)) {
+            list.push(music);
+            continue;
+          }
+
+          if (music.album?.includes(query)) {
+            list.push(music);
+          }
+        }
+
+        searchList.value = list;
+      } else {
+        searchList.value = undefined;
+      }
+    };
+
+    /** 清除搜索状态 */
     const clearSearch = () => {
-      searchList.value = undefined
-    }
+      searchList.value = undefined;
+    };
 
-    // 设置排序信息
+    /** 设置排序信息 */
     const setSortMap = (id: ID, newSortInfo: SortInfo) => {
-      sortMap.value[id] = newSortInfo
-    }
+      sortMap.value[id] = newSortInfo;
+    };
 
-    // 排序列表
-    const handleSort = (type: ListType) => {
-      const target = LIST_MAP[type]
-      if (!target) return
+    /** 列表排序 */
+    const sort = (type: ListType) => {
+      const musicList = LIST_MAP[type];
 
-      const sortInfo = sortMap.value[target.value.info.id]
-      if (!sortInfo) return
+      let sortInfo = sortMap.value[musicList.value.info.id];
+      // 如果不存在就赋默认值
+      if (!sortInfo) {
+        // 本地列表默认使用倒序
+        const isLocalList = musicList.value.info.id === local.value.info.id;
+        sortInfo = { type: SortType.Default, order: isLocalList ? SortOrder.DESC : SortOrder.ASC };
+        setSortMap(musicList.value.info.id, sortInfo);
+      }
 
-      target.value.list.sort((a: ListMusic, b: ListMusic) => {
-        const conditions: Record<SortType, number> = {
+      musicList.value.list.sort((a: MusicInfo, b: MusicInfo) => {
+        const conditions = {
           [SortType.Default]: a.sort - b.sort,
           [SortType.Title]: a.title.localeCompare(b.title),
           [SortType.Artist]: (a.artist || '').localeCompare(b.artist || ''),
           [SortType.Album]: (a.album || '').localeCompare(b.album || ''),
-          [SortType.Duration]: a.duration - b.duration
-        }
+          [SortType.Duration]: a.duration - b.duration,
+        };
 
-        const result = conditions[sortInfo.type]
-        return sortInfo.order === SortOrder.ASC ? result : -result
-      })
-    }
+        const sort = conditions[sortInfo.type];
+        return sortInfo.order === SortOrder.ASC ? sort : -sort;
+      });
+    };
 
     return {
       local,
       show,
       play,
       like,
-      isLoading,
+      isHeaderLoading,
+      isTableLoading,
       isInfiniting,
+      isInfinited,
       isChecking,
-      searchList,
       checkedList,
+      searchList,
       sortMap,
 
-      addList,
       setList,
-      addNextList,
+      setListInfo,
+      setListRaw,
+      addList,
+      addListRaw,
       removeList,
       clearList,
       resetList,
-      setLikeList,
+      setLikeListInfo,
+      setLikeListRaw,
       addLikeList,
       removeLikeList,
       clearLikeList,
+      resetLikeList,
+      addNextPlay,
       toggleChecked,
+      setCheckedList,
       handleChecked,
-      setChecked,
-      clearChecked,
-      removeCheckedList,
-      handleSearch,
+      clearCheckedList,
+      resetChecked,
+      removeListChecked,
+      search,
       clearSearch,
       setSortMap,
-      handleSort
-    }
+      sort,
+    };
   },
   {
     persist: {
       key: 'list-store',
-      pick: ['local', 'play', 'sortMap']
-    }
-  }
-)
+      pick: ['local', 'play', 'sortMap'],
+    },
+  },
+);

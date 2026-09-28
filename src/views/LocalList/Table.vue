@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import MusicActions from '@/components/MusicTable/MusicActions.vue'
-import MusicHeader from '@/components/MusicTable/MusicHeader.vue'
-import MusicTable from '@/components/MusicTable/MusicTable.vue'
-import { useListStore } from '@/stores/list'
-import { ListType } from '@/utils/params'
-import { onMounted, onUnmounted, provide } from 'vue'
+import { onMounted, onUnmounted, provide } from 'vue';
 
-provide('listType', ListType.Local)
+import MusicActions from '@/components/MusicTable/MusicActions.vue';
+import MusicHeader from '@/components/MusicTable/MusicHeader.vue';
+import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import { useListStore } from '@/stores/list';
+import { ListType } from '@/utils/params';
 
-const listStore = useListStore()
+provide('listType', ListType.Local);
 
-onMounted(() => (listStore.isLoading = false))
-onUnmounted(() => (listStore.isLoading = true))
+const listStore = useListStore();
+
+onMounted(() => {
+  listStore.isHeaderLoading = false;
+  listStore.isTableLoading = false;
+});
+onUnmounted(() => {
+  listStore.isHeaderLoading = true;
+  listStore.isTableLoading = true;
+});
 </script>
 
 <template>
-  <div class="relative space-y-3 pt-4 w-full h-full flex flex-col">
+  <div class="relative flex h-full w-full flex-col space-y-3 pt-4">
     <MusicHeader />
     <MusicActions />
     <MusicTable class="h-0 flex-1" />

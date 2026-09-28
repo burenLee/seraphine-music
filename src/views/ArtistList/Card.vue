@@ -1,41 +1,36 @@
 <script lang="ts" setup>
-import ColList from '@/components/MusicList/ColList.vue'
-import { ApiInvokeStatus, AreaTypes } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-const router = useRouter()
+import ColList from '@/components/MusicList/ColList.vue';
+import { defaultInfo } from '@/stores/list';
+import { ApiInvokeStatus, AreaTypes, PageSize } from '@/utils/params';
+import { invoke } from '@/utils/tools';
 
-const isLoading = ref(true)
-const colData = ref<ColList>({
-  info: { id: '', cover: '', title: '推荐歌手', artist: '', tags: [], count: 0 },
-  list: []
-})
+const router = useRouter();
+
+const isLoading = ref(true);
+const colData = ref<ColList>({ info: { ...defaultInfo, title: '推荐歌手' }, list: [] });
 
 const handleLoad = async () => {
-  isLoading.value = true
+  // 不使用isLoading是因为初始值为true
+  // if (isLoading.value) return
 
-  const list: RowList[] = await Promise.all(
-    AreaTypes.slice(0, 5).map(async (item) => {
-      const info: ListInfo = {
-        id: '',
-        cover: '',
-        title: item.title,
-        artist: '',
-        tags: [],
-        count: 0
-      }
-      let list: CardInfo[] = []
+  isLoading.value = true;
 
-      try {
-        const api_artist_list = await invoke('api_artist_list', {
-          areaType: item.type,
-          musician: item.musician,
-          pageSize: 3
-        })
-        if (api_artist_list.status === ApiInvokeStatus.Success) {
-          list = api_artist_list.data.info.map((singer) => ({
+  try {
+    colData.value.list = await Promise.all(
+      AreaTypes.slice(0, 5).map(async (areaType) => {
+        const { status, data } = await invoke('api_artist_list', {
+          areaType: areaType.type,
+          musician: areaType.musician,
+          pageSize: PageSize.Min,
+        });
+
+        const info: ListInfo = { ...defaultInfo, title: areaType.title };
+        let list: CardInfo[] = [];
+        if (status === ApiInvokeStatus.Success) {
+          list = data.info.map((singer) => ({
             id: singer.singerid,
             cover: singer.imgurl,
             title: singer.singername,
@@ -46,25 +41,18 @@ const handleLoad = async () => {
               name: singer.singername,
               fanscount: singer.fanscount,
               descibe: singer.descibe,
-              url: singer.url
-            }
-          }))
+              url: singer.url,
+            },
+          }));
         }
-      } catch (error) {
-        console.log(error)
-      }
 
-      return { info, list }
-    })
-  )
-
-  colData.value.list = list
-  isLoading.value = false
-}
-
-const handleMore = () => {
-  router.push('/artist-list-more')
-}
+        return { info, list };
+      }),
+    );
+  } finally {
+    isLoading.value = false;
+  }
+};
 </script>
 
 <template>
@@ -73,5 +61,6 @@ const handleMore = () => {
     :data="colData"
     @load="handleLoad"
     @refresh="handleLoad"
-    @more="handleMore" />
+    @more="router.push('/artist-list-more')"
+  />
 </template>

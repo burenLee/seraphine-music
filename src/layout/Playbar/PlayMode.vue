@@ -1,31 +1,32 @@
 <script lang="ts" setup>
-import SelectModal from '@/components/SelectModal.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useMusicStore } from '@/stores/music'
-import { PlayingMode } from '@/utils/params'
-import { vOnClickOutside } from '@vueuse/components'
-import { computed, ref } from 'vue'
+import { vOnClickOutside } from '@vueuse/components';
+import { computed, ref } from 'vue';
 
-const musicStore = useMusicStore()
+import SelectModal from '@/components/SelectModal.vue';
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useMusicStore } from '@/stores/music';
+import { PlayingMode } from '@/utils/params';
+
+const musicStore = useMusicStore();
 
 const modeOptions: SelectOption[] = [
   { label: '顺序播放', value: PlayingMode.OrderPlay, prefixIcon: 'OrderPlay' },
   { label: '单曲播放', value: PlayingMode.SinglePlay, prefixIcon: 'SinglePlay' },
   { label: '列表循环', value: PlayingMode.OrderLoop, prefixIcon: 'RepeatAll' },
   { label: '单曲循环', value: PlayingMode.SingleLoop, prefixIcon: 'RepeatOne' },
-  { label: '随机播放', value: PlayingMode.RandomPlay, prefixIcon: 'RandomPlay' }
-]
+  { label: '随机播放', value: PlayingMode.RandomPlay, prefixIcon: 'RandomPlay' },
+];
 
-const modeVisible = ref(false)
+const modeVisible = ref(false);
 
 const modeSelection = computed(
-  () => modeOptions.find((option) => option.value === musicStore.mode) || modeOptions[0]
-)
+  () => modeOptions.find((option) => option.value === musicStore.mode) || modeOptions[0],
+);
 
 const modeSelect = (mode: PlayingMode) => {
-  musicStore.setMode(mode)
-  modeVisible.value = false
-}
+  musicStore.setMode(mode);
+  modeVisible.value = false;
+};
 </script>
 
 <template>
@@ -33,14 +34,17 @@ const modeSelect = (mode: PlayingMode) => {
     <SvgIcon
       class="action-icon"
       :name="modeSelection.prefixIcon || 'OrderPlay'"
-      @click="modeVisible = !modeVisible" />
+      size="18"
+      @click="modeVisible = !modeVisible"
+    />
 
     <SelectModal
-      class="absolute bottom-full left-1/2 mb-2 -translate-x-1/2"
+      class="absolute bottom-full left-1/2 -translate-x-1/2"
       transition="zoom-bottom"
       :visible="modeVisible"
       :options="modeOptions"
       :selection="modeSelection"
-      @select="modeSelect" />
+      @select="modeSelect"
+    />
   </div>
 </template>

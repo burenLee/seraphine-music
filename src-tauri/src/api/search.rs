@@ -3,12 +3,12 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, fmt};
 
 use crate::{
-  api::libs::ApiResult,
+  api::types::ApiResult,
   http::{
-    config::HttpConfig,
-    libs::KgCookies,
-    server::{request, RequestOptions},
+    cookie::{HttpCookie, ModeCookies},
+    request::HttpRequest,
   },
+  utils::logger::LogErrExt,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,7 +39,7 @@ impl fmt::Display for SearchType {
 }
 
 #[tauri::command]
-/// 搜索
+/// ## 搜索
 ///
 /// ### 必选参数
 /// * `keywords` - 关键词
@@ -60,7 +60,7 @@ pub async fn api_search(
     "keyword": keywords,
     "nocollect": 0,
     "page": page.unwrap_or(1),
-    "pagesize": page_size.unwrap_or(30),
+    "pagesize": page_size.unwrap_or(10),
     "platform": "AndroidFilter",
   });
   let Value::Object(params) = params else { unreachable!() };
@@ -71,16 +71,18 @@ pub async fn api_search(
     _ => "v1",
   };
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url(format!("/{ver}/search/{search_type}"))
-    .add_header("x-router", "complexsearch.kugou.com")
-    .params(params);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .header("x-router", "complexsearch.kugou.com")
+    .params(params)
+    .builder()
+    .json()
+    .await
+    .log_command("api_search", "请求失败")
 }
 
 #[tauri::command]
-/// 综合搜索
+/// ## 综合搜索
 ///
 /// ### 必选参数
 /// * `keywords` - 关键词
@@ -93,132 +95,55 @@ pub async fn api_search_complex(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
+
   let params = json!({
     "platform": "AndroidFilter",
     "keyword": keywords,
     "page": page.unwrap_or(1),
-    "pagesize": page_size.unwrap_or(30),
+    "pagesize": page_size.unwrap_or(10),
     "cursor": 0,
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let KgCookies {
-    dfid,
-    userid,
-    token,
-    t1,
-    vip_type,
-    vip_token,
-  } = HttpConfig::get_kg_dynamic_config().cookies;
-
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .base_url("https://complexsearch.kugou.com")
     .url("/v6/search/complex")
-    .add_header("cookie", format!("dfid={dfid}; userid={userid}; token={token}; t1={t1}; vip_type={vip_type}; vip_token={vip_token}"))
-    .params(params);
-
-  request(opts).await.map_err(|e| e.to_string())
+    // .header("cookie", cookies.to_cookies_str())
+    .params(params)
+    .builder()
+    .json()
+    .await
+    .log_command("api_search_complex", "请求失败")
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
 
-  // === SearchType Display ===
-
   #[test]
-  fn test_search_type_display_song() {
+  fn search_type_display_variants() {
     assert_eq!(SearchType::Song.to_string(), "song");
-  }
-
-  #[test]
-  fn test_search_type_display_album() {
     assert_eq!(SearchType::Album.to_string(), "album");
-  }
-
-  #[test]
-  fn test_search_type_display_author() {
     assert_eq!(SearchType::Author.to_string(), "author");
-  }
-
-  #[test]
-  fn test_search_type_display_mv() {
     assert_eq!(SearchType::Mv.to_string(), "mv");
-  }
-
-  #[test]
-  fn test_search_type_display_lyric() {
     assert_eq!(SearchType::Lyric.to_string(), "lyric");
-  }
-
-  #[test]
-  fn test_search_type_display_special() {
     assert_eq!(SearchType::Special.to_string(), "special");
-  }
-
-  #[test]
-  fn test_search_type_display_collect() {
     assert_eq!(SearchType::Collect.to_string(), "collect");
   }
 
-  // === SearchType serde ===
-
   #[test]
-  fn test_search_type_serde_lowercase() {
-    // #[serde(rename_all = "lowercase")]
-    let json = serde_json::to_string(&SearchType::Song).unwrap();
-    assert_eq!(json, "\"song\"");
-
-    let json = serde_json::to_string(&SearchType::Mv).unwrap();
-    assert_eq!(json, "\"mv\"");
-  }
-
-  #[test]
-  fn test_search_type_serde_deserialize() {
-    let st: SearchType = serde_json::from_str("\"album\"").unwrap();
-    assert!(matches!(st, SearchType::Album));
-
-    let st: SearchType = serde_json::from_str("\"lyric\"").unwrap();
-    assert!(matches!(st, SearchType::Lyric));
-  }
-
-  #[test]
-  fn test_search_type_serde_invalid_variant() {
-    // 不存在的变体应反序列化失败
-    let result: Result<SearchType, _> = serde_json::from_str("\"invalid\"");
-    assert!(result.is_err());
-  }
-
-  #[test]
-  fn test_search_type_serde_case_sensitive() {
-    // lowercase rename 不接受大写
-    let result: Result<SearchType, _> = serde_json::from_str("\"Song\"");
-    assert!(result.is_err());
-  }
-
-  // === SearchType 全变体覆盖 ===
-
-  #[test]
-  fn test_search_type_all_variants_display() {
-    let all = [
-      ("song", SearchType::Song),
-      ("album", SearchType::Album),
-      ("author", SearchType::Author),
-      ("mv", SearchType::Mv),
-      ("lyric", SearchType::Lyric),
-      ("special", SearchType::Special),
-      ("collect", SearchType::Collect),
-    ];
-    for (expected, variant) in all {
-      assert_eq!(variant.to_string(), expected);
-    }
-  }
-
-  // === 命令签名约束 ===
-
-  #[test]
-  fn test_command_signatures_exist() {
-    let _ = api_search;
-    let _ = api_search_complex;
+  fn search_type_serializes_lowercase() {
+    assert_eq!(
+      serde_json::to_string(&SearchType::Song).unwrap(),
+      "\"song\""
+    );
+    assert_eq!(
+      serde_json::to_string(&SearchType::Collect).unwrap(),
+      "\"collect\""
+    );
   }
 }

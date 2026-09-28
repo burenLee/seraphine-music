@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        poetry: 'poetry'
+        poetry: 'poetry',
       },
       colors: {
         background: 'var(--color-background)',
@@ -24,19 +24,19 @@ export default {
         warning: 'var(--color-warning)',
         'warning-bg': 'var(--color-warning-bg)',
         error: 'var(--color-error)',
-        'error-bg': 'var(--color-error-bg)'
+        'error-bg': 'var(--color-error-bg)',
       },
       animation: {
         'spin-slow': 'spin 15s linear infinite',
-        carousel: 'carousel linear infinite'
+        carousel: 'carousel linear infinite',
       },
       keyframes: {
         carousel: {
           '0%': { transform: 'translateX(0)' },
-          '100%': { transform: 'translateX(-50%)' }
-        }
-      }
-    }
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
+    },
   },
-  plugins: []
-}
+  plugins: [],
+};

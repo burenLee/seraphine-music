@@ -1,62 +1,73 @@
 <script lang="ts" setup>
-import MusicActions from '@/components/MusicTable/MusicActions.vue'
-import MusicTable from '@/components/MusicTable/MusicTable.vue'
-import SlideBar from '@/components/SlideBar.vue'
-import { useListStore } from '@/stores/list'
-import { getPrivilegeTags } from '@/utils/music'
-import { ApiInvokeStatus, ListType } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { onMounted, onUnmounted, provide, ref } from 'vue'
+import { onMounted, onUnmounted, provide, ref, useTemplateRef } from 'vue';
 
-provide('listType', ListType.Show)
+import MusicActions from '@/components/MusicTable/MusicActions.vue';
+import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import { notify } from '@/components/Notification.vue';
+import SlideBar from '@/components/SlideBar.vue';
+import { defaultInfo, useListStore } from '@/stores/list';
+import { getPrivilegeTags } from '@/utils/music';
+import { ApiInvokeStatus, ListType, PageSize } from '@/utils/params';
+import { invoke } from '@/utils/tools';
 
-const listStore = useListStore()
+const listType = ListType.Show;
+provide('listType', listType);
 
-const slideOptions = ref<SlideOption[]>([])
-const slideSelection = ref<SlideOption>()
+const listStore = useListStore();
 
-const handleSlideGet = async () => {
+const musicTableRef = useTemplateRef('musicTableRef');
+
+const slideOptions = ref<SlideOption[]>([]);
+const slideSelection = ref<SlideOption>();
+
+const getSlideOptions = async () => {
   try {
-    const api_rank_top = await invoke('api_rank_top')
-    if (api_rank_top.status !== ApiInvokeStatus.Success) return
+    const { status, data } = await invoke('api_rank_top');
+    if (status !== ApiInvokeStatus.Success) return;
 
-    slideOptions.value = api_rank_top.data.list.map((item) => ({
+    slideOptions.value = data.list.map((item) => ({
       label: item.rankname,
       value: item.rankid,
       imgurl: item.imgurl,
-      intro: item.intro
-    }))
-    slideSelection.value = slideOptions.value[0]
-  } catch (error) {
-    console.error(error)
+      intro: item.intro,
+    }));
+    slideSelection.value = slideOptions.value[0];
+  } catch {
+    notify.error('获取排行榜歌曲标签失败');
   }
-}
+};
 
-const handleSlideChange = (option: SlideOption) => {
-  slideSelection.value = option
-  handleLoad()
-}
+const changeSlideSelection = (option: SlideOption) => {
+  if (slideSelection.value?.value === option.value) return;
+
+  slideSelection.value = option;
+  handleLoad();
+  musicTableRef.value?.handleToTop();
+};
 
 const handleLoad = async () => {
-  if (!slideSelection.value) return
-  listStore.isLoading = true
+  if (!slideSelection.value) return;
+
+  listStore.isTableLoading = true;
 
   try {
-    const api_rank_audio = await invoke('api_rank_audio', {
+    const { status, data } = await invoke('api_rank_audio', {
       rankId: slideSelection.value.value,
-      pageSize: 100
-    })
-    if (api_rank_audio.status === ApiInvokeStatus.Success) {
+      pageSize: PageSize.Max,
+    });
+    if (status !== ApiInvokeStatus.Success) {
+      notify.error('获取排行榜歌曲失败');
+    } else {
       const info: ListInfo = {
+        ...defaultInfo,
         id: slideSelection.value.value,
         cover: slideSelection.value.imgurl,
         title: slideSelection.value.label,
-        artist: '',
         tags: slideSelection.value.intro.split('\r\n'),
-        count: api_rank_audio.data.songlist.length
-      }
-      const list: ListMusic[] = api_rank_audio.data.songlist.map((song) => ({
-        id: song.audio_id,
+        count: data.songlist.length,
+      };
+      const list: MusicInfo[] = data.songlist.map((song) => ({
+        id: song.album_audio_id,
         path: null,
         hash: song.audio_info.hash_128,
         cover: song.trans_param.union_cover,
@@ -65,39 +76,43 @@ const handleLoad = async () => {
         album: song.album_info.album_name,
         duration: song.audio_info.duration_128 / 1000,
         sort: song.business.original_index,
-        privilegeTags: getPrivilegeTags(song.privilege_download.privilege, song.deprecated.pay_type)
-      }))
+        privilegeTags: getPrivilegeTags(
+          song.privilege_download.privilege,
+          song.deprecated.pay_type,
+        ),
+      }));
 
-      listStore.setList(ListType.Show, { info, list })
+      listStore.setList(listType, { info, list });
     }
-  } catch (error) {
-    console.error(error)
+  } catch {
+    notify.error('获取排行榜歌曲失败');
   } finally {
-    listStore.isLoading = false
+    listStore.isTableLoading = false;
   }
-}
+};
 
 onMounted(async () => {
-  await handleSlideGet()
-  await handleLoad()
-})
+  await getSlideOptions();
+  await handleLoad();
+});
 
-onUnmounted(() => listStore.resetList(ListType.Show))
+onUnmounted(() => listStore.resetList(listType));
 </script>
 
 <template>
-  <div class="relative space-y-3 pt-4 w-full h-full flex flex-col">
-    <div class="flex items-center gap-3 mx-8">
-      <div class="font-bold text-xl">排行榜歌曲:</div>
+  <div class="relative flex h-full w-full flex-col space-y-3 pt-4">
+    <div class="mx-8 flex items-center gap-3">
+      <div class="text-xl font-bold">排行榜歌曲:</div>
       <SlideBar
         class="flex-1"
         :slide-width="88"
         :options="slideOptions"
         :selection="slideSelection"
-        @change="handleSlideChange" />
+        @change="changeSlideSelection"
+      />
     </div>
 
     <MusicActions />
-    <MusicTable class="h-0 flex-1" />
+    <MusicTable ref="musicTableRef" class="h-0 flex-1" />
   </div>
 </template>

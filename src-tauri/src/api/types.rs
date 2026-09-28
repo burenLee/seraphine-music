@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::http::server::Response;
-
 // 只保留需要的字段
 // 考虑到未来会使用其他字段, 只删除同级字段, 不越级移动字段
 // 字段可能有改动, 如果遇到 `解码失败` 的报错, 使用 hashmap 接收全部字段后检查
@@ -9,10 +7,12 @@ use crate::http::server::Response;
 // 关于 ApiResponse 的 error_code 值的猜测
 // 20006: 签名或者加密有问题, 20010: 少传了用户信息的某些字段
 
-/// 统一 api 类型的 command 函数的返回类型
-pub type ApiResult<T> = Result<Response<T>, String>;
+// 目前status的处理在前端,后期放到后端统一处理接口请求和响应内容的报错
 
-/// kg api接口的一般返回结构
+/// 统一 api 类型的 command 函数的返回类型
+pub type ApiResult<T> = Result<T, String>;
+
+/// 酷狗 api接口的一般返回结构
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
   pub status: i32,
@@ -22,16 +22,13 @@ pub struct ApiResponse<T> {
 
 /* ---------- artist start ---------- */
 
-#[allow(dead_code)]
 pub type ArtistList = ApiResponse<ArtistListData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ArtistListData {
   pub info: Vec<ArtistListInfo>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ArtistListInfo {
   pub singerid: u64,
@@ -46,10 +43,8 @@ pub struct ArtistListInfo {
 
 /* ---------- login start ---------- */
 
-#[allow(dead_code)]
 pub type LoginQrKey = ApiResponse<LoginQrKeyData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginQrKeyData {
   pub qrcode: String,
@@ -125,10 +120,8 @@ pub struct OpAccessToken {
   pub unionid: String,
 }
 
-#[allow(dead_code)]
 pub type LoginCaptcha = ApiResponse<LoginCaptchaData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginCaptchaData {
   pub count: u64,
@@ -152,14 +145,12 @@ pub struct LoginCellphoneData {
 
 /* ---------- lyric start ---------- */
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LyricSearch {
   pub status: i32,
   pub candidates: Vec<LyricSearchCandidate>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LyricSearchCandidate {
   pub id: String,
@@ -186,10 +177,8 @@ pub struct LyricGet {
 
 /* ---------- playlist start ---------- */
 
-#[allow(dead_code)]
 pub type PlaylistTags = ApiResponse<Vec<PlaylistTagsData>>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistTagsData {
   pub parent_id: String,
@@ -203,16 +192,13 @@ pub struct PlaylistTagsData {
 
 /* ---------- rank start ---------- */
 
-#[allow(dead_code)]
 pub type RankTop = ApiResponse<RankTopData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RankTopData {
   pub list: Vec<RankTopItem>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RankTopItem {
   pub rankid: u64,
@@ -221,16 +207,13 @@ pub struct RankTopItem {
   pub intro: String,
 }
 
-#[allow(dead_code)]
 pub type RanlAudio = ApiResponse<RanlAudioData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RanlAudioData {
   pub songlist: Vec<RanlAudioSong>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RanlAudioSong {
   pub audio_id: u64,
@@ -242,14 +225,12 @@ pub struct RanlAudioSong {
   pub business: RankAudioBusiness,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RanlAudioAlbumInfo {
   pub album_name: String,
   pub sizable_cover: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RanlAudioInfo {
   pub bitrate: u64,
@@ -273,7 +254,6 @@ pub struct RanlAudioInfo {
   pub filesize_super: u64,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RankAudioBusiness {
   pub original_index: u64,
@@ -294,7 +274,6 @@ pub struct RegisterDevData {
 
 /* ---------- song start ---------- */
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SongUrl {
   pub status: i32,
@@ -305,17 +284,14 @@ pub struct SongUrl {
 
 /* ---------- top start ---------- */
 
-#[allow(dead_code)]
 pub type TopCard = ApiResponse<TopCardData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopCardData {
   pub rec_desc: String,
   pub song_list: Vec<TopCardSong>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopCardSong {
   pub songname: String,
@@ -336,17 +312,14 @@ pub struct TopCardSong {
   pub filesize_flac: u64,
 }
 
-#[allow(dead_code)]
 pub type TopPlaylist = ApiResponse<TopPlaylistData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopPlaylistData {
   // 有时候不会返回这个字段
   pub special_list: Option<Vec<TopPlaylistSpecial>>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopPlaylistSpecial {
   pub specialid: u64,
@@ -355,10 +328,8 @@ pub struct TopPlaylistSpecial {
   pub flexible_cover: String,
 }
 
-#[allow(dead_code)]
 pub type TopAlbum = ApiResponse<TopAlbumData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopAlbumData {
   pub chn: Vec<TopAlbumItem>,
@@ -367,7 +338,6 @@ pub struct TopAlbumData {
   pub kor: Vec<TopAlbumItem>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopAlbumItem {
   pub albumid: u64,
@@ -380,16 +350,13 @@ pub struct TopAlbumItem {
 
 /* ---------- user start ---------- */
 
-#[allow(dead_code)]
 pub type PlaylistUser = ApiResponse<PlaylistUserData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistUserData {
   pub info: Vec<PlaylistUserInfo>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistUserInfo {
   pub count: u64,
@@ -407,7 +374,6 @@ pub struct PlaylistUserInfo {
   pub list_type: u64, // 列表类型(不确定), 0: 自定义歌单, 1: 收藏歌单
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistUserInfoTag {
   pub parent_id: u64,
@@ -415,10 +381,8 @@ pub struct PlaylistUserInfoTag {
   pub tag_name: String,
 }
 
-#[allow(dead_code)]
 pub type PlaylistTracksAll = ApiResponse<PlaylistTracksAllData>;
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistTracksAllData {
   begin_idx: u64,
@@ -428,7 +392,6 @@ pub struct PlaylistTracksAllData {
   songs: Vec<PlaylistTracksAllSong>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistTracksAllSong {
   album_id: String,
@@ -443,14 +406,12 @@ pub struct PlaylistTracksAllSong {
   timelen: u64, // 歌曲时长(ms)
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistTracksAlbumInfo {
   id: u64,
   name: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistTracksRelateGoods {
   bitrate: u64,
@@ -460,7 +421,6 @@ pub struct PlaylistTracksRelateGoods {
   size: u64,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaylistTracksSingerInfo {
   avatar: String,
@@ -469,3 +429,74 @@ pub struct PlaylistTracksSingerInfo {
 }
 
 /* ---------- user end ---------- */
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn api_response_roundtrip() {
+    let resp = ApiResponse {
+      status: 200,
+      error_code: None,
+      data: Some("data".to_string()),
+    };
+
+    let json = serde_json::to_string(&resp).unwrap();
+    let back: ApiResponse<String> = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(back.status, 200);
+    assert_eq!(back.error_code, None);
+    assert_eq!(back.data.as_deref(), Some("data"));
+  }
+
+  #[test]
+  fn playlist_user_info_rename_type_and_default_is_def() {
+    let json = r#"{"count":1,"name":"n","pic":"p","list_create_gid":"g","list_create_listid":1,"list_create_userid":1,"list_create_username":"u","musiclib_tags":[],"sort":0,"type":2}"#;
+    let info: PlaylistUserInfo = serde_json::from_str(json).unwrap();
+
+    assert_eq!(info.list_type, 2);
+    assert_eq!(info.is_def, 0);
+    assert_eq!(info.name, "n");
+  }
+
+  #[test]
+  fn playlist_user_info_serializes_renamed_type() {
+    let info = PlaylistUserInfo {
+      count: 1,
+      name: "n".to_string(),
+      pic: "p".to_string(),
+      list_create_gid: "g".to_string(),
+      list_create_listid: 1,
+      list_create_userid: 1,
+      list_create_username: "u".to_string(),
+      musiclib_tags: vec![],
+      sort: 0,
+      is_def: 1,
+      list_type: 2,
+    };
+
+    let json = serde_json::to_string(&info).unwrap();
+
+    assert!(json.contains("\"type\":2"));
+    assert!(json.contains("\"is_def\":1"));
+  }
+
+  #[test]
+  fn login_qr_check_optional_fields_default_to_none() {
+    let json = r#"{"status":0}"#;
+    let check: LoginQrCheckData = serde_json::from_str(json).unwrap();
+
+    assert_eq!(check.status, 0);
+    assert_eq!(check.userid, None);
+    assert_eq!(check.nickname, None);
+  }
+
+  #[test]
+  fn top_playlist_special_list_optional() {
+    let json = r#"{"special_list":null}"#;
+    let top: TopPlaylistData = serde_json::from_str(json).unwrap();
+
+    assert!(top.special_list.is_none());
+  }
+}

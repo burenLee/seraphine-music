@@ -1,36 +1,37 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useSettingStore } from '@/stores/setting'
-import { cn } from '@/utils/tools'
-import { onUnmounted, watch } from 'vue'
+import { watch } from 'vue';
 
-defineOptions({ inheritAttrs: false })
+import ActionButton from '@/components/ActionButton.vue';
+import SvgIcon from '@/components/SvgIcon.vue';
+import { useSettingStore } from '@/stores/setting';
+import { cn } from '@/utils/tools';
+
+defineOptions({ inheritAttrs: false });
 
 interface Props {
-  title?: string
+  title?: string;
   /** 点击遮罩是否关闭模态框 */
-  maskClosed?: boolean
+  maskClosed?: boolean;
   /** 隐藏标题栏 */
-  hideHeader?: boolean
+  hideHeader?: boolean;
   /** 隐藏操作栏 */
-  hideFooter?: boolean
+  hideFooter?: boolean;
   /** 隐藏确认按钮 */
-  hideConfirm?: boolean
+  hideConfirm?: boolean;
   /** 隐藏取消按钮 */
-  hideCancel?: boolean
+  hideCancel?: boolean;
   /** 确认按钮显示名称 */
-  confirmLabel?: string
+  confirmLabel?: string;
   /** 取消按钮显示名称 */
-  cancelLabel?: string
+  cancelLabel?: string;
 }
 
 interface Emits {
-  cancel: []
-  confirm: []
+  cancel: [];
+  confirm: [];
 }
 
-const visible = defineModel<boolean>({ required: true })
+const visible = defineModel<boolean>({ required: true });
 const {
   title,
   maskClosed = true,
@@ -39,32 +40,26 @@ const {
   hideConfirm,
   hideCancel,
   confirmLabel = '确认',
-  cancelLabel = '取消'
-} = defineProps<Props>()
-const emits = defineEmits<Emits>()
+  cancelLabel = '取消',
+} = defineProps<Props>();
+const emits = defineEmits<Emits>();
 
-const settingStore = useSettingStore()
+const settingStore = useSettingStore();
 
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key !== 'Escape') return
+const handleCancel = (e: KeyboardEvent) => {
+  if (e.key !== 'Escape') return;
 
-  e.preventDefault()
-  emits('cancel')
-}
+  e.preventDefault();
+  emits('cancel');
+};
 
-watch(
-  visible,
-  (visible) => {
-    if (visible) {
-      document.addEventListener('keyup', handleKeydown)
-    } else {
-      document.removeEventListener('keyup', handleKeydown)
-    }
-  },
-  { immediate: true }
-)
-
-onUnmounted(() => document.removeEventListener('keyup', handleKeydown))
+watch(visible, (visible) => {
+  if (visible) {
+    window.addEventListener('keyup', handleCancel);
+  } else {
+    window.removeEventListener('keyup', handleCancel);
+  }
+});
 </script>
 
 <template>
@@ -72,29 +67,31 @@ onUnmounted(() => document.removeEventListener('keyup', handleKeydown))
     <Transition name="modal">
       <div
         v-if="visible"
-        ref="modalRef"
-        class="flex items-center justify-center fixed inset-0 z-40 bg-shadow backdrop-blur-sm"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-shadow backdrop-blur-sm"
         :style="{ fontFamily: settingStore.fontFamily }"
-        @click="maskClosed && emits('cancel')">
+        @click="maskClosed && emits('cancel')"
+      >
         <div
           class="modal-container overflow-hidden transition-transform duration-300"
-          :class="cn('rounded-lg z-40 bg-background shadow-md shadow-shadow', $attrs.class)"
-          @click.stop>
+          :class="cn('z-40 rounded-lg bg-background shadow-md shadow-shadow', $attrs.class)"
+          @click.stop
+        >
           <slot name="header">
-            <div v-if="!hideHeader" class="flex items-center justify-between p-4">
-              <div class="font-bold text-base">{{ title }}</div>
+            <div v-if="!hideHeader" class="flex items-center justify-between py-4 pl-6 pr-4">
+              <div class="text-base font-bold">{{ title }}</div>
               <SvgIcon
                 class="action-icon hover:text-error"
                 name="Close"
                 size="20"
-                @click="emits('cancel')" />
+                @click="emits('cancel')"
+              />
             </div>
           </slot>
 
           <slot></slot>
 
           <slot name="footer">
-            <div v-if="!hideFooter" class="flex items-center justify-end gap-3 p-4">
+            <div v-if="!hideFooter" class="flex items-center justify-end gap-3 px-6 py-4">
               <slot name="actions"></slot>
 
               <ActionButton v-if="!hideCancel" @click="emits('cancel')">

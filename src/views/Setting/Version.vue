@@ -1,22 +1,23 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import ProgressRange from '@/components/ProgressRange.vue'
-import { useUpdaterStore } from '@/stores/updater'
-import { formatFileSize } from '@/utils/tools'
-import { computed } from 'vue'
+import { computed } from 'vue';
 
-const updaterStore = useUpdaterStore()
+import ActionButton from '@/components/ActionButton.vue';
+import ProgressRange from '@/components/ProgressRange.vue';
+import { useUpdaterStore } from '@/stores/updater';
+import { formatFileSize } from '@/utils/tools';
+
+const updaterStore = useUpdaterStore();
 
 const progressPercent = computed(() =>
   updaterStore.downloadInfo
     ? Math.ceil((updaterStore.downloadInfo.downloaded / updaterStore.downloadInfo.total) * 100)
-    : 0
-)
+    : 0,
+);
 </script>
 
 <template>
   <div class="flex text-base">
-    <div class="font-bold w-40 shrink-0">关于 Seraphine:</div>
+    <div class="w-40 shrink-0 font-bold">关于 Seraphine:</div>
 
     <div class="space-y-3">
       <!-- 当前版本 + 检查更新按钮 -->
@@ -26,16 +27,17 @@ const progressPercent = computed(() =>
           <span class="font-bold">{{ updaterStore.updateInfo?.currentVersion }}</span>
 
           <span v-if="updaterStore.updateInfo?.hasUpdate" class="text-info">
-            (新版本
-            <span class="font-bold">{{ updaterStore.updateInfo.latestVersion }}</span
-            >)
+            [新版本
+            <span class="font-bold">{{ updaterStore.updateInfo.latestVersion }}</span>
+            ]
           </span>
         </div>
 
         <ActionButton
           theme="success"
           :disabled="updaterStore.isChecking || updaterStore.isDownloading"
-          @click="updaterStore.check">
+          @click="updaterStore.check"
+        >
           {{ updaterStore.isChecking ? '检查中...' : '检查更新' }}
         </ActionButton>
 
@@ -43,17 +45,18 @@ const progressPercent = computed(() =>
           v-if="updaterStore.updateInfo?.hasUpdate"
           theme="success"
           :disabled="updaterStore.isDownloading"
-          @click="updaterStore.download">
+          @click="updaterStore.download"
+        >
           下载更新
         </ActionButton>
       </div>
 
-      <div v-if="!updaterStore.updateInfo?.hasUpdate" class="text-minor font-bold">
+      <div v-if="!updaterStore.updateInfo?.hasUpdate" class="font-bold text-minor">
         已是最新版本
       </div>
       <div v-else-if="!updaterStore.isDownloaded" class="space-y-3">
         <!-- Changelog（latest.json 的 notes 字段，GitHub 自动生成的 Release Notes） -->
-        <pre v-if="updaterStore.updateInfo?.body" class="max-h-60 overflow-auto p-3 text-sm card">{{
+        <pre v-if="updaterStore.updateInfo?.body" class="card max-h-60 overflow-auto p-3 text-sm">{{
           updaterStore.updateInfo.body
         }}</pre>
 
@@ -68,7 +71,8 @@ const progressPercent = computed(() =>
             v-model="updaterStore.downloadInfo.downloaded"
             :max="updaterStore.downloadInfo.total"
             showMode="hover"
-            :disabled="true" />
+            :disabled="true"
+          />
 
           <div class="flex items-center justify-between text-xs">
             <span>

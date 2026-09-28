@@ -1,43 +1,45 @@
 <script lang="ts" setup>
-import SelectModal from '@/components/SelectModal.vue'
-import { useLyricStore } from '@/stores/lyric'
-import { useSettingStore } from '@/stores/setting'
-import { vOnClickOutside } from '@vueuse/components'
-import { computed, ref } from 'vue'
+import { vOnClickOutside } from '@vueuse/components';
+import { computed, ref } from 'vue';
 
-const lyricStore = useLyricStore()
-const settingStore = useSettingStore()
+import SelectModal from '@/components/SelectModal.vue';
+import { useLyricStore } from '@/stores/lyric';
+import { useSettingStore } from '@/stores/setting';
 
-const fontFamilyVisible = ref(false)
-const fontFamilyOptions = ref<Array<SelectOption<FontValue>>>([])
+const lyricStore = useLyricStore();
+const settingStore = useSettingStore();
+
+const fontFamilyVisible = ref(false);
+const fontFamilyOptions = ref<Array<SelectOption<FontValue>>>([]);
 
 const fontFamilySelection = computed(
   () =>
     fontFamilyOptions.value.find((item) => item.value === lyricStore.fontFamily) ||
-    fontFamilyOptions.value[0]
-)
+    fontFamilyOptions.value[0],
+);
 
 const handleFontFamilyClick = () => {
-  fontFamilyVisible.value = !fontFamilyVisible.value
+  fontFamilyVisible.value = !fontFamilyVisible.value;
 
-  if (settingStore.availableFonts.length === 0) settingStore.getAvailableFonts()
+  if (settingStore.availableFonts.length === 0) settingStore.getAvailableFonts();
   fontFamilyOptions.value = settingStore.availableFonts.map(
-    ([label, value]: [string, FontValue]) => ({ label, value })
-  )
-}
+    ([label, value]: [string, FontValue]) => ({ label, value }),
+  );
+};
 
 const handleFontFamilySelect = (font: FontValue) => {
-  lyricStore.setFontFamily(font)
-  fontFamilyVisible.value = false
-}
+  lyricStore.setFontFamily(font);
+  fontFamilyVisible.value = false;
+};
 </script>
 
 <template>
   <div class="relative" v-on-click-outside="() => (fontFamilyVisible = false)">
     <div
-      class="action-icon text-base card flex justify-center items-center"
+      class="action-icon card flex items-center justify-center text-base"
       title="歌词字体"
-      @click="handleFontFamilyClick">
+      @click="handleFontFamilyClick"
+    >
       A
     </div>
 
@@ -46,7 +48,8 @@ const handleFontFamilySelect = (font: FontValue) => {
       :visible="fontFamilyVisible"
       :options="fontFamilyOptions"
       :selection="fontFamilySelection"
-      @select="handleFontFamilySelect">
+      @select="handleFontFamilySelect"
+    >
     </SelectModal>
   </div>
 </template>

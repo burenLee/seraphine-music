@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "seraphine-music",
-  "version": "0.1.7",
-  "identifier": "com.tauri.seraphine-music",
+  "productName": "SeraphineMusic",
+  "version": "0.2.0",
+  "identifier": "com.burenlee.seraphine-music",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -14,10 +14,11 @@
       {
         "label": "main",
         "title": "Seraphine 音乐播放器",
-        "decorations": false,
         "minWidth": 1152,
         "minHeight": 768,
-        "center": true
+        "decorations": false,
+        "center": true,
+        "visible": false
       }
     ],
     "security": {

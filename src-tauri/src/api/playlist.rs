@@ -3,125 +3,135 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tauri_plugin_http::reqwest::Method;
 
 use crate::{
-  api::libs::ApiResult,
+  api::types::ApiResult,
   http::{
-    config::HttpConfig,
-    server::{request, RequestOptions, Response, ResponseType},
+    config::{HttpConfig, StaticConfigMode},
+    cookie::{HttpCookie, ModeCookies},
+    request::HttpRequest,
   },
   utils::{
     crypto::{decrypt_aes_playlist, encrypt_aes_playlist, encrypt_rsa_pad},
     helper::sign_key_params,
+    logger::LogErrExt,
   },
 };
 
 #[tauri::command]
-/// 歌单分类
+/// ## 歌单分类
 pub async fn api_playlist_tags() -> ApiResult<HashMap<String, Value>> {
   let data = json!({ "tag_type": "collection", "tag_id": 0, "source": 3 });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/pubsongs/v1/get_tags_by_type")
-    .method(Method::POST)
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .post()
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_tags", "请求失败")
 }
 
 #[tauri::command]
-/// 获取用户的歌单
+/// ## 用户歌单
+///
+/// ### 可选参数
+/// * `page` - 默认 1
+/// * `page_size` - 默认 10
 pub async fn api_playlist_user(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
-  let userid = kg_dynamic_config.cookies.userid;
-  let token = kg_dynamic_config.cookies.token;
-
-  let params = json!({ "plat": 1, "userid": userid, "token": token });
+  let params = json!({ "plat": 1, "userid": cookies.userid, "token": cookies.token });
   let Value::Object(params) = params else { unreachable!() };
 
   let data = json!({
-    "userid": userid,
-    "token": token,
+    "userid": cookies.userid,
+    "token": cookies.token,
     "total_ver": 979,
     "type": 2,
     "page": page.unwrap_or(1),
     "pagesize": page_size.unwrap_or(10),
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/v7/get_all_list")
-    .method(Method::POST)
-    .add_header("x-router", "cloudlist.service.kugou.com")
+    .post()
+    .header("x-router", "cloudlist.service.kugou.com")
     .params(params)
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_user", "请求失败")
 }
 
 #[tauri::command]
-/// 获取歌单详情
+/// ## 歌单详情
 ///
-/// ## 必选参数
-/// * `ids` - global_collection_id / list_create_gid的集合
+/// ### 必选参数
+/// * `gids` - global_collection_id / list_create_gid 的集合
 pub async fn api_playlist_detail(gids: Vec<&str>) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
   let ids: Vec<Value> = gids
     .iter()
     .map(|i| json!({ "global_collection_id": i }))
     .collect();
 
-  let data = json!({
-    "data": ids,
-    "userid": kg_dynamic_config.cookies.userid,
-    "token": kg_dynamic_config.cookies.token,
-  });
+  let data = json!({ "data": ids, "userid": cookies.userid, "token": cookies.token });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/v3/get_list_info")
-    .method(Method::POST)
-    .add_header("x-router", "pubsongs.kugou.com")
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .post()
+    .header("x-router", "pubsongs.kugou.com")
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_detail", "请求失败")
 }
 
 #[tauri::command]
-/// 收藏歌单或新建歌单
+/// ## 收藏/新建歌单
 ///
-/// ### 说明
 /// 登录状态下可收藏已有歌单或创建新歌单。
 ///
 /// 收藏成功后，建议使用 `/playlist/tracks/add` 接口将原歌单下的歌曲添加到新歌单。
 ///
 /// ### 必选参数
 /// * `name` - 歌单名称
-/// * `list_create_userid` - 歌单创建用户id
-
+/// * `userid` - 歌单创建用户id
+///
 /// ### 可选参数
 /// * `is_pri` - 是否设为隐私: `0` 为公开, `1` 为隐私, 默认为 `0`, 该字段仅在创建歌单时有效
 /// * `list_type` - 操作类型: `0` 为创建歌单，`1` 为收藏歌单, 默认为 `0`
-/// * `list_create_listid` - 歌单创建列表id
-/// * `list_create_gid` - 歌单创建gid
+/// * `listid` - 歌单创建列表id
+/// * `gid` - 歌单创建gid
 /// * `source` - 不知道什么作用
 pub async fn api_playlist_add(
   name: &str,
-  list_create_userid: u64,
+  userid: u64,
   is_pri: Option<u64>,
   list_type: Option<u64>,
-  list_create_gid: Option<u64>,
-  list_create_listid: Option<u64>,
+  gid: Option<u64>,
+  listid: Option<u64>,
   source: Option<u64>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
-  let userid = kg_dynamic_config.cookies.userid;
-  let token = kg_dynamic_config.cookies.token;
   let client_time = Utc::now().timestamp();
 
   let source = match source {
@@ -137,109 +147,117 @@ pub async fn api_playlist_add(
 
   let params = match list_type {
     Some(0) => {
-      json!({ "last_time": client_time, "last_area": "gztx", "userid": userid, "token": token })
+      json!({ "last_time": client_time, "last_area": "gztx", "userid": cookies.userid, "token": cookies.token })
     }
     _ => json!({}),
   };
   let Value::Object(params) = params else { unreachable!() };
 
   let data = json!({
-    "userid": userid,
-    "token": token,
+    "userid": cookies.userid,
+    "token": cookies.token,
     "name": name,
-    "list_create_userid": list_create_userid,
+    "list_create_userid": userid,
     "is_pri": is_pri,
     "type": list_type.unwrap_or_default(),
-    "list_create_listid": list_create_listid,
-    "list_create_gid": list_create_gid.unwrap_or_default(),
+    "list_create_listid": listid.unwrap_or_default(),
+    "list_create_gid": gid.unwrap_or_default(),
     "source": source,
     "total_ver": 0,
     "from_shupinmv": 0,
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/cloudlist.service/v5/add_list")
-    .method(Method::POST)
+    .post()
     .params(params)
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_add", "请求失败")
 }
 
 #[tauri::command]
-/// 取消收藏歌单/删除歌单
+/// ## 取消收藏/删除歌单
 ///
 /// ### 必选参数
 /// * `listid` - 歌单id
 pub async fn api_playlist_del(listid: u64) -> Result<HashMap<String, Value>, String> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
-  let kg_static_config = HttpConfig::get_kg_static_config();
-
-  let userid = kg_dynamic_config.cookies.userid;
-  let token = kg_dynamic_config.cookies.token;
+  let static_config = match HttpConfig::get_static_config() {
+    StaticConfigMode::KgMobile(config) => config,
+    StaticConfigMode::KgLite(config) => config,
+  };
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
   let client_time = Utc::now().timestamp();
 
   let data = json!({ "listid": listid, "total_ver": 0, "type": 1 });
-  let aes_encrypted = encrypt_aes_playlist(data.to_string()).map_err(|e| e.to_string())?;
+  let (aes_res, aes_key) =
+    encrypt_aes_playlist(data.to_string()).log_command("api_playlist_del", "aes加密失败")?;
 
-  let p_data = json!({ "aes": aes_encrypted.key, "uid": userid, "token": token });
+  let p_data = json!({ "aes": aes_key, "uid": cookies.userid, "token": cookies.token });
   let p = encrypt_rsa_pad(p_data.to_string())
     .map(|p| p.to_uppercase())
-    .map_err(|e| e.to_string())?;
+    .log_command("api_playlist_del", "p加密失败")?;
 
   let params = json!({
     "clienttime": client_time,
     "key": sign_key_params(&client_time.to_string(), None, None),
     "last_area": "gztx",
-    "clientver": kg_static_config.client_ver,
-    "appid": kg_static_config.appid,
+    "clientver": static_config.client_ver,
+    "appid": static_config.appid,
     "last_time": client_time,
     "p": p,
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let opts = RequestOptions::new()
+  let resp_bytes = HttpRequest::new()
     .url("/v2/delete_list")
-    .method(Method::POST)
-    .add_header("x-router", "cloudlist.service.kugou.com")
+    .post()
+    .header("x-router", "cloudlist.service.kugou.com")
     .params(params)
-    .data(Value::String(aes_encrypted.str))
-    .response_type(ResponseType::Bytes);
-
-  let resp = request::<Value>(opts).await.map_err(|e| e.to_string())?;
-  let Response::Bytes(resp_bytes) = resp else { unreachable!() };
+    .data(Value::String(aes_res))
+    .builder()
+    .bytes()
+    .await
+    .log_command("api_playlist_del", "请求失败")?;
 
   // 如果是报错返回, 不需要解密处理, 所以先尝试解析
   let resp_str = String::from_utf8_lossy(&resp_bytes);
   if resp_str.starts_with('{') {
-    return serde_json::from_str::<HashMap<String, Value>>(&resp_str).map_err(|e| e.to_string());
+    return serde_json::from_str::<HashMap<String, Value>>(&resp_str)
+      .log_command("api_playlist_del", "序列化失败");
   }
 
   let resp_base64 = STANDARD.encode(&resp_bytes);
   let resp_decrypted =
-    decrypt_aes_playlist(&resp_base64, &aes_encrypted.key).map_err(|e| e.to_string())?;
-  let resp_map = serde_json::from_str(&resp_decrypted).map_err(|e| e.to_string())?;
+    decrypt_aes_playlist(&resp_base64, &aes_key).log_command("api_playlist_del", "resp解密失败")?;
+  let resp_map =
+    serde_json::from_str(&resp_decrypted).log_command("api_playlist_del", "resp序列化失败")?;
 
   Ok(resp_map)
 }
 
 #[tauri::command]
-/// 获取歌单所有歌曲(旧)
+/// ## 歌单所有歌曲(旧)
 ///
-/// # 必选参数
+/// ### 必选参数
 /// * `gid` - 歌单 global_collection_id / list_create_gid
 ///
-/// # 可选参数
+/// ### 可选参数
 /// * `page` - 页码, 默认为 1
-/// * `page_size` - 每页数量, 默认为 30
+/// * `page_size` - 每页数量, 默认为 10
 pub async fn api_playlist_tracks_all(
   gid: &str,
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
   let page = page.unwrap_or(1);
-  let page_size = page_size.unwrap_or(30);
+  let page_size = page_size.unwrap_or(10);
 
   let params = json!({
     "area_code": 1,
@@ -255,49 +273,56 @@ pub async fn api_playlist_tracks_all(
 
   let Value::Object(params) = params else { unreachable!() };
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/pubsongs/v2/get_other_list_file_nofilt")
-    .params(params);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .params(params)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_tracks_all", "请求失败")
 }
 
 #[tauri::command]
-/// 获取歌单所有歌曲(新)
+/// ## 歌单所有歌曲(新)
 ///
-/// # 必选参数
+/// ### 必选参数
 /// * `listid` - 歌单id
 ///
-/// # 可选参数
+/// ### 可选参数
 /// * `page` - 页码, 默认为 1
-/// * `page_size` - 每页数量, 默认为 30
+/// * `page_size` - 每页数量, 默认为 10
 pub async fn api_playlist_tracks_all_new(
   listid: u64,
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
   let data = json!({
     "listid": listid,
-    "userid": kg_dynamic_config.cookies.userid,
+    "userid": cookies.userid,
     "area_code": 1,
     "show_relate_goods": 0,
     "pagesize": page_size.unwrap_or(10),
     "allplatform": 1,
     "show_cover": 1,
     "type": 0,
-    "token": kg_dynamic_config.cookies.token,
+    "token": cookies.token,
     "page": page.unwrap_or(1),
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/v4/get_list_all_file")
-    .method(Method::POST)
-    .add_header("x-router", "cloudlist.service.kugou.com")
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .post()
+    .header("x-router", "cloudlist.service.kugou.com")
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_tracks_all_new", "请求失败")
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -309,32 +334,34 @@ pub struct ListMusicInfo {
 }
 
 #[tauri::command]
-/// 对歌单添加歌曲
-/// 说明 : 调用此接口 , 可以添加歌曲到歌单 (需要登录)
+/// ## 对歌单添加歌曲
 ///
-/// ## 必选参数
+/// ### 说明
+/// 需要登录, 可以添加歌曲到歌单
+///
+/// ### 必选参数
 /// * `list_id` - 用户的歌单id
 /// * `music_list` - 需要添加的歌曲数据
 pub async fn api_playlist_tracks_add(
   list_id: u64,
   music_list: Vec<ListMusicInfo>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
-
-  let userid = kg_dynamic_config.cookies.userid;
-  let token = kg_dynamic_config.cookies.token;
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
   let client_time = Utc::now().timestamp();
 
   let params = json!({
     "last_time": client_time,
     "last_area": "gztx",
-    "userid": userid,
-    "token": token,
+    "userid": cookies.userid,
+    "token": cookies.token,
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let music_list = music_list
+  let music_list: Vec<Value> = music_list
     .into_iter()
     .map(|music| {
       json!({
@@ -349,11 +376,11 @@ pub async fn api_playlist_tracks_add(
         "mixsongid": music.mixsongid.unwrap_or_default(),
       })
     })
-    .collect::<Vec<Value>>();
+    .collect();
 
   let data = json!({
-    "userid": userid,
-    "token": token,
+    "userid": cookies.userid,
+    "token": cookies.token,
     "listid": list_id,
     "list_ver": 0,
     "type": 0,
@@ -362,169 +389,49 @@ pub async fn api_playlist_tracks_add(
     "data": music_list,
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/cloudlist.service/v6/add_song")
-    .method(Method::POST)
+    .post()
     .params(params)
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_tracks_add", "请求失败")
 }
 
 #[tauri::command]
-/// 删除歌单歌曲
+/// ## 删除歌单歌曲
 ///
-/// ## 必选参数
+/// ### 必选参数
 /// * `list_id` - 用户歌单id
 /// * `file_ids` - 歌单中歌曲的 fileid
 pub async fn api_playlist_tracks_del(
   list_id: u64,
   file_ids: Vec<u64>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let kg_dynamic_config = HttpConfig::get_kg_dynamic_config();
+  let cookies = match HttpCookie::get_cookies() {
+    ModeCookies::KgMobile(cookies) => cookies,
+    ModeCookies::KgLite(cookies) => cookies,
+  };
 
   let ids: Vec<Value> = file_ids.iter().map(|i| json!({ "fileid": i })).collect();
-
-  let userid = kg_dynamic_config.cookies.userid;
-  let token = kg_dynamic_config.cookies.token;
-
   let data = json!({
     "listid": list_id,
-    "userid": userid,
+    "userid": cookies.userid,
     "data": ids,
     "type": 0,
-    "token": token,
+    "token": cookies.token,
     "list_ver": 0,
   });
 
-  let opts = RequestOptions::new()
+  HttpRequest::new()
     .url("/v4/delete_songs")
-    .method(Method::POST)
-    .add_header("x-router", "cloudlist.service.kugou.com")
-    .data(data);
-
-  request(opts).await.map_err(|e| e.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  // === URL 路径常量 ===
-
-  #[test]
-  fn test_playlist_tags_url() {
-    assert_eq!(
-      "/pubsongs/v1/get_tags_by_type",
-      "/pubsongs/v1/get_tags_by_type"
-    );
-  }
-
-  #[test]
-  fn test_playlist_user_url() {
-    assert_eq!("/v7/get_all_list", "/v7/get_all_list");
-  }
-
-  #[test]
-  fn test_playlist_detail_url() {
-    assert_eq!("/v3/get_list_info", "/v3/get_list_info");
-  }
-
-  #[test]
-  fn test_playlist_add_url() {
-    assert_eq!(
-      "/cloudlist.service/v5/add_list",
-      "/cloudlist.service/v5/add_list"
-    );
-  }
-
-  #[test]
-  fn test_playlist_del_url() {
-    assert_eq!("/v2/delete_list", "/v2/delete_list");
-  }
-
-  #[test]
-  fn test_playlist_tracks_all_url() {
-    assert_eq!(
-      "/pubsongs/v2/get_other_list_file_nofilt",
-      "/pubsongs/v2/get_other_list_file_nofilt"
-    );
-  }
-
-  #[test]
-  fn test_playlist_tracks_all_new_url() {
-    assert_eq!("/v4/get_list_all_file", "/v4/get_list_all_file");
-  }
-
-  #[test]
-  fn test_playlist_tracks_add_url() {
-    assert_eq!(
-      "/cloudlist.service/v6/add_song",
-      "/cloudlist.service/v6/add_song"
-    );
-  }
-
-  #[test]
-  fn test_playlist_tracks_del_url() {
-    assert_eq!("/v4/delete_songs", "/v4/delete_songs");
-  }
-
-  // === x-router 常量 ===
-
-  #[test]
-  fn test_playlist_router_constants() {
-    assert_eq!("cloudlist.service.kugou.com", "cloudlist.service.kugou.com");
-    assert_eq!("pubsongs.kugou.com", "pubsongs.kugou.com");
-  }
-
-  // === total_ver 常量 ===
-
-  #[test]
-  fn test_total_ver_constant() {
-    // api_playlist_user 中 total_ver = 979
-    assert_eq!(979, 979);
-  }
-
-  // === 命令签名约束 ===
-
-  #[test]
-  fn test_command_signatures_exist() {
-    let _ = api_playlist_tags;
-    let _ = api_playlist_user;
-    let _ = api_playlist_detail;
-    let _ = api_playlist_add;
-    let _ = api_playlist_del;
-    let _ = api_playlist_tracks_all;
-    let _ = api_playlist_tracks_all_new;
-    let _ = api_playlist_tracks_add;
-    let _ = api_playlist_tracks_del;
-  }
-
-  // === ListMusicInfo 结构体 ===
-
-  #[test]
-  fn test_list_music_info_serialization() {
-    let info = ListMusicInfo {
-      name: String::from("song"),
-      hash: String::from("abc"),
-      album_id: Some(1),
-      mixsongid: Some(2),
-    };
-    let json = serde_json::to_string(&info).unwrap();
-    assert!(json.contains("\"name\":\"song\""));
-    assert!(json.contains("\"hash\":\"abc\""));
-  }
-
-  #[test]
-  fn test_list_music_info_optional_fields() {
-    let info = ListMusicInfo {
-      name: String::from("s"),
-      hash: String::from("h"),
-      album_id: None,
-      mixsongid: None,
-    };
-    let json = serde_json::to_string(&info).unwrap();
-    assert!(json.contains("\"album_id\":null"));
-    assert!(json.contains("\"mixsongid\":null"));
-  }
+    .post()
+    .header("x-router", "cloudlist.service.kugou.com")
+    .data(data)
+    .builder()
+    .json()
+    .await
+    .log_command("api_playlist_tracks_del", "请求失败")
 }

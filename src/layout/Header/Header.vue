@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import Login from './Login/Login.vue'
-import Menu from './Menu/Menu.vue'
-import Search from './Search.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import SystemActions from '@/components/SystemActions.vue'
-import { useRefreshStore } from '@/stores/refresh'
-import { useRouter } from 'vue-router'
+import { useRouter } from 'vue-router';
 
-const router = useRouter()
-const refreshStore = useRefreshStore()
+import SvgIcon from '@/components/SvgIcon.vue';
+import SystemActions from '@/components/SystemActions.vue';
+import { useRefreshStore } from '@/stores/refresh';
+
+import Login from './Login/Login.vue';
+import Menu from './Menu/Menu.vue';
+import Search from './Search.vue';
+
+const router = useRouter();
+const refreshStore = useRefreshStore();
 </script>
 
 <template>
-  <header data-tauri-drag-region class="flex z-10 justify-between px-6 pt-6">
+  <header data-tauri-drag-region class="z-10 flex justify-between px-6 pt-6">
     <!-- 左侧 -->
     <div class="flex items-center gap-1">
       <SvgIcon class="action-icon" name="Left" size="18" @click="router.back" />

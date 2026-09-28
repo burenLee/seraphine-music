@@ -1,8 +1,8 @@
 ﻿<script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import { useListStore } from '@/stores/list'
+import ActionButton from '@/components/ActionButton.vue';
+import { useListStore } from '@/stores/list';
 
-const { toggleChecked } = useListStore()
+const { toggleChecked } = useListStore();
 </script>
 
 <template>

@@ -1,26 +1,22 @@
 <script setup lang="ts">
-import Carousel from '@/components/Carousel.vue'
-import SvgIcon from '@/components/SvgIcon.vue'
-import { useListStore } from '@/stores/list'
-import { useMusicStore } from '@/stores/music'
-import { getFullName, getOrigin, getPic } from '@/utils/music'
-import { ApiInvokeStatus, ListType, PicSize } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue';
 
-const musciStore = useMusicStore()
-const listStore = useListStore()
+import Carousel from '@/components/Carousel.vue';
+import { notify } from '@/components/Notification.vue';
+import SvgIcon from '@/components/SvgIcon.vue';
+import { defaultInfo, useListStore } from '@/stores/list';
+import { useMusicStore } from '@/stores/music';
+import { getFullName, getOrigin, getPic } from '@/utils/music';
+import { ApiInvokeStatus, ListType, PicSize } from '@/utils/params';
+import { invoke } from '@/utils/tools';
 
-const likeMusicList = ref<MusicList>({
-  info: { id: '', cover: '', title: '', artist: '', count: 0, tags: [] },
-  list: []
-})
-const currentLikeMusic = ref<ListMusic>()
-const recommendMusicList = ref<MusicList>({
-  info: { id: '', cover: '', title: '', artist: '', count: 0, tags: [] },
-  list: []
-})
-const currentRecommendMusic = ref<ListMusic>()
+const musciStore = useMusicStore();
+const listStore = useListStore();
+
+const likeMusicList = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
+const currentLikeMusic = ref<MusicInfo>();
+const recommendMusicList = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
+const currentRecommendMusic = ref<MusicInfo>();
 const bannerList = ref([
   {
     title: '猜你喜欢',
@@ -28,15 +24,13 @@ const bannerList = ref([
     img: '',
     bgColor: 'var(--color-info)',
     onClick: () => {
-      if (!currentLikeMusic.value) return
+      if (!currentLikeMusic.value) return;
 
-      musciStore.setMusic(currentLikeMusic.value, {
-        origin: getOrigin(currentLikeMusic.value)
-      })
+      musciStore.setMusic(currentLikeMusic.value, { origin: getOrigin(currentLikeMusic.value) });
       if (listStore.play.info.id !== likeMusicList.value.info.id) {
-        listStore.setList(ListType.Play, likeMusicList.value)
+        listStore.setList(ListType.Play, likeMusicList.value);
       }
-    }
+    },
   },
   {
     title: '每日推荐',
@@ -44,15 +38,15 @@ const bannerList = ref([
     img: '',
     bgColor: 'var(--color-success)',
     onClick: () => {
-      if (!currentRecommendMusic.value) return
+      if (!currentRecommendMusic.value) return;
 
       musciStore.setMusic(currentRecommendMusic.value, {
-        origin: getOrigin(currentRecommendMusic.value)
-      })
+        origin: getOrigin(currentRecommendMusic.value),
+      });
       if (listStore.play.info.id !== recommendMusicList.value.info.id) {
-        listStore.setList(ListType.Play, recommendMusicList.value)
+        listStore.setList(ListType.Play, recommendMusicList.value);
       }
-    }
+    },
   },
   {
     title: '排行榜',
@@ -60,56 +54,22 @@ const bannerList = ref([
     img: '',
     bgColor: 'var(--color-warning)',
     disabled: true,
-    onClick: () => 'TODO: 排行榜'
-  }
-])
+    onClick: () => 'TODO: 排行榜',
+  },
+]);
 
 const getLikeList = async () => {
-  const personal_fm = await invoke('api_personal_fm')
-  if (personal_fm?.status !== 1) return
-
-  const info: ListInfo = {
-    id: 'like',
-    cover: '',
-    title: '猜你喜欢',
-    artist: '',
-    count: personal_fm.data.song_list.length,
-    tags: []
-  }
-  const list: ListMusic[] = personal_fm.data.song_list.map((song, index) => ({
-    id: song.songid,
-    path: null,
-    hash: song.hash,
-    cover: song.trans_param.union_cover,
-    title: song.songname,
-    artist: song.author_name,
-    album: '',
-    duration: song.time_length,
-    sort: index
-  }))
-
-  likeMusicList.value = { info, list }
-  currentLikeMusic.value = list[0]
-  bannerList.value[0].intro = getFullName(currentLikeMusic.value)
-  bannerList.value[0].img = currentLikeMusic.value.cover
-    ? getPic(currentLikeMusic.value.cover, PicSize.Md)
-    : ''
-}
-
-const getRecommendLisd = async () => {
   try {
-    const api_music_everyday = await invoke('api_music_everyday')
-    if (api_music_everyday.status !== ApiInvokeStatus.Success) return
+    const { status, data } = await invoke('api_personal_fm');
+    if (status !== ApiInvokeStatus.Success) return;
 
     const info: ListInfo = {
-      id: 'recommend',
-      cover: '',
+      ...defaultInfo,
+      id: 'like',
       title: '猜你喜欢',
-      artist: '',
-      count: api_music_everyday.data.song_list_size,
-      tags: []
-    }
-    const list: ListMusic[] = api_music_everyday.data.song_list.map((song, index) => ({
+      count: data.song_list.length,
+    };
+    const list: MusicInfo[] = data.song_list.map((song, index) => ({
       id: song.songid,
       path: null,
       hash: song.hash,
@@ -118,24 +78,58 @@ const getRecommendLisd = async () => {
       artist: song.author_name,
       album: '',
       duration: song.time_length,
-      sort: index
-    }))
+      sort: index,
+    }));
 
-    recommendMusicList.value = { info, list }
-    currentRecommendMusic.value = list[0]
-    bannerList.value[1].intro = getFullName(currentRecommendMusic.value)
+    likeMusicList.value = { info, list };
+    currentLikeMusic.value = list[0];
+    bannerList.value[0].intro = getFullName(currentLikeMusic.value);
+    bannerList.value[0].img = currentLikeMusic.value.cover
+      ? getPic(currentLikeMusic.value.cover, PicSize.Md)
+      : '';
+  } catch {
+    notify.error('获取 猜你喜欢 失败');
+  }
+};
+
+const getRecommendLisd = async () => {
+  try {
+    const { status, data } = await invoke('api_music_everyday_recommend');
+    if (status !== ApiInvokeStatus.Success) return;
+
+    const info: ListInfo = {
+      ...defaultInfo,
+      id: 'recommend',
+      title: '每日推荐',
+      count: data.song_list_size,
+    };
+    const list: MusicInfo[] = data.song_list.map((song, index) => ({
+      id: song.songid,
+      path: null,
+      hash: song.hash,
+      cover: song.trans_param.union_cover,
+      title: song.songname,
+      artist: song.author_name,
+      album: '',
+      duration: song.time_length,
+      sort: index,
+    }));
+
+    recommendMusicList.value = { info, list };
+    currentRecommendMusic.value = list[0];
+    bannerList.value[1].intro = getFullName(currentRecommendMusic.value);
     bannerList.value[1].img = currentRecommendMusic.value.cover
       ? getPic(currentRecommendMusic.value.cover, PicSize.Md)
-      : ''
-  } catch (error) {
-    console.error(error)
+      : '';
+  } catch {
+    notify.error('获取 每日推荐 失败');
   }
-}
+};
 
 onMounted(() => {
-  getLikeList()
-  getRecommendLisd()
-})
+  getLikeList();
+  getRecommendLisd();
+});
 </script>
 
 <template>
@@ -143,34 +137,40 @@ onMounted(() => {
     <div
       v-for="(banner, index) in bannerList"
       :key="index"
-      class="card flex basis-1/3 overflow-hidden text-neutral-50 bg-gradient-to-br from-[var(--from-bg)]"
+      class="card flex basis-1/3 overflow-hidden bg-gradient-to-br from-[var(--from-bg)] text-neutral-50"
       :style="{ '--from-bg': banner.bgColor }"
-      :data-disabled="banner.disabled">
-      <div class="w-0 flex-1 pl-4 pr-8 py-2">
-        <div class="truncate font-bold text-base leading-8">{{ banner.title }}</div>
+      :data-disabled="banner.disabled"
+    >
+      <div class="w-0 flex-1 py-2 pl-4 pr-8">
+        <div class="truncate text-base font-bold leading-8">{{ banner.title }}</div>
         <Carousel class="truncate leading-8" :content="banner.intro" />
       </div>
 
       <div class="relative size-20">
         <div
-          class="absolute right-0 top-0 border size-full origin-bottom-right -rotate-[24deg] rounded-lg bg-[var(--from-bg)]"></div>
+          class="absolute right-0 top-0 size-full origin-bottom-right -rotate-[24deg] rounded-lg border bg-[var(--from-bg)]"
+        ></div>
         <div
-          class="absolute right-0 top-0 border size-full origin-bottom-right -rotate-12 rounded-lg bg-[var(--from-bg)]"></div>
+          class="absolute right-0 top-0 size-full origin-bottom-right -rotate-12 rounded-lg border bg-[var(--from-bg)]"
+        ></div>
 
         <div
-          class="absolute group right-0 top-0 bg-[var(--from-bg)] overflow-hidden border size-full cursor-pointer rounded-lg"
-          @click="banner.onClick">
+          class="group absolute right-0 top-0 size-full cursor-pointer overflow-hidden rounded-lg border bg-[var(--from-bg)]"
+          @click="banner.onClick"
+        >
           <img v-if="banner.img" :src="banner.img" loading="lazy" decoding="async" alt="" />
           <SvgIcon
             v-else
-            class="size-full flex justify-center items-center"
+            class="flex size-full items-center justify-center"
             name="Music"
-            size="32" />
+            size="32"
+          />
 
           <SvgIcon
-            class="absolute inset-0 bg-black/30 text-neutral-50 transition-opacity opacity-0 group-hover:opacity-100"
+            class="absolute inset-0 bg-black/30 text-neutral-50 opacity-0 transition-opacity group-hover:opacity-100"
             name="PlayBold"
-            size="32" />
+            size="32"
+          />
         </div>
       </div>
     </div>

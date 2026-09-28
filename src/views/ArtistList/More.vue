@@ -1,162 +1,177 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import Image from '@/components/Image.vue'
-import ToTop from '@/components/PageActions/ToTop.vue'
-import SlideBar from '@/components/SlideBar.vue'
-import VirtualList from '@/components/VirtualList.vue'
-import { getPic } from '@/utils/music'
-import { ApiInvokeStatus, AreaTypes, PageSize, SexTypes } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { onMounted, ref, useTemplateRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, useTemplateRef } from 'vue';
+import { useRouter } from 'vue-router';
 
-const router = useRouter()
+import ActionButton from '@/components/ActionButton.vue';
+import Image from '@/components/Image.vue';
+import { notify } from '@/components/Notification.vue';
+import ToTop from '@/components/PageActions/ToTop.vue';
+import SlideBar from '@/components/SlideBar.vue';
+import VirtualList from '@/components/VirtualList.vue';
+import { getPic } from '@/utils/music';
+import { ApiInvokeStatus, AreaTypes, PageSize, SexTypes } from '@/utils/params';
+import { formatCount, invoke } from '@/utils/tools';
+
+const router = useRouter();
 
 const tableColumns: TableColumn[] = [
   { key: 'index', slot: true, width: '3rem', padding: 0, align: 'center' },
-  { key: 'info', width: 'auto', slot: true },
+  { key: 'info', slot: true, width: 'auto' },
   { key: 'fanscount', slot: true, width: 'auto', align: 'center' },
-  { key: 'qa', slot: true, width: 'auto' }
-]
-const musicTableRef = useTemplateRef('musicTableRef')
+  { key: 'qa', slot: true, width: 'auto' },
+];
+const musicTableRef = useTemplateRef('musicTableRef');
 
-const areaSlideOptions = ref<SlideOption[]>([]) // 区域菜单项
-const areaSlideSelection = ref<SlideOption>() // 区域选中项
-const sexSlideOptions = ref<SlideOption[]>([]) // 性别菜单项
-const sexSlideSelection = ref<SlideOption>() // 性别选中项
-const isLoading = ref(true)
-const isFinished = ref(false)
-const page = ref(1)
-const artistList = ref<ArtistInfo[]>([])
+const areaOptions = ref<SlideOption[]>([]); // 区域菜单项
+const areaSelection = ref<SlideOption>(); // 区域选中项
+const sexOptions = ref<SlideOption[]>([]); // 性别菜单项
+const sexSelection = ref<SlideOption>(); // 性别选中项
+const isLoading = ref(true);
+const isFinishing = ref(false);
+const isFinished = ref(false);
+const page = ref(1);
+const artistList = ref<ArtistInfo[]>([]);
 
-const handleSlideGet = async () => {
-  areaSlideOptions.value = AreaTypes.map((areaType) => ({
+const getSlideOptions = () => {
+  areaOptions.value = AreaTypes.map((areaType) => ({
     label: areaType.title,
-    value: areaType.id,
-    apiAreaType: areaType.type,
-    musician: areaType.musician
-  }))
-  areaSlideSelection.value = areaSlideOptions.value[0]
+    value: areaType.type,
+    musician: areaType.musician,
+  }));
+  areaSelection.value = areaOptions.value[0];
 
-  sexSlideOptions.value = SexTypes.map((sexType) => ({ label: sexType.value, value: sexType.key }))
-  sexSlideSelection.value = sexSlideOptions.value[0]
-}
+  sexOptions.value = SexTypes.map((sexType) => ({ label: sexType.value, value: sexType.key }));
+  sexSelection.value = sexOptions.value[0];
+};
 
-const handleSlideChange = (option: SlideOption, type: 'area' | 'sex') => {
-  switch (type) {
+const changeSlideSelection = (option: SlideOption, mode: 'area' | 'sex') => {
+  switch (mode) {
     case 'area':
-      areaSlideSelection.value = option
-      break
+      if (areaSelection.value?.value === option.value) return;
+
+      areaSelection.value = option;
+      break;
     case 'sex':
-      sexSlideSelection.value = option
-      break
+      if (sexSelection.value?.value === option.value) return;
+
+      sexSelection.value = option;
+      break;
   }
 
-  page.value = 1
-  handleToTop()
-  handleLoad()
-}
+  page.value = 1;
+  handleLoad();
+  handleToTop();
+};
 
 const handleLoad = async () => {
-  if (!areaSlideSelection.value || !sexSlideSelection.value) return
-  isLoading.value = true
+  // 不使用isLoading是因为初始值为true
+  // if (isLoading.value) return
+
+  if (!areaSelection.value || !sexSelection.value) return;
+
+  isLoading.value = true;
 
   try {
-    const api_artist_list = await invoke('api_artist_list', {
-      areaType: areaSlideSelection.value.apiAreaType,
-      musician: areaSlideSelection.value.musician,
-      sexType: sexSlideSelection.value.value,
+    const { status, data } = await invoke('api_artist_list', {
+      areaType: areaSelection.value.value,
+      musician: areaSelection.value.musician,
+      sexType: sexSelection.value.value,
       page: page.value,
-      pageSize: PageSize.Default
-    })
-    if (api_artist_list.status === ApiInvokeStatus.Success) {
-      const list = api_artist_list.data.info.map((artist) => ({
+      pageSize: PageSize.More,
+    });
+    if (status !== ApiInvokeStatus.Success) {
+      notify.error('获取歌手列表失败');
+    } else {
+      artistList.value = data.info.map((artist) => ({
         id: artist.singerid,
         cover: artist.imgurl,
         name: artist.singername,
         fanscount: artist.fanscount,
         descibe: artist.descibe,
-        url: artist.url
-      }))
-
-      artistList.value = list
+        url: artist.url,
+      }));
     }
-  } catch (error) {
-    console.log(error)
+  } catch {
+    notify.error('获取歌手列表失败');
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
+};
 
 const handleInfinite = async () => {
-  if (isFinished.value || !areaSlideSelection.value || !sexSlideSelection.value) return
+  if (isFinishing.value || isFinished.value || !areaSelection.value || !sexSelection.value) return;
+
+  isFinishing.value = true;
 
   try {
-    const api_artist_list = await invoke('api_artist_list', {
-      areaType: areaSlideSelection.value.value,
-      musician: areaSlideSelection.value.musician,
-      sexType: sexSlideSelection.value.value,
+    const { status, data } = await invoke('api_artist_list', {
+      areaType: areaSelection.value.value,
+      musician: areaSelection.value.musician,
+      sexType: sexSelection.value.value,
       page: ++page.value,
-      pageSize: PageSize.Default
-    })
-    if (api_artist_list.status !== ApiInvokeStatus.Success) return
+      pageSize: PageSize.More,
+    });
+    if (status !== ApiInvokeStatus.Success) {
+      notify.error('获取歌手列表失败');
+    } else {
+      data.info.forEach((artist) => {
+        artistList.value.push({
+          id: artist.singerid,
+          cover: artist.imgurl,
+          name: artist.singername,
+          fanscount: artist.fanscount,
+          descibe: artist.descibe,
+          url: artist.url,
+        });
+      });
 
-    const list = api_artist_list.data.info.map((artist) => ({
-      id: artist.singerid,
-      cover: artist.imgurl,
-      name: artist.singername,
-      fanscount: artist.fanscount,
-      descibe: artist.descibe,
-      url: artist.url
-    }))
-
-    artistList.value.push(...list)
-
-    if (list.length < PageSize.Default) isFinished.value = true
-  } catch (error) {
-    console.log(error)
+      if (data.info.length < PageSize.More) isFinished.value = true;
+    }
+  } catch {
+    notify.error('获取歌手列表失败');
+  } finally {
+    isFinishing.value = false;
   }
-}
+};
 
 const handleLineClick = (row: ArtistInfo) => {
-  router.push({
-    path: '/artist-list-table',
-    query: { id: row.id, cover: row.cover, name: row.name }
-  })
-}
+  router.push(`/artist-list-table/${row.id}`);
+};
 
 const handleToTop = () => {
-  musicTableRef.value?.scrollToTop()
-}
+  musicTableRef.value?.scrollToTop();
+};
 
-onMounted(async () => {
-  await handleSlideGet()
-  await handleLoad()
-})
+onMounted(() => {
+  getSlideOptions();
+  handleLoad();
+});
 </script>
 
 <template>
-  <div class="relative space-y-3 pt-4 w-full h-full flex flex-col">
+  <div class="relative flex h-full w-full flex-col space-y-3 pt-4">
     <!-- 区域菜单项 -->
-    <div class="flex items-center gap-3 mx-8">
-      <div class="font-bold text-xl">歌手:</div>
+    <div class="mx-8 flex items-center gap-3">
+      <div class="text-xl font-bold">歌手:</div>
       <SlideBar
         class="flex-1"
         :slideWidth="64"
-        :options="areaSlideOptions"
-        :selection="areaSlideSelection"
-        @change="handleSlideChange($event, 'area')" />
+        :options="areaOptions"
+        :selection="areaSelection"
+        @change="changeSlideSelection($event, 'area')"
+      />
     </div>
 
     <!-- 性别菜单项 -->
-    <div class="flex items-center gap-3 mx-8">
-      <div class="font-bold text-xl opacity-0 pointer-events-none">歌手:</div>
+    <div class="mx-8 flex items-center gap-3">
+      <div class="pointer-events-none text-xl font-bold opacity-0">歌手:</div>
       <SlideBar
         class="flex-1"
         :slideWidth="64"
-        :options="sexSlideOptions"
-        :selection="sexSlideSelection"
-        @change="handleSlideChange($event, 'sex')" />
+        :options="sexOptions"
+        :selection="sexSelection"
+        @change="changeSlideSelection($event, 'sex')"
+      />
     </div>
 
     <VirtualList
@@ -166,23 +181,24 @@ onMounted(async () => {
       :loading="isLoading"
       :list="artistList"
       @infinite="handleInfinite"
-      @lineClick="handleLineClick">
+      @lineClick="handleLineClick"
+    >
       <template #index="row">
         {{ row.index + 1 }}
       </template>
 
       <template #info="row">
         <div class="flex items-center gap-3">
-          <Image class="size-12" :img="getPic(row.cover)" />
+          <Image class="size-12" :src="getPic(row.cover)" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ row.name }}</div>
         </div>
       </template>
 
-      <template #fanscount="row">{{ (row.fanscount / 1000).toFixed(1) }}万粉丝</template>
+      <template #fanscount="row"> {{ formatCount(row.fanscount) }} 粉丝</template>
 
       <template #qa="row">
-        <div v-if="row.descibe" class="flex justify-end">
+        <div v-if="row.descibe" class="flex justify-end" :data-disabled="true">
           <ActionButton class="text-sm" mode="text" theme="info" suffixIcon="Right" @click.stop>
             {{ row.descibe }}
           </ActionButton>

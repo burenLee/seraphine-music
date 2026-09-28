@@ -1,130 +1,134 @@
 <script lang="ts" setup>
-import ActionButton from '@/components/ActionButton.vue'
-import { useLyricStore } from '@/stores/lyric'
-import { useMusicStore } from '@/stores/music'
-import { useSettingStore } from '@/stores/setting'
-import { LyricFormat, LyricTransMode } from '@/utils/params'
-import { formatDuration } from '@/utils/tools'
-import { useEventListener } from '@vueuse/core'
-import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { useEventListener } from '@vueuse/core';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
+
+import ActionButton from '@/components/ActionButton.vue';
+import { useLyricStore } from '@/stores/lyric';
+import { useMusicStore } from '@/stores/music';
+import { useSettingStore } from '@/stores/setting';
+import { LyricFormat, LyricTransMode } from '@/utils/params';
+import { formatDuration } from '@/utils/tools';
 
 interface Emits {
-  lyricSearchShow: []
+  lyricSearchShow: [];
 }
 
-const emits = defineEmits<Emits>()
+const emits = defineEmits<Emits>();
 
-const lyricStore = useLyricStore()
-const musicStore = useMusicStore()
-const settingStore = useSettingStore()
+const lyricStore = useLyricStore();
+const musicStore = useMusicStore();
+const settingStore = useSettingStore();
 
-const lyricRef = useTemplateRef('lyricRef')
+const lyricRef = useTemplateRef('lyricRef');
 
-const FORWARD_DURATION = 100 // 歌词提前滚动时间 (ms)
-let wheelTimer: ReturnType<typeof setTimeout> | null = null // 滚轮定时器
+const FORWARD_DURATION = 100; // 歌词提前滚动时间 (ms)
+let wheelTimer: ReturnType<typeof setTimeout> | null = null; // 滚轮定时器
 
-const lyricPadding = ref(0) // 歌词容器内边距
-const isWheelling = ref(false) // 鼠标滚轮是否正在滚动
+const lyricPadding = ref(0); // 歌词容器内边距
+const isWheelling = ref(false); // 鼠标滚轮是否正在滚动
 
 // 当前歌词的偏移量
 const lyricOffset = computed(() =>
-  lyricStore.lyric ? lyricStore.offsetMap[lyricStore.lyric.id] || 0 : 0
-)
+  lyricStore.lyric ? lyricStore.offsetMap[lyricStore.lyric.id] || 0 : 0,
+);
 const fontSize = computed(
-  () => lyricStore.fontSize + (settingStore.isFullscreen || settingStore.isMaximized ? 4 : 0)
-)
-const wordHeight = computed(() => fontSize.value + 4)
-const linePadding = computed(() => fontSize.value / 2)
+  () => lyricStore.fontSize + (settingStore.isFullscreen || settingStore.isMaximized ? 4 : 0),
+);
+const wordHeight = computed(() => fontSize.value + 4);
+const linePadding = computed(() => fontSize.value / 2);
 // 行高（根据翻译显示模式动态计算）
 const lineHeight = computed(() => {
-  const baseHeight = wordHeight.value + linePadding.value * 2
-  return lyricStore.transMode === LyricTransMode.Off ? baseHeight : baseHeight + lyricStore.fontSize
-})
+  const baseHeight = wordHeight.value + linePadding.value * 2;
+  return lyricStore.transMode === LyricTransMode.Off
+    ? baseHeight
+    : baseHeight + lyricStore.fontSize;
+});
 
 // 当前高亮歌词行索引
 const currentIndex = computed(() => {
-  if (!lyricStore.lyric) return -1
+  if (!lyricStore.lyric) return -1;
 
-  const progress = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION
+  const progress = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION;
   return lyricStore.lyric.lines.findIndex((line, index, list) => {
-    const start = line.offset
-    const end = list[index + 1]?.offset || Infinity
+    const start = line.offset;
+    const end = list[index + 1]?.offset || Infinity;
 
-    return progress >= start && progress < end
-  })
-})
+    return progress >= start && progress < end;
+  });
+});
 
 // 设置歌词容器内边距（使首行歌词居中）
 const setLyricPadding = async () => {
-  lyricPadding.value = 0
+  lyricPadding.value = 0;
 
   await nextTick(() => {
-    if (!lyricRef.value) return
+    if (!lyricRef.value) return;
 
-    lyricPadding.value = (lyricRef.value.clientHeight - lineHeight.value) / 2
-  })
+    lyricPadding.value = (lyricRef.value.clientHeight - lineHeight.value) / 2;
+  });
 
-  scrollToLine()
-}
+  scrollToLine();
+};
 
 // 获取单词进度百分比
 const getWordProgress = (offset: number, duration: number) =>
   Math.max(
     0,
-    Math.min(1, ((musicStore.playProgress + lyricOffset.value) * 1000 - offset) / duration)
-  ) * 100
+    Math.min(1, ((musicStore.playProgress + lyricOffset.value) * 1000 - offset) / duration),
+  ) * 100;
 
 // 滚动到当前行
 const scrollToLine = () => {
-  if (musicStore.isDragging || isWheelling.value) return
+  if (musicStore.isDragging || isWheelling.value) return;
 
   lyricRef.value
     ?.querySelector(`#lyric-line-${currentIndex.value}`)
-    ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-}
+    ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+};
 
 // 点击歌词行跳转
 const handleLineClick = async (offset: number) => {
-  isWheelling.value = false
-  clearWhellTimer()
+  isWheelling.value = false;
+  clearWhellTimer();
 
-  musicStore.startChangeProgress()
-  await musicStore.stopChangeProgress(offset / 1000)
+  musicStore.startChangeProgress();
+  await musicStore.stopChangeProgress(offset / 1000);
 
-  await nextTick(scrollToLine)
-}
+  await nextTick(scrollToLine);
+};
 
 const setWheelTimer = () => {
-  isWheelling.value = true
+  isWheelling.value = true;
 
-  if (wheelTimer !== null) clearTimeout(wheelTimer)
+  if (wheelTimer !== null) clearTimeout(wheelTimer);
   wheelTimer = setTimeout(() => {
-    isWheelling.value = false
-    wheelTimer = null
+    isWheelling.value = false;
+    wheelTimer = null;
 
-    scrollToLine()
-  }, 2000)
-}
+    scrollToLine();
+  }, 2000);
+};
 
 const clearWhellTimer = () => {
-  if (wheelTimer === null) return
+  if (wheelTimer === null) return;
 
-  clearTimeout(wheelTimer)
-  wheelTimer = null
-}
+  clearTimeout(wheelTimer);
+  wheelTimer = null;
+};
 
 watch(
   () => musicStore.isDragging,
-  (isDragging) => !isDragging && scrollToLine()
-)
+  (isDragging) => !isDragging && scrollToLine(),
+);
 
 watch([currentIndex, () => lyricStore.transMode, () => lyricStore.fontSize], scrollToLine, {
-  flush: 'post'
-})
+  flush: 'post',
+});
 
-useEventListener('resize', setLyricPadding)
-onMounted(setLyricPadding)
-onUnmounted(clearWhellTimer)
+useEventListener('resize', setLyricPadding);
+
+onMounted(setLyricPadding);
+onUnmounted(clearWhellTimer);
 </script>
 
 <template>
@@ -139,25 +143,27 @@ onUnmounted(clearWhellTimer)
       '--trans-font-size': `${fontSize - 4}px`,
       '--word-height': `${wordHeight}px`,
       '--trans-height': `${lyricStore.fontSize}px`,
-      '--color-lyric': lyricStore.textColor
+      '--color-lyric': lyricStore.textColor,
     }"
-    @wheel.passive="setWheelTimer">
+    @wheel.passive="setWheelTimer"
+  >
     <!-- 加载中状态 -->
     <template v-if="lyricStore.isLoading">
-      <div class="flex items-center justify-center text-xl font-bold h-full">歌词加载中...</div>
+      <div class="flex h-full items-center justify-center text-xl font-bold">歌词加载中...</div>
     </template>
 
     <!-- 无歌词状态 -->
     <template v-else-if="!lyricStore.lyric || lyricStore.lyric.lines.length === 0">
-      <div class="flex items-center justify-center h-full">
-        <span class="text-minor text-xl font-bold">暂无歌词</span>
+      <div class="flex h-full items-center justify-center">
+        <span class="text-xl font-bold text-minor">暂无歌词</span>
         <ActionButton
           v-if="musicStore.music"
           class="px-1 text-xl hover:text-info"
           mode="text"
           theme="info"
           suffix-icon="Right"
-          @click="emits('lyricSearchShow')">
+          @click="emits('lyricSearchShow')"
+        >
           去搜索
         </ActionButton>
       </div>
@@ -169,9 +175,10 @@ onUnmounted(clearWhellTimer)
         v-for="(line, lineIndex) in lyricStore.lyric.lines"
         :key="lineIndex"
         :id="`lyric-line-${lineIndex}`"
-        class="group/line text-[length:var(--word-font-size)] leading-[var(--word-height)] card-hover relative cursor-pointer rounded-lg px-3 py-[var(--line-padding)] font-bold"
+        class="group/line card-hover relative cursor-pointer rounded-lg px-3 py-[var(--line-padding)] text-[length:var(--word-font-size)] font-bold leading-[var(--word-height)]"
         :class="lyricStore.textAlign"
-        @click="handleLineClick(line.offset)">
+        @click="handleLineClick(line.offset)"
+      >
         <!-- 歌词文本 -->
         <div v-if="currentIndex === lineIndex">
           <template v-if="lyricStore.lyric.fmt === LyricFormat.Krc">
@@ -179,7 +186,8 @@ onUnmounted(clearWhellTimer)
               v-for="(word, wordIndex) in line.words"
               :key="wordIndex"
               class="music-lyric"
-              :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }">
+              :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }"
+            >
               {{ word.text }}
             </span>
           </template>
@@ -203,30 +211,18 @@ onUnmounted(clearWhellTimer)
             lyricStore.transMode !== LyricTransMode.Off && line.translations[lyricStore.transMode]
           "
           class="text-[length:var(--trans-font-size)] leading-[var(--trans-height)]"
-          :class="currentIndex === lineIndex ? 'text-accent' : 'text-minor'">
+          :class="currentIndex === lineIndex ? 'text-accent' : 'text-minor'"
+        >
           {{ line.translations[lyricStore.transMode] }}
         </div>
 
         <!-- 跳转时间提示 -->
         <div
-          class="pointer-events-none text-base absolute bottom-0 right-0 top-0 flex items-center justify-center rounded-r-lg bg-neutral-200 dark:bg-neutral-600 opacity-0 w-[4.5rem] group-hover/line:opacity-100">
+          class="pointer-events-none absolute bottom-0 right-0 top-0 flex w-[4.5rem] items-center justify-center rounded-r-lg bg-neutral-200 text-base opacity-0 group-hover/line:opacity-100 dark:bg-neutral-600"
+        >
           {{ formatDuration(line.offset / 1000) }}
         </div>
       </div>
     </template>
   </div>
 </template>
-
-<style scoped>
-.music-lyric {
-  background-image: linear-gradient(
-    90deg,
-    var(--color-lyric) 0%,
-    var(--color-lyric) var(--word-progress),
-    var(--color-accent) var(--word-progress),
-    var(--color-accent) 100%
-  );
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-</style>

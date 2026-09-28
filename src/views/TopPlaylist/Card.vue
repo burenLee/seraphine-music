@@ -1,76 +1,62 @@
 <script lang="ts" setup>
-import ColList from '@/components/MusicList/ColList.vue'
-import { ApiInvokeStatus } from '@/utils/params'
-import { invoke } from '@/utils/tools'
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-const router = useRouter()
+import ColList from '@/components/MusicList/ColList.vue';
+import { defaultInfo } from '@/stores/list';
+import { ApiInvokeStatus, PageSize } from '@/utils/params';
+import { genRandomNum, invoke } from '@/utils/tools';
 
-const isLoading = ref(true)
-const colData = ref<ColList>({
-  info: { id: '', cover: '', title: '推荐歌单', artist: '', count: 0, tags: [] },
-  list: []
-})
+const router = useRouter();
+
+const isLoading = ref(true);
+const colData = ref<ColList>({ info: { ...defaultInfo, title: '推荐歌单' }, list: [] });
 
 const handleLoad = async () => {
-  isLoading.value = true
+  isLoading.value = true;
 
   try {
-    const api_playlist_tags = await invoke('api_playlist_tags')
-    if (api_playlist_tags.status === ApiInvokeStatus.Success) {
+    const playlist_tags = await invoke('api_playlist_tags');
+    if (playlist_tags.status === ApiInvokeStatus.Success) {
       const list: RowList[] = await Promise.all(
-        api_playlist_tags.data.map(async (item) => {
-          const info: ListInfo = {
-            id: '',
-            cover: '',
-            title: item.tag_name,
-            artist: '',
-            count: 0,
-            tags: []
-          }
-          let list: CardInfo[] = []
+        playlist_tags.data.map(async (tag) => {
+          const top_playlist = await invoke('api_top_playlist', {
+            categoryId: tag.son[genRandomNum(tag.son.length - 1)].tag_id,
+            // 结果有时候会少一个所以+1
+            pageSize: PageSize.Min + 1,
+          });
 
-          try {
-            const api_top_playlist = await invoke('api_top_playlist', {
-              categoryId: item.son[0].tag_id,
-              pageSize: 4
-            })
-            if (api_top_playlist.status === ApiInvokeStatus.Success) {
-              list = api_top_playlist.data.special_list.slice(0, 3).map((item) => ({
-                id: item.global_collection_id,
-                cover: item.flexible_cover,
-                title: item.specialname,
-                artist: item.nickname,
-                playlistInfo: {
-                  id: item.global_collection_id,
-                  cover: item.flexible_cover,
-                  title: item.specialname,
-                  artist: item.nickname,
-                  play_count: item.play_count
-                }
-              }))
-            }
-          } catch (error) {
-            console.error(error)
+          const info: ListInfo = { ...defaultInfo, title: tag.tag_name };
+          let list: CardInfo[] = [];
+          if (top_playlist.status === ApiInvokeStatus.Success) {
+            list = top_playlist.data.special_list.slice(0, PageSize.Min).map((playlist) => ({
+              id: playlist.global_collection_id,
+              cover: playlist.flexible_cover,
+              title: playlist.specialname,
+              artist: playlist.nickname,
+              playlistInfo: {
+                id: playlist.specialid,
+                cover: playlist.flexible_cover,
+                title: playlist.specialname,
+                artist: playlist.nickname,
+                count: 0,
+                playCount: playlist.play_count,
+                tags: playlist.abtags?.map((tag) => tag.name),
+                gid: playlist.global_collection_id,
+              },
+            }));
           }
 
-          return { info, list }
-        })
-      )
+          return { info, list };
+        }),
+      );
 
-      colData.value.list = list
+      colData.value.list = list;
     }
-  } catch (error) {
-    console.error(error)
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
-
-const handleMore = () => {
-  router.push('/top-playlist-more')
-}
+};
 </script>
 
 <template>
@@ -79,5 +65,6 @@ const handleMore = () => {
     :data="colData"
     @load="handleLoad"
     @refresh="handleLoad"
-    @more="handleMore" />
+    @more="router.push('/top-playlist-more')"
+  />
 </template>

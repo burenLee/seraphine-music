@@ -1,30 +1,35 @@
 <script lang="ts" setup>
-import { notify } from '@/components/Notification.vue'
-import { useDesktopLyricBridge } from '@/composables/useDesktopLyricBridge'
-import { useMusicStore } from '@/stores/music'
-import { useSettingStore } from '@/stores/setting'
-import { WindowTarget, desktopLyricSize } from '@/utils/params'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ref } from 'vue'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ref } from 'vue';
 
-const musicStore = useMusicStore()
-const settingStore = useSettingStore()
+import { notify } from '@/components/Notification.vue';
+import { useDesktopLyricBridge } from '@/composables/useDesktopLyricBridge';
+import { useMusicStore } from '@/stores/music';
+import { useSettingStore } from '@/stores/setting';
+import { WindowTarget, desktopLyricSize } from '@/utils/params';
 
-const lyricWindow = ref<WebviewWindow>()
+const mainWindow = getCurrentWindow();
 
-const lyricBridge = useDesktopLyricBridge(lyricWindow)
+const musicStore = useMusicStore();
+const settingStore = useSettingStore();
+
+const lyricBridge = useDesktopLyricBridge();
+
+const visible = ref(false);
 
 const handleDesktopLyric = async () => {
-  if (!lyricWindow.value) {
-    const scaleFactor = await getCurrentWindow().scaleFactor()
+  let lyricWindow = await WebviewWindow.getByLabel(WindowTarget.DesktopLyric);
 
-    const { width, height } = desktopLyricSize
-    const { x, y } = settingStore.desktopLyricPosition
-    const logicalX = x / scaleFactor || Math.round((window.screen.availWidth - width) / 2)
-    const logicalY = y / scaleFactor || Math.round(window.screen.availHeight - height)
+  if (!lyricWindow) {
+    const scaleFactor = await mainWindow.scaleFactor();
 
-    lyricWindow.value = new WebviewWindow(WindowTarget.DesktopLyric, {
+    const { width, height } = desktopLyricSize;
+    const { x, y } = settingStore.desktopLyricPosition;
+    const logicalX = x / scaleFactor || Math.round((window.screen.availWidth - width) / 2);
+    const logicalY = y / scaleFactor || Math.round(window.screen.availHeight - height);
+
+    lyricWindow = new WebviewWindow(WindowTarget.DesktopLyric, {
       title: '桌面歌词',
       url: '/desktop-lyric.html',
       width,
@@ -36,31 +41,34 @@ const handleDesktopLyric = async () => {
       alwaysOnTop: true,
       shadow: false,
       skipTaskbar: true,
-      resizable: false
-    })
+      resizable: false,
+    });
 
-    lyricWindow.value.setIgnoreCursorEvents(true)
-
-    lyricWindow.value.once('tauri://created', () => {
-      lyricBridge.start()
-    })
-    lyricWindow.value.once('tauri://error', () => {
-      notify.error('桌面歌词创建失败')
-      lyricWindow.value = undefined
-    })
+    lyricWindow.once('tauri://error', () => {
+      notify.error('桌面歌词创建失败');
+    });
+    lyricWindow.once('tauri://created', () => {
+      lyricBridge.start();
+      visible.value = true;
+    });
+    lyricWindow.once('tauri://destroyed', () => {
+      visible.value = false;
+    });
   } else {
-    lyricBridge.stop()
+    lyricBridge.stop();
+    visible.value = false;
   }
-}
+};
 </script>
 
 <template>
   <div
     class="action-icon text-center font-bold leading-8"
-    :class="lyricWindow ? 'text-info' : ''"
+    :class="visible ? 'text-info' : ''"
     title="桌面歌词"
     :data-disabled="!musicStore.music"
-    @click="handleDesktopLyric">
+    @click="handleDesktopLyric"
+  >
     词
   </div>
 </template>
