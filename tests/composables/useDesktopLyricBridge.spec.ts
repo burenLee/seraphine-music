@@ -1,5 +1,5 @@
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDesktopLyricBridge } from '@/composables/useDesktopLyricBridge';
@@ -84,7 +84,9 @@ describe('useDesktopLyricBridge 桌面歌词事件桥接', () => {
 
   it('Close 事件停止桥接并关闭窗口', async () => {
     const close = vi.fn();
-    vi.mocked(WebviewWindow.getByLabel).mockResolvedValueOnce({ close } as unknown as WebviewWindow);
+    vi.mocked(WebviewWindow.getByLabel).mockResolvedValueOnce({
+      close,
+    } as unknown as WebviewWindow);
 
     const bridge = useDesktopLyricBridge();
     await bridge.start();

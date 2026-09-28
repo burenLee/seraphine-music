@@ -1,6 +1,6 @@
 {
   "name": "seraphine-music",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -33,6 +33,7 @@
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "qrcode.vue": "^3.11.0",
+    "seraphine-music": "link:",
     "tailwind-merge": "^3.7.0",
     "vue": "^3.5.43",
     "vue-router": "^5.3.1"

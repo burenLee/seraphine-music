@@ -84,7 +84,9 @@ describe('useMiniPlayerBridge 迷你播放器事件桥接', () => {
 
   it('Close 事件停止桥接并关闭窗口', async () => {
     const close = vi.fn();
-    vi.mocked(WebviewWindow.getByLabel).mockResolvedValueOnce({ close } as unknown as WebviewWindow);
+    vi.mocked(WebviewWindow.getByLabel).mockResolvedValueOnce({
+      close,
+    } as unknown as WebviewWindow);
 
     const bridge = useMiniPlayerBridge();
     await bridge.start();

@@ -60,6 +60,8 @@ export const useUpdaterStore = defineStore(
             currentVersion: `v${currentVersion}`,
             latestVersion: `v${currentVersion}`,
           };
+
+          notify.success('已是最新版本');
         } else {
           updater = update;
 

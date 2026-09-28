@@ -53,6 +53,9 @@ importers:
       qrcode.vue:
         specifier: ^3.11.0
         version: 3.11.0(vue@3.5.43(typescript@5.9.3))
+      seraphine-music:
+        specifier: 'link:'
+        version: 'link:'
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0
