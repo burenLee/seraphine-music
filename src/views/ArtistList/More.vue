@@ -64,9 +64,6 @@ const changeSlideSelection = (option: SlideOption, mode: 'area' | 'sex') => {
 };
 
 const handleLoad = async () => {
-  // 不使用isLoading是因为初始值为true
-  // if (isLoading.value) return
-
   if (!areaSelection.value || !sexSelection.value) return;
 
   isLoading.value = true;

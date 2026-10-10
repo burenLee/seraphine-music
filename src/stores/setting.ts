@@ -1,3 +1,4 @@
+import { listen } from '@tauri-apps/api/event';
 import {
   isRegistered,
   register,
@@ -54,7 +55,7 @@ export const useSettingStore = defineStore(
         await unregisterAll();
 
         if (globalShortcutState.value) await registerAllGlobalShortcut();
-        if (mediaShortcutState.value) await registerMediaShortcut();
+        if (mediaShortcutState.value) await registerMediaCommandListener();
       },
       { once: true },
     );
@@ -117,10 +118,10 @@ export const useSettingStore = defineStore(
     const toggleMediaShortcutState = () => {
       mediaShortcutState.value = !mediaShortcutState.value;
 
+      // 媒体键由系统原生通道接管（SMTC / MPRIS / MPRemoteCommandCenter），
+      // 仅需在开启时监听 media:command 事件，关闭时监听器内部的守卫自动忽略。
       if (mediaShortcutState.value) {
-        registerMediaShortcut();
-      } else {
-        unregisterMediaShortcut();
+        registerMediaCommandListener();
       }
     };
     const setDevice = (id: string) => {
@@ -233,41 +234,26 @@ export const useSettingStore = defineStore(
       }
     };
 
-    const registerMediaShortcut = async () => {
-      if (!mediaShortcutState.value) return;
-
-      try {
-        await register('MediaPlayPause', (e) => {
-          if (e.state === 'Released') return;
-
-          if (musicStore.isPlaying) {
-            musicStore.pause();
-          } else {
+    // 监听系统媒体键（SMTC / MPRIS / MPRemoteCommandCenter）转发来的命令
+    const registerMediaCommandListener = async () => {
+      await listen<string>('media:command', (event) => {
+        switch (event.payload) {
+          case 'Play':
             musicStore.play();
-          }
-        });
-        await register('MediaTrackNext', (e) => {
-          if (e.state === 'Released') return;
-
-          musicStore.playPrevOrNext('next');
-        });
-        await register('MediaTrackPrevious', (e) => {
-          if (e.state === 'Released') return;
-
-          musicStore.playPrevOrNext('prev');
-        });
-      } catch {
-        mediaShortcutState.value = false;
-        notify.error('媒体快捷键注册失败, 可能被占用');
-      }
-    };
-
-    const unregisterMediaShortcut = () => {
-      if (mediaShortcutState.value) return;
-
-      unregister('MediaPlayPause');
-      unregister('MediaTrackNext');
-      unregister('MediaTrackPrevious');
+            break;
+          case 'Pause':
+            musicStore.pause();
+            break;
+          case 'Next':
+            musicStore.playPrevOrNext('next');
+            break;
+          case 'Prev':
+            musicStore.playPrevOrNext('prev');
+            break;
+          default:
+            break;
+        }
+      });
     };
 
     const setMiniPlayerPosition = (pos: { x: number; y: number }) => {

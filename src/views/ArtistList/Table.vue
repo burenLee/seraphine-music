@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, provide, ref } from 'vue';
+import { onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import MusicActions from '@/components/MusicTable/MusicActions.vue';
@@ -21,13 +21,11 @@ const isFinishing = ref(false);
 const isFinished = ref(false);
 const page = ref(1);
 
-const handleLoad = async () => {
+const handleLoad = async (id: string) => {
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
 
   try {
-    const id = route.params.id;
-
     const artist_detail = await invoke('api_artist_detail', { id });
     if (artist_detail.status !== ApiInvokeStatus.Success) {
       notify.error('获取歌手信息失败');
@@ -70,6 +68,7 @@ const handleLoad = async () => {
   } catch {
     notify.error('获取歌手歌曲失败');
   } finally {
+    listStore.isHeaderLoading = false;
     listStore.isTableLoading = false;
   }
 };
@@ -80,10 +79,8 @@ const handleInfinite = async () => {
   isFinishing.value = true;
 
   try {
-    const id = route.params.id;
-
     const { status, data } = await invoke('api_artist_audios', {
-      id,
+      id: route.params.id,
       page: ++page.value,
       pageSize: PageSize.More,
     });
@@ -120,7 +117,7 @@ const handleInfinite = async () => {
   }
 };
 
-onMounted(handleLoad);
+watch(() => route.params.id, handleLoad, { immediate: true });
 onUnmounted(() => {
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;

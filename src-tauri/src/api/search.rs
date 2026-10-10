@@ -5,8 +5,8 @@ use std::{collections::HashMap, fmt};
 use crate::{
   api::types::ApiResult,
   http::{
-    cookie::{HttpCookie, ModeCookies},
-    request::HttpRequest,
+    cookie::{Cookie, ModeCookies},
+    request::Request,
   },
   utils::logger::LogErrExt,
 };
@@ -71,7 +71,7 @@ pub async fn api_search(
     _ => "v1",
   };
 
-  HttpRequest::new()
+  Request::new()
     .url(format!("/{ver}/search/{search_type}"))
     .header("x-router", "complexsearch.kugou.com")
     .params(params)
@@ -95,7 +95,7 @@ pub async fn api_search_complex(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -109,7 +109,7 @@ pub async fn api_search_complex(
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .base_url("https://complexsearch.kugou.com")
     .url("/v6/search/complex")
     // .header("cookie", cookies.to_cookies_str())

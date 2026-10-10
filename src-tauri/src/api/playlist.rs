@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use crate::{
   api::types::ApiResult,
   http::{
-    config::{HttpConfig, StaticConfigMode},
-    cookie::{HttpCookie, ModeCookies},
-    request::HttpRequest,
+    config::{Config, StaticModeConfig},
+    cookie::{Cookie, ModeCookies},
+    request::Request,
   },
   utils::{
     crypto::{decrypt_aes_playlist, encrypt_aes_playlist, encrypt_rsa_pad},
@@ -23,7 +23,7 @@ use crate::{
 pub async fn api_playlist_tags() -> ApiResult<HashMap<String, Value>> {
   let data = json!({ "tag_type": "collection", "tag_id": 0, "source": 3 });
 
-  HttpRequest::new()
+  Request::new()
     .url("/pubsongs/v1/get_tags_by_type")
     .post()
     .data(data)
@@ -43,7 +43,7 @@ pub async fn api_playlist_user(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -60,7 +60,7 @@ pub async fn api_playlist_user(
     "pagesize": page_size.unwrap_or(10),
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/v7/get_all_list")
     .post()
     .header("x-router", "cloudlist.service.kugou.com")
@@ -78,7 +78,7 @@ pub async fn api_playlist_user(
 /// ### 必选参数
 /// * `gids` - global_collection_id / list_create_gid 的集合
 pub async fn api_playlist_detail(gids: Vec<&str>) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -90,7 +90,7 @@ pub async fn api_playlist_detail(gids: Vec<&str>) -> ApiResult<HashMap<String, V
 
   let data = json!({ "data": ids, "userid": cookies.userid, "token": cookies.token });
 
-  HttpRequest::new()
+  Request::new()
     .url("/v3/get_list_info")
     .post()
     .header("x-router", "pubsongs.kugou.com")
@@ -127,7 +127,7 @@ pub async fn api_playlist_add(
   listid: Option<u64>,
   source: Option<u64>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -167,7 +167,7 @@ pub async fn api_playlist_add(
     "from_shupinmv": 0,
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/cloudlist.service/v5/add_list")
     .post()
     .params(params)
@@ -184,11 +184,11 @@ pub async fn api_playlist_add(
 /// ### 必选参数
 /// * `listid` - 歌单id
 pub async fn api_playlist_del(listid: u64) -> Result<HashMap<String, Value>, String> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -215,7 +215,7 @@ pub async fn api_playlist_del(listid: u64) -> Result<HashMap<String, Value>, Str
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let resp_bytes = HttpRequest::new()
+  let resp_bytes = Request::new()
     .url("/v2/delete_list")
     .post()
     .header("x-router", "cloudlist.service.kugou.com")
@@ -273,7 +273,7 @@ pub async fn api_playlist_tracks_all(
 
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/pubsongs/v2/get_other_list_file_nofilt")
     .params(params)
     .builder()
@@ -296,7 +296,7 @@ pub async fn api_playlist_tracks_all_new(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -314,7 +314,7 @@ pub async fn api_playlist_tracks_all_new(
     "page": page.unwrap_or(1),
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/v4/get_list_all_file")
     .post()
     .header("x-router", "cloudlist.service.kugou.com")
@@ -346,7 +346,7 @@ pub async fn api_playlist_tracks_add(
   list_id: u64,
   music_list: Vec<ListMusicInfo>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -389,7 +389,7 @@ pub async fn api_playlist_tracks_add(
     "data": music_list,
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/cloudlist.service/v6/add_song")
     .post()
     .params(params)
@@ -410,7 +410,7 @@ pub async fn api_playlist_tracks_del(
   list_id: u64,
   file_ids: Vec<u64>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -425,7 +425,7 @@ pub async fn api_playlist_tracks_del(
     "list_ver": 0,
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/v4/delete_songs")
     .post()
     .header("x-router", "cloudlist.service.kugou.com")

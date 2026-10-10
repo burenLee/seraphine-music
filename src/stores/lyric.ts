@@ -75,7 +75,6 @@ export const useLyricStore = defineStore(
     /** 加载歌词 */
     const load = async (music: PlayingMusicInfo, lyric?: ApiLyricCandidate) => {
       isLoading.value = true;
-      setLyric(undefined);
 
       let lyricInfo: LyricInfo | undefined = undefined;
 
@@ -98,6 +97,16 @@ export const useLyricStore = defineStore(
       if (lyricInfo) {
         setLyric(lyricInfo);
         setMatchedLyric(music.id, { id: lyricInfo.id, fmt: lyricInfo.fmt });
+
+        // 保存到本地
+        invoke('music_lyric_save', {
+          id: lyricGet!.id,
+          name: getFullName(music),
+          fmt: lyricGet!.fmt,
+          conetnt: lyricGet!.content,
+        });
+      } else {
+        setLyric(undefined);
       }
 
       isLoading.value = false;

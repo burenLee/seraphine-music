@@ -1,3 +1,5 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
 import { notify } from '@/components/Notification.vue';
 
 import { LyricTransMode, PicSize, PlayingOrigin, PlayingQuality } from './params';
@@ -192,4 +194,10 @@ export function parseLrcLyric(content: string) {
   }
 
   return lines;
+}
+
+/** 设置应用标题 */
+export function setAppTitle(title: string) {
+  document.title = title;
+  getCurrentWindow().setTitle(title);
 }

@@ -2,6 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { describe, expect, it, vi } from 'vitest';
 
+import { setAppTitle } from '@/utils/music';
 import {
   cn,
   formatDuration,
@@ -12,7 +13,6 @@ import {
   isEnglishText,
   openDir,
   revealPath,
-  setAppTitle,
 } from '@/utils/tools';
 
 import { invokeMock, notifyMock } from '../helpers/mocks';

@@ -288,6 +288,7 @@ const handleAddConfirm = async () => {
     });
     if (status !== ApiInvokeStatus.Success) {
       notify.error('创建歌单失败');
+      return;
     }
 
     notify.success('创建歌单成功');
@@ -299,8 +300,10 @@ const handleAddConfirm = async () => {
 };
 
 const handleAddCancel = () => {
-  addForm.value = { name: '', isPri: 0 };
   addModalVisible.value = false;
+
+  addForm.value.name = '';
+  addForm.value.isPri = 0;
 };
 
 const handleDelConfirm = async () => {
@@ -310,9 +313,9 @@ const handleDelConfirm = async () => {
   }
 
   try {
-    const { status } = await invoke('api_playlist_del', {
-      listid: contextMenuPlaylist.value.list_create_listid,
-    });
+    const { list_create_listid, list_create_gid } = contextMenuPlaylist.value;
+
+    const { status } = await invoke('api_playlist_del', { listid: list_create_listid });
     if (status !== ApiInvokeStatus.Success) {
       notify.success('删除歌单失败');
       return;
@@ -320,13 +323,10 @@ const handleDelConfirm = async () => {
 
     notify.success('删除歌单成功');
     handleDelCancel();
+    getUserPlaylist();
 
     // 如果删除的歌单为当前页面则返回上一级路由
-    if (contextMenuPlaylist.value.list_create_gid === route.query.id) {
-      router.back();
-    } else {
-      getUserPlaylist();
-    }
+    if (list_create_gid === route.params.gid) router.back();
   } catch {
     notify.success('删除歌单失败');
   }
@@ -390,11 +390,11 @@ watch(
           v-for="playlist in userPlaylist.filter((list) => list.type === PlaylistType.User)"
           :key="playlist.list_create_gid"
           class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors"
-          :class="route.query.id === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
+          :class="route.params.gid === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
           @click="handlePlaylistClick(playlist)"
           @contextmenu.prevent="handleContextMenu($event, playlist)"
         >
-          <Image class="size-7" :src="getPic(playlist.pic)" />
+          <Image class="size-8" :src="getPic(playlist.pic)" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ playlist.name }}</div>
         </div>
@@ -408,11 +408,11 @@ watch(
           v-for="playlist in userPlaylist.filter((list) => list.type === PlaylistType.Collection)"
           :key="playlist.list_create_gid"
           class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors"
-          :class="route.query.id === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
+          :class="route.params.gid === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
           @click="handlePlaylistClick(playlist)"
           @contextmenu.prevent="handleContextMenu($event, playlist)"
         >
-          <Image class="size-7" :src="getPic(playlist.pic)" />
+          <Image class="size-8" :src="getPic(playlist.pic)" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ playlist.name }}</div>
         </div>

@@ -1,7 +1,7 @@
 use serde_json::{Map, Value};
 
 use crate::{
-  http::config::{HttpConfig, KgStaticConfig, StaticConfigMode},
+  http::config::{Config, StaticKgConfig, StaticModeConfig},
   utils::crypto::encrypt_md5,
 };
 
@@ -13,9 +13,9 @@ use crate::{
 /// ### 可选参数
 /// * `data` - 请求体
 pub fn sign_params(params: &Map<String, Value>, data: Option<&str>) -> String {
-  let &KgStaticConfig { params_padding, .. } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let &StaticKgConfig { params_padding, .. } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let mut params_vec: Vec<String> = params
@@ -42,11 +42,11 @@ pub fn sign_params(params: &Map<String, Value>, data: Option<&str>) -> String {
 /// ### 可选参数
 /// * `data` - 请求体
 pub fn sign_params_web(params: &Map<String, Value>, data: Option<&str>) -> String {
-  let &KgStaticConfig {
+  let &StaticKgConfig {
     params_web_padding, ..
-  } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let mut params_vec: Vec<String> = params
@@ -75,12 +75,12 @@ pub fn sign_params_web(params: &Map<String, Value>, data: Option<&str>) -> Strin
 /// ### 可选参数
 /// * `data` - 请求体
 pub fn sign_params_android(params: &Map<String, Value>, data: Option<&str>) -> String {
-  let &KgStaticConfig {
+  let &StaticKgConfig {
     params_android_padding,
     ..
-  } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let mut params_vec: Vec<String> = params
@@ -106,12 +106,12 @@ pub fn sign_params_android(params: &Map<String, Value>, data: Option<&str>) -> S
 /// ### 必选参数
 /// * `params` - 请求参数
 pub fn sign_params_register(params: &Map<String, Value>) -> String {
-  let &KgStaticConfig {
+  let &StaticKgConfig {
     params_register_padding,
     ..
-  } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let mut params_vec: Vec<String> = params
@@ -141,13 +141,13 @@ pub fn sign_params_register(params: &Map<String, Value>) -> String {
 /// * `userid` - 用户 id, 默认为 `0`
 /// * `appid` - 应用 id, 默认为当前模式的 appid
 pub fn sign_key(hash: &str, mid: &str, userid: Option<&str>, appid: Option<&str>) -> String {
-  let &KgStaticConfig {
+  let &StaticKgConfig {
     appid: default_appid,
     key_padding,
     ..
-  } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let userid = userid.unwrap_or("0");
@@ -163,11 +163,11 @@ pub fn sign_key(hash: &str, mid: &str, userid: Option<&str>, appid: Option<&str>
 /// * `hash` - 音频 hash
 /// * `pid` - 平台 id
 pub fn sign_key_cloud(hash: &str, pid: &str) -> String {
-  let &KgStaticConfig {
+  let &StaticKgConfig {
     key_cloud_padding, ..
-  } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   encrypt_md5(format!("musicclound{hash}{pid}{key_cloud_padding}"))
@@ -182,14 +182,14 @@ pub fn sign_key_cloud(hash: &str, pid: &str) -> String {
 /// * `appid` - 应用 id, 默认为当前模式的 appid
 /// * `client_ver` - 客户端版本, 默认为当前模式的 client_ver
 pub fn sign_key_params(data: &str, appid: Option<&str>, client_ver: Option<&str>) -> String {
-  let &KgStaticConfig {
+  let &StaticKgConfig {
     appid: default_appid,
     client_ver: default_client_ver,
     key_params_padding,
     ..
-  } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let default_appid = default_appid.to_string();

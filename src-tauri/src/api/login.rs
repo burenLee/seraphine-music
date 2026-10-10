@@ -10,10 +10,10 @@ use crate::{
   },
   app::mode::{AppMode, Mode},
   http::{
-    client::HttpClient,
-    config::{DynamicModeConfig, HttpConfig, StaticConfigMode},
-    cookie::{HttpCookie, ModeCookies},
-    request::{EncryptType, HttpRequest},
+    client::Client,
+    config::{Config, DynamicModeConfig, StaticModeConfig},
+    cookie::{Cookie, ModeCookies},
+    request::{EncryptType, Request},
   },
   utils::{
     crypto::{decrypt_aes, encrypt_aes, encrypt_md5, encrypt_rsa_unpad, encrypt_sha1},
@@ -36,9 +36,9 @@ const APK_SIG_MD5: &str = "fe4a24d80fcf253a00676a808f62c2c6";
 /// ### 必选参数
 /// * `app_type` - 应用类型: `web` 为网页端, 其余为移动端, 默认为 `web`
 pub async fn api_login_qr_key(app_type: Option<&str>) -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let app_id = if app_type == Some("web") { 1014 } else { 1001 };
@@ -51,7 +51,7 @@ pub async fn api_login_qr_key(app_type: Option<&str>) -> ApiResult<HashMap<Strin
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .base_url("https://login-user.kugou.com")
     .url("/v2/qrcode")
     .params(params)
@@ -80,9 +80,9 @@ pub fn api_login_qr_create(key: &str) -> String {
 /// ### 返回结果
 /// * `status` - `0`: 二维码过期，`1`: 等待扫码，`2`: 待确认，`4`: 授权登录成功（同时返回 token）
 pub async fn api_login_qr_check(key: &str) -> Result<LoginQrCheck, String> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let params = json!({
@@ -93,7 +93,7 @@ pub async fn api_login_qr_check(key: &str) -> Result<LoginQrCheck, String> {
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let mut resp_map: ApiResponse<LoginQrCheckData> = HttpRequest::new()
+  let mut resp_map: ApiResponse<LoginQrCheckData> = Request::new()
     .base_url("https://login-user.kugou.com")
     .url("/v2/get_userinfo_qrcode")
     .params(params)
@@ -107,7 +107,7 @@ pub async fn api_login_qr_check(key: &str) -> Result<LoginQrCheck, String> {
     return Err("接口数据无效".to_string());
   };
 
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(mut cookies) => {
       cookies.token = data.token.clone().unwrap_or_default();
       cookies.userid = data.userid.unwrap_or_default();
@@ -122,7 +122,7 @@ pub async fn api_login_qr_check(key: &str) -> Result<LoginQrCheck, String> {
     }
   };
 
-  HttpCookie::set_cookies(cookies).log_command("api_login_qr_check", "设置cookies失败")?;
+  Cookie::set_cookies(cookies).log_command("api_login_qr_check", "设置cookies失败")?;
 
   data.token = None;
 
@@ -141,9 +141,9 @@ pub async fn api_login_wx_create() -> Result<WxConnect, String> {
 
 /// ## 微信登录的 token 信息
 async fn wx_token() -> Result<WxToken, String> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let params = json!({
@@ -153,7 +153,7 @@ async fn wx_token() -> Result<WxToken, String> {
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpClient::new("https://api.weixin.qq.com/cgi-bin/token", Method::GET)
+  Client::new("https://api.weixin.qq.com/cgi-bin/token", Method::GET)
     .params(params)
     .json()
     .await
@@ -168,7 +168,7 @@ async fn wx_ticket(token: &str) -> Result<WxTicket, String> {
   let params = json!({ "access_token": token, "type": 2 });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpClient::new(
+  Client::new(
     "https://api.weixin.qq.com/cgi-bin/ticket/getticket",
     Method::GET,
   )
@@ -183,9 +183,9 @@ async fn wx_ticket(token: &str) -> Result<WxTicket, String> {
 /// ### 必选参数
 /// * `ticket` - 微信登录的 ticket
 async fn wx_connect(ticket: &str) -> Result<WxConnect, String> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let timestamp = Local::now().timestamp_millis();
@@ -204,7 +204,7 @@ async fn wx_connect(ticket: &str) -> Result<WxConnect, String> {
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpClient::new(
+  Client::new(
     "https://open.weixin.qq.com/connect/sdk/qrconnect",
     Method::GET,
   )
@@ -231,7 +231,7 @@ async fn wx_connect(ticket: &str) -> Result<WxConnect, String> {
 /// ### 返回结果
 /// * `status` - `402`: 已过期, `403`: 拒绝登录, `404`: 已经扫描, `405`: 登录成功(返回 wx_code), `408`: 等待扫描
 pub async fn api_login_wx_check(uuid: &str) -> Result<LoginWxCheck, String> {
-  HttpClient::new(
+  Client::new(
     format!("https://long.open.weixin.qq.com/connect/l/qrconnect?f=json&uuid={uuid}"),
     Method::GET,
   )
@@ -246,7 +246,7 @@ pub async fn api_login_wx_check(uuid: &str) -> Result<LoginWxCheck, String> {
 /// ### 必选参数
 /// * `code` - 第三方的 code
 pub async fn api_login_openplat(code: &str) -> Result<LoginOpenplat, String> {
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
@@ -263,9 +263,9 @@ pub async fn api_login_openplat(code: &str) -> Result<LoginOpenplat, String> {
     .map(|p| p.to_uppercase())
     .log_command("api_login_openplat", "pk加密失败")?;
 
-  let (t1, t2) = match AppMode::get_mode() {
-    Mode::KgMobile => ("0".to_string(), "0".to_string()),
-    Mode::KgLite => {
+  let (t1, t2) = match Mode::get_mode() {
+    AppMode::KgMobile => ("0".to_string(), "0".to_string()),
+    AppMode::KgLite => {
       let (t1_res, _) = encrypt_aes(
         format!("|{client_time}"),
         Some(LITE_T1_KEY),
@@ -296,7 +296,7 @@ pub async fn api_login_openplat(code: &str) -> Result<LoginOpenplat, String> {
     "pk": pk,
   });
 
-  let mut resp: ApiResponse<LoginOpenplatData> = HttpRequest::new()
+  let mut resp: ApiResponse<LoginOpenplatData> = Request::new()
     .url("/v6/login_by_openplat")
     .post()
     .header("x-router", "login.user.kugou.com")
@@ -320,7 +320,7 @@ pub async fn api_login_openplat(code: &str) -> Result<LoginOpenplat, String> {
     Err(_) => decrypted_token,
   };
 
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(mut cookies) => {
       cookies.t1 = data.t1.clone();
       cookies.userid = data.userid;
@@ -341,7 +341,7 @@ pub async fn api_login_openplat(code: &str) -> Result<LoginOpenplat, String> {
     }
   };
 
-  HttpCookie::set_cookies(cookies).log_command("api_login_openplat", "设置cookies失败")?;
+  Cookie::set_cookies(cookies).log_command("api_login_openplat", "设置cookies失败")?;
 
   data.t1 = String::new();
   data.vip_type = 0;
@@ -357,9 +357,9 @@ pub async fn api_login_openplat(code: &str) -> Result<LoginOpenplat, String> {
 /// ### 必选参数
 /// * `code` - 第三方登录的 code
 async fn op_access_token(code: &str) -> Result<OpAccessToken, String> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let params = json!({
@@ -370,7 +370,7 @@ async fn op_access_token(code: &str) -> Result<OpAccessToken, String> {
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpClient::new(
+  Client::new(
     "https://api.weixin.qq.com/sns/oauth2/access_token",
     Method::POST,
   )
@@ -390,7 +390,7 @@ async fn op_access_token(code: &str) -> Result<OpAccessToken, String> {
 pub async fn api_login_captcha(mobile: &str) -> ApiResult<HashMap<String, Value>> {
   let data = json!({ "businessid": 5, "mobile": mobile, "plat": 3 });
 
-  HttpRequest::new()
+  Request::new()
     .base_url("http://login.user.kugou.com")
     .url("/v7/send_mobile_code")
     .post()
@@ -415,7 +415,7 @@ pub async fn api_login_cellphone(
   code: &str,
   userid: Option<&str>,
 ) -> Result<LoginCellphone, String> {
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
@@ -429,9 +429,9 @@ pub async fn api_login_cellphone(
   let mobile = format!("{}*****{}", &mobile[0..2], &mobile[10..11]);
   let dfid = gen_random_string(24);
 
-  let (t1, t2) = match AppMode::get_mode() {
-    Mode::KgMobile => ("0".to_string(), "0".to_string()),
-    Mode::KgLite => {
+  let (t1, t2) = match Mode::get_mode() {
+    AppMode::KgMobile => ("0".to_string(), "0".to_string()),
+    AppMode::KgLite => {
       let (t1_res, _) = encrypt_aes(
         format!("|{client_time}"),
         Some(LITE_T1_KEY),
@@ -472,18 +472,18 @@ pub async fn api_login_cellphone(
     data.insert("userid".to_string(), json!(user_id));
   }
 
-  match AppMode::get_mode() {
-    Mode::KgMobile => {
+  match Mode::get_mode() {
+    AppMode::KgMobile => {
       data.insert("t3".to_string(), json!("MCwwLDAsMCwwLDAsMCwwLDA"));
     }
-    Mode::KgLite => {
+    AppMode::KgLite => {
       data.insert("dfid".to_string(), json!(dfid));
       data.insert("dev".to_string(), json!(dynamic_config.dev));
       data.insert("gitversion".to_string(), json!("5f0b7c4"));
     }
   }
 
-  let mut resp: ApiResponse<LoginCellphoneData> = HttpRequest::new()
+  let mut resp: ApiResponse<LoginCellphoneData> = Request::new()
     .base_url("https://loginserviceretry.kugou.com")
     .url("/v7/login_by_verifycode")
     .post()
@@ -509,7 +509,7 @@ pub async fn api_login_cellphone(
     Err(_) => decrypted_token,
   };
 
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(mut cookies) => {
       cookies.t1 = data.t1.clone();
       cookies.userid = data.userid;
@@ -530,7 +530,7 @@ pub async fn api_login_cellphone(
     }
   };
 
-  HttpCookie::set_cookies(cookies).log_command("api_login_cellphone", "设置cookies失败")?;
+  Cookie::set_cookies(cookies).log_command("api_login_cellphone", "设置cookies失败")?;
 
   data.t1 = String::new();
   data.vip_type = 0;
@@ -544,12 +544,12 @@ pub async fn api_login_cellphone(
 #[tauri::command]
 /// ## 刷新登录
 pub async fn api_login_token() -> ApiResult<HashMap<String, Value>> {
-  let http_mode = AppMode::get_mode();
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let http_mode = Mode::get_mode();
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -557,8 +557,8 @@ pub async fn api_login_token() -> ApiResult<HashMap<String, Value>> {
   let client_time = Utc::now().timestamp_millis();
 
   let (key, iv) = match http_mode {
-    Mode::KgMobile => ("90b8382a1bb4ccdcf063102053fd75b8", "f063102053fd75b8"),
-    Mode::KgLite => ("c24f74ca2820225badc01946dba4fdf7", "adc01946dba4fdf7"),
+    AppMode::KgMobile => ("90b8382a1bb4ccdcf063102053fd75b8", "f063102053fd75b8"),
+    AppMode::KgLite => ("c24f74ca2820225badc01946dba4fdf7", "adc01946dba4fdf7"),
   };
 
   let aes_json = json!({ "clienttime": client_time / 1000, "token": cookies.token });
@@ -573,8 +573,8 @@ pub async fn api_login_token() -> ApiResult<HashMap<String, Value>> {
     encrypt_rsa_unpad(pk_json.to_string(), None).log_command("api_login_token", "pk加密失败")?;
 
   let (t1, t2) = match http_mode {
-    Mode::KgMobile => ("0".to_string(), "0".to_string()),
-    Mode::KgLite => {
+    AppMode::KgMobile => ("0".to_string(), "0".to_string()),
+    AppMode::KgLite => {
       let t1_str = format!("{}|{client_time}", cookies.t1);
       let (t1_res, _) = encrypt_aes(t1_str, Some(LITE_T1_KEY), Some(LITE_T1_IV))
         .log_command("api_login_token", "t1加密失败")?;
@@ -603,7 +603,7 @@ pub async fn api_login_token() -> ApiResult<HashMap<String, Value>> {
     "clienttime_ms": client_time,
   });
 
-  HttpRequest::new()
+  Request::new()
     .base_url("http://login.user.kugou.com")
     .url("/v5/login_by_token")
     .post()
@@ -618,7 +618,7 @@ pub async fn api_login_token() -> ApiResult<HashMap<String, Value>> {
 #[tauri::command]
 /// ## 设备列表
 pub async fn api_login_device() -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -642,7 +642,7 @@ pub async fn api_login_device() -> ApiResult<HashMap<String, Value>> {
     "params": aes_res,
   });
 
-  HttpRequest::new()
+  Request::new()
     .base_url("https://userinfoservice.kugou.com")
     .url("/v2/get_dev")
     .post()
@@ -656,15 +656,15 @@ pub async fn api_login_device() -> ApiResult<HashMap<String, Value>> {
 #[tauri::command]
 /// ## 设备登出
 pub async fn api_login_device_kick() -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -694,7 +694,7 @@ pub async fn api_login_device_kick() -> ApiResult<HashMap<String, Value>> {
     "signature": sign_key_params(&client_time.to_string(), None, None),
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/loginservice/v1/dev_logout")
     .header("host", "gateway.kugou.com")
     .data(data)
@@ -707,7 +707,7 @@ pub async fn api_login_device_kick() -> ApiResult<HashMap<String, Value>> {
 #[tauri::command]
 /// ## 登出账号
 pub fn api_login_out() -> Result<(), String> {
-  HttpCookie::clear_cookies().log_command("api_login_out", "清除cookie失败")
+  Cookie::clear_cookies().log_command("api_login_out", "清除cookie失败")
 }
 
 #[tauri::command]
@@ -719,16 +719,16 @@ pub fn api_login_out() -> Result<(), String> {
 ///
 /// 登录成功设置了cookies, 但是没有保存到store中, 导致下次启动时登录状态丢失, 与前端的登录状态不同步
 pub fn api_login_online() -> bool {
-  match AppMode::get_mode() {
-    Mode::KgMobile => {
-      if let ModeCookies::KgMobile(kg_cookies) = HttpCookie::get_cookies() {
+  match Mode::get_mode() {
+    AppMode::KgMobile => {
+      if let ModeCookies::KgMobile(kg_cookies) = Cookie::get_cookies() {
         if !kg_cookies.token.is_empty() {
           return true;
         }
       }
     }
-    Mode::KgLite => {
-      if let ModeCookies::KgLite(kg_cookies) = HttpCookie::get_cookies() {
+    AppMode::KgLite => {
+      if let ModeCookies::KgLite(kg_cookies) = Cookie::get_cookies() {
         if !kg_cookies.token.is_empty() {
           return true;
         }

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use crate::{
   api::types::ApiResult,
   http::{
-    cookie::{HttpCookie, ModeCookies},
-    request::HttpRequest,
+    cookie::{Cookie, ModeCookies},
+    request::Request,
   },
   utils::logger::LogErrExt,
 };
@@ -21,7 +21,7 @@ pub async fn api_youth_union_vip() -> ApiResult<HashMap<String, Value>> {
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .base_url("https://kugouvip.kugou.com")
     .url("/v1/get_union_vip")
     .params(params)
@@ -45,7 +45,7 @@ pub async fn api_youth_day_vip(receive_day: Option<String>) -> ApiResult<HashMap
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/youth/v1/recharge/receive_vip_listen_song")
     .post()
     .header("content-type", "application/x-www-form-urlencoded")
@@ -59,7 +59,7 @@ pub async fn api_youth_day_vip(receive_day: Option<String>) -> ApiResult<HashMap
 #[tauri::command]
 /// ## 升级 VIP
 pub async fn api_youth_day_upgrade() -> ApiResult<HashMap<String, Value>> {
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -67,7 +67,7 @@ pub async fn api_youth_day_upgrade() -> ApiResult<HashMap<String, Value>> {
   let params = json!({ "kugouid": cookies.userid, "ad_type": 1 });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/youth/v1/listen_song/upgrade_vip_reward")
     .post()
     .params(params)

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, provide } from 'vue';
+import { onUnmounted, provide, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import MusicActions from '@/components/MusicTable/MusicActions.vue';
@@ -17,13 +17,11 @@ provide('listType', listType);
 const route = useRoute('TopPlaylistTable');
 const listStore = useListStore();
 
-const handleLoad = async () => {
+const handleLoad = async (gid: string) => {
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
 
   try {
-    const gid = route.params.gid;
-
     const playlist_detail = await invoke('api_playlist_detail', { gids: [gid] });
     if (playlist_detail.status !== ApiInvokeStatus.Success || !playlist_detail.data[0]) {
       notify.error('获取歌单信息失败');
@@ -83,15 +81,16 @@ const handleLoad = async () => {
   } catch {
     notify.error('获取歌单歌曲失败');
   } finally {
+    listStore.isHeaderLoading = false;
     listStore.isTableLoading = false;
   }
 };
 
-onMounted(handleLoad);
+watch(() => route.params.gid, handleLoad, { immediate: true });
 onUnmounted(() => {
-  listStore.resetList(listType);
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
+  listStore.resetList(listType);
 });
 </script>
 

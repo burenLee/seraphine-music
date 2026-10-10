@@ -7,7 +7,7 @@ use lofty::{
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
-use crate::{app::dir::AppDir, log_err, utils::logger::LogErrExt};
+use crate::{app::dir::Dir, log_err, utils::logger::LogErrExt};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct MusicDetail {
@@ -90,7 +90,7 @@ pub fn music_file_detail(path: &str) -> Result<MusicDetail, String> {
 /// * `pic` - 音频的封面图片
 pub fn music_file_cover(file_stem: &str, pic: &Picture) -> Option<String> {
   let cover_ext = pic.mime_type().and_then(|m| m.ext())?;
-  let cover_path = AppDir::cover().join(format!("{file_stem}.{cover_ext}"));
+  let cover_path = Dir::cover().join(format!("{file_stem}.{cover_ext}"));
 
   if !cover_path.exists() {
     if let Err(e) = fs::write(&cover_path, pic.data()) {

@@ -96,7 +96,10 @@ onMounted(async () => {
   await handleLoad();
 });
 
-onUnmounted(() => listStore.resetList(listType));
+onUnmounted(() => {
+  listStore.isTableLoading = true;
+  listStore.resetList(listType);
+});
 </script>
 
 <template>

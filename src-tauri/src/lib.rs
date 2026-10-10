@@ -29,12 +29,13 @@ pub fn run() {
 
       // AppConfig -> AppMode -> 其他
       // 后续的模块初始化一定要按照这个顺序
-      app::config::AppConfig::init(app_handle);
-      app::mode::AppMode::init();
-      app::dir::AppDir::init();
-      http::config::HttpConfig::init();
-      http::cookie::HttpCookie::init();
-      music::player::MusicPlayer::init();
+      app::config::Config::init(app_handle);
+      app::mode::Mode::init();
+      app::dir::Dir::init();
+      http::config::Config::init();
+      http::cookie::Cookie::init();
+      music::player::Player::init();
+      music::media::Media::init();
 
       Ok(())
     })
@@ -62,6 +63,8 @@ pub fn run() {
       music::player::music_player_seek,
       music::player::music_player_set_volume,
       music::lyric::music_lyric_get,
+      music::lyric::music_lyric_save,
+      music::media::music_media_sync_metadata,
       // album::api_album_songs,
       api::lyric::api_lyric_search,
       api::lyric::api_lyric_get,

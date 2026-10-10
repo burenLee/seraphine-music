@@ -4,6 +4,10 @@ macro_rules! log_err {
   ($target:expr, $err:expr, $msg:expr) => {
     ::log::error!(target: $target, "{}: {}", $msg, $err)
   };
+
+  ($target:expr, $err:expr) => {
+    ::log::error!(target: $target, "{}", $err)
+  };
 }
 
 /// ## 记录预期内的中断/降级(warn)日志
@@ -12,6 +16,10 @@ macro_rules! log_warn {
   ($target:expr, $err:expr, $msg:expr) => {
     ::log::warn!(target: $target, "{}: {}", $msg, $err)
   };
+
+  ($target:expr, $err:expr) => {
+    ::log::warn!(target: $target, "{}", $err)
+  };
 }
 
 /// ## 记录关键流程节点(info)日志
@@ -19,6 +27,10 @@ macro_rules! log_warn {
 macro_rules! log_info {
   ($target:expr, $err:expr, $msg:expr) => {
     ::log::info!(target: $target, "{}: {}", $msg, $err)
+  };
+
+  ($target:expr, $err:expr) => {
+    ::log::info!(target: $target, "{}", $err)
   };
 }
 

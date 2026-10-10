@@ -13,9 +13,6 @@ const isLoading = ref(true);
 const colData = ref<ColList>({ info: { ...defaultInfo, title: '推荐歌手' }, list: [] });
 
 const handleLoad = async () => {
-  // 不使用isLoading是因为初始值为true
-  // if (isLoading.value) return
-
   isLoading.value = true;
 
   try {

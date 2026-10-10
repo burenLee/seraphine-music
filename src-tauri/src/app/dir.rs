@@ -1,16 +1,15 @@
 use std::{collections::HashMap, env, fs, path::PathBuf, sync::OnceLock};
 use tauri::Manager;
 
-use crate::{app::config::APP_HANDLE, log_err, log_warn, utils::logger::LogErrExt};
+use crate::{app::config::Config, log_err, utils::logger::LogErrExt};
 
 const AUDIO_DIR: &str = "audios";
 const LYRIC_DIR: &str = "lyrics";
 const COVER_DIR: &str = "covers";
 
-static DIRS: OnceLock<Dirs> = OnceLock::new();
+static APP_DIR: OnceLock<AppDir> = OnceLock::new();
 
-#[derive(Debug)]
-struct Dirs {
+struct AppDir {
   app_data: PathBuf,
 
   app_local_data: PathBuf,
@@ -21,15 +20,14 @@ struct Dirs {
   cover: PathBuf,
 }
 
-pub struct AppDir;
+pub struct Dir;
 
-impl AppDir {
+impl Dir {
   /// ## 初始化目录
   ///
   /// 创建音频 / 歌词 / 封面目录
   pub fn init() {
-    let app_handle = APP_HANDLE.get().expect("无法获取 APP_HANDLE");
-    let path = app_handle.path();
+    let path = Config::app().path();
 
     let app_data_dir = path.app_data_dir().unwrap_or_else(|_| {
       path
@@ -46,7 +44,7 @@ impl AppDir {
     let lyric_dir = Self::gen_dir(&app_local_data_dir, LYRIC_DIR);
     let cover_dir = Self::gen_dir(&app_local_data_dir, COVER_DIR);
 
-    DIRS.get_or_init(|| Dirs {
+    APP_DIR.get_or_init(|| AppDir {
       app_data: app_data_dir,
       app_local_data: app_local_data_dir,
       app_log: app_log_dir,
@@ -66,7 +64,7 @@ impl AppDir {
 
     if !path.exists() {
       if let Err(e) = fs::create_dir_all(&path) {
-        log_warn!("gen_dir", e, format!("创建目录失败[{}]", path.display()));
+        log_err!("gen_dir", e, format!("创建目录失败[{}]", path.display()));
 
         return parent.clone();
       }
@@ -77,7 +75,7 @@ impl AppDir {
 
   /// ## 获取应用数据目录
   pub fn app_data() -> PathBuf {
-    match DIRS.get() {
+    match APP_DIR.get() {
       Some(dirs) => dirs.app_data.clone(),
       None => env::temp_dir(),
     }
@@ -85,7 +83,7 @@ impl AppDir {
 
   /// ## 获取本地数据目录
   pub fn app_local_data() -> PathBuf {
-    match DIRS.get() {
+    match APP_DIR.get() {
       Some(dirs) => dirs.app_local_data.clone(),
       None => env::temp_dir(),
     }
@@ -93,7 +91,7 @@ impl AppDir {
 
   /// ## 获取日志目录
   pub fn app_log() -> PathBuf {
-    match DIRS.get() {
+    match APP_DIR.get() {
       Some(dirs) => dirs.app_log.clone(),
       None => env::temp_dir(),
     }
@@ -101,7 +99,7 @@ impl AppDir {
 
   /// ## 获取音频目录
   pub fn audio() -> PathBuf {
-    match DIRS.get() {
+    match APP_DIR.get() {
       Some(dirs) => dirs.audio.clone(),
       None => env::temp_dir(),
     }
@@ -109,7 +107,7 @@ impl AppDir {
 
   /// ## 获取歌词目录
   pub fn lyric() -> PathBuf {
-    match DIRS.get() {
+    match APP_DIR.get() {
       Some(dirs) => dirs.lyric.clone(),
       None => env::temp_dir(),
     }
@@ -117,7 +115,7 @@ impl AppDir {
 
   /// ## 获取封面目录
   pub fn cover() -> PathBuf {
-    match DIRS.get() {
+    match APP_DIR.get() {
       Some(dirs) => dirs.cover.clone(),
       None => env::temp_dir(),
     }
@@ -130,27 +128,27 @@ pub fn app_dirs_all() -> HashMap<String, String> {
   HashMap::from_iter([
     (
       "app_data".to_string(),
-      AppDir::app_data().to_string_lossy().to_string(),
+      Dir::app_data().to_string_lossy().to_string(),
     ),
     (
       "app_local_data".to_string(),
-      AppDir::app_local_data().to_string_lossy().to_string(),
+      Dir::app_local_data().to_string_lossy().to_string(),
     ),
     (
       "app_log".to_string(),
-      AppDir::app_log().to_string_lossy().to_string(),
+      Dir::app_log().to_string_lossy().to_string(),
     ),
     (
       "audio".to_string(),
-      AppDir::audio().to_string_lossy().to_string(),
+      Dir::audio().to_string_lossy().to_string(),
     ),
     (
       "lyric".to_string(),
-      AppDir::lyric().to_string_lossy().to_string(),
+      Dir::lyric().to_string_lossy().to_string(),
     ),
     (
       "cover".to_string(),
-      AppDir::cover().to_string_lossy().to_string(),
+      Dir::cover().to_string_lossy().to_string(),
     ),
   ])
 }
@@ -182,7 +180,11 @@ pub fn app_dirs_clear(path: &str) -> Result<(), String> {
       if let Err(e) = fs::remove_file(&path) {
         fail_total = fail_total + 1;
 
-        log_err!("app_dirs_clear", "清理文件[{}]失败: {e}", path.display());
+        log_err!(
+          "app_dirs_clear",
+          e,
+          format!("清理文件[{}]失败:", path.display())
+        );
       }
     }
   }
@@ -206,7 +208,7 @@ mod tests {
     let temp = tempfile::tempdir().unwrap();
     let parent = temp.path().to_path_buf();
 
-    let child = AppDir::gen_dir(&parent, "sub");
+    let child = Dir::gen_dir(&parent, "sub");
 
     assert!(child.is_dir());
     assert_eq!(child, parent.join("sub"));
@@ -217,8 +219,8 @@ mod tests {
     let temp = tempfile::tempdir().unwrap();
     let parent = temp.path().to_path_buf();
 
-    let first = AppDir::gen_dir(&parent, "sub");
-    let second = AppDir::gen_dir(&parent, "sub");
+    let first = Dir::gen_dir(&parent, "sub");
+    let second = Dir::gen_dir(&parent, "sub");
 
     assert_eq!(first, second);
   }

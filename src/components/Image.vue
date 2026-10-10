@@ -46,8 +46,9 @@ watch(
 </script>
 
 <template>
+  <div v-if="isLoading" :class="cn('card', $attrs.class)"></div>
   <SvgIcon
-    v-if="!props.src || isLoading || !isReady"
+    v-else-if="!props.src || !isReady"
     :class="cn('card', $attrs.class)"
     :name="props.icon || 'Music'"
     :size="props.iconSize || 20"

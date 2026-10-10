@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use crate::{
   api::types::ApiResult,
   http::{
-    config::{DynamicModeConfig, HttpConfig, StaticConfigMode},
-    request::HttpRequest,
+    config::{DynamicModeConfig, Config, StaticModeConfig},
+    request::Request,
   },
   utils::helper::sign_key_params,
 };
@@ -39,7 +39,7 @@ pub async fn api_artist_list(
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/ocean/v6/singer/list")
     .params(params)
     .builder()
@@ -56,7 +56,7 @@ pub async fn api_artist_list(
 pub async fn api_artist_detail(id: &str) -> ApiResult<HashMap<String, Value>> {
   let data = json!({ "author_id": id });
 
-  HttpRequest::new()
+  Request::new()
     .url("/kmr/v3/author")
     .post()
     .header("x-router", "openapi.kugou.com")
@@ -84,11 +84,11 @@ pub async fn api_artist_audios(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
@@ -108,7 +108,7 @@ pub async fn api_artist_audios(
     "pagesize": page_size.unwrap_or(10),
   });
 
-  HttpRequest::new()
+  Request::new()
     .base_url("https://openapi.kugou.com")
     .url("/kmr/v1/audio_group/author")
     .post()

@@ -1,6 +1,6 @@
 use tauri::Url;
 
-use crate::http::config::KG_BASE_URL;
+use crate::http::KG_BASE_URL;
 
 /// ## 生成随机字符串
 ///
@@ -20,7 +20,9 @@ pub fn gen_random_string(len: usize) -> String {
 ///
 /// ### 必选参数
 /// * `hash` - 音频 hash
-pub fn is_valid_hash(hash: &str) -> bool {
+pub fn is_valid_hash(hash: impl AsRef<str>) -> bool {
+  let hash = hash.as_ref();
+
   if hash.is_empty()
     || hash.len() >= 256
     || hash.contains("..")
@@ -41,10 +43,11 @@ pub fn is_valid_hash(hash: &str) -> bool {
 ///
 /// ### 必选参数
 /// * `input` - 原始路径字符串
-pub fn gen_valid_path(input: &str) -> String {
+pub fn gen_valid_path(input: impl AsRef<str>) -> String {
   const INVALID_CHARS: [char; 9] = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
   input
+    .as_ref()
     .chars()
     .filter(|c| !c.is_control() && !INVALID_CHARS.contains(c))
     .collect()
@@ -56,8 +59,9 @@ pub fn gen_valid_path(input: &str) -> String {
 ///
 /// ### 必选参数
 /// * `url` - 地址字符串
-pub fn gen_url(url: &str) -> Url {
+pub fn gen_url(url: impl AsRef<str>) -> Url {
   url
+    .as_ref()
     .parse::<Url>()
     .unwrap_or_else(|_| KG_BASE_URL.parse::<Url>().unwrap())
 }
@@ -68,9 +72,9 @@ pub fn gen_url(url: &str) -> Url {
 ///
 /// ### 必选参数
 /// * `input` - 原始字符串
-pub fn gen_valid_cookie(input: impl Into<String>) -> String {
+pub fn gen_valid_cookie(input: impl AsRef<str>) -> String {
   input
-    .into()
+    .as_ref()
     .chars()
     .filter(|c| matches!(c, '!' | '#'..='+' | '-'..=':' | '<'..='[' | ']'..='~'))
     .collect()

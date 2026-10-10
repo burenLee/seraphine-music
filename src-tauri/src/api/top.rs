@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use crate::{
   api::types::ApiResult,
   http::{
-    config::{DynamicModeConfig, HttpConfig, StaticConfigMode},
-    cookie::{HttpCookie, ModeCookies},
-    request::HttpRequest,
+    config::{Config, DynamicModeConfig, StaticModeConfig},
+    cookie::{Cookie, ModeCookies},
+    request::Request,
   },
   utils::{helper::sign_key_params, logger::LogErrExt},
 };
@@ -18,15 +18,15 @@ use crate::{
 /// ### 必选参数
 /// * `card_id` - 1: 精选好歌随心听, 2: 经典怀旧金曲, 3: 热门好歌精选, 4: 小众宝藏佳作, 6: vip专属推荐
 pub async fn api_top_card(card_id: u8) -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -59,7 +59,7 @@ pub async fn api_top_card(card_id: u8) -> ApiResult<HashMap<String, Value>> {
     "u_info": "a0c35cd40af564444b5584c2754dedec"
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/singlecardrec.service/v1/single_card_recommend")
     .post()
     .params(params)
@@ -73,11 +73,11 @@ pub async fn api_top_card(card_id: u8) -> ApiResult<HashMap<String, Value>> {
 #[tauri::command]
 /// ## 新碟上架
 pub async fn api_top_album() -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -88,7 +88,7 @@ pub async fn api_top_album() -> ApiResult<HashMap<String, Value>> {
     "withpriv": 1,
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/musicadservice/v1/mobile_newalbum_sp")
     .post()
     .data(data)
@@ -120,15 +120,15 @@ pub async fn api_top_playlist(
   page: Option<usize>,
   page_size: Option<usize>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -163,7 +163,7 @@ pub async fn api_top_playlist(
     }
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/v2/special_recommend")
     .post()
     .header("x-router", "specialrec.service.kugou.com")

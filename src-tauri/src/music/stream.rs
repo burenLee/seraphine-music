@@ -1,10 +1,7 @@
 use std::{
   fs::File,
   io::{Error, ErrorKind, Read, Result, Seek, SeekFrom},
-  sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-  },
+  sync::atomic::{AtomicU64, Ordering},
   thread,
   time::{Duration, Instant},
 };
@@ -19,7 +16,7 @@ const MAX_SLEEP_DURATION: Duration = Duration::from_millis(100);
 pub struct StreamFile {
   file: File,
   file_size: u64,
-  downloaded_size: Arc<AtomicU64>,
+  downloaded_size: &'static AtomicU64,
 }
 
 impl StreamFile {
@@ -29,7 +26,7 @@ impl StreamFile {
   /// * `file` - 本地缓存文件
   /// * `file_size` - 文件总大小
   /// * `downloaded_size` - 已下载的文件大小
-  pub fn new(file: File, file_size: u64, downloaded_size: Arc<AtomicU64>) -> Self {
+  pub fn new(file: File, file_size: u64, downloaded_size: &'static AtomicU64) -> Self {
     Self {
       file,
       file_size,
@@ -129,10 +126,7 @@ mod tests {
   use std::{
     fs::{self, File},
     io::{Read, Seek, SeekFrom},
-    sync::{
-      atomic::{AtomicU64, Ordering},
-      Arc,
-    },
+    sync::atomic::AtomicU64,
   };
 
   use super::*;
@@ -142,9 +136,12 @@ mod tests {
     let file_path = temp.path().join("stream.bin");
     fs::write(&file_path, content).unwrap();
     let file = File::open(&file_path).unwrap();
-    let downloaded = Arc::new(AtomicU64::new(content.len() as u64));
+    let downloaded: &'static AtomicU64 = Box::leak(Box::new(AtomicU64::new(content.len() as u64)));
 
-    (StreamFile::new(file, content.len() as u64, downloaded), temp)
+    (
+      StreamFile::new(file, content.len() as u64, downloaded),
+      temp,
+    )
   }
 
   #[test]

@@ -8,6 +8,7 @@ import SvgIcon from '@/components/SvgIcon.vue';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
 import { getFullName } from '@/utils/music';
+import { LyricFormat } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const visible = defineModel({ required: true, default: false });
@@ -62,6 +63,8 @@ const handleConfirm = () => {
   if (!musicStore.music || !selectLyric.value) return;
 
   lyricStore.load(musicStore.music, selectLyric.value);
+
+  handleCancel();
 };
 
 watch(visible, (visible) => visible && handleReset(true));
@@ -117,10 +120,13 @@ watch(visible, (visible) => visible && handleReset(true));
             @click="selectLyric = lyric"
           >
             <div class="w-0 flex-1 truncate pr-2">{{ lyric.singer }} - {{ lyric.song }}</div>
-            <div class="w-28 truncate">{{ lyric.product_from }}</div>
-            <div class="w-14 truncate">{{ lyric.score }} 分</div>
+            <div class="w-32 truncate pr-2 text-center">{{ lyric.product_from }}</div>
+            <div class="w-12 truncate pr-2 text-center">
+              {{ lyric.contenttype === 0 ? LyricFormat.Krc : LyricFormat.Lrc }}
+            </div>
+            <div class="w-16 truncate pr-2 text-center">{{ lyric.score }} 分</div>
             <div class="w-8">
-              <SvgIcon v-if="lyricStore.lyric?.id === lyric.id" name="Unread" />
+              <SvgIcon v-if="lyricStore.lyric?.id === lyric.id" name="Unread" size="20" />
             </div>
           </div>
         </template>

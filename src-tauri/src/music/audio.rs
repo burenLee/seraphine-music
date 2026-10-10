@@ -13,7 +13,7 @@ use std::{
 
 pub struct Audio {
   output_device: Device, // 输出设备
-  _sink: MixerDeviceSink,
+  sink: MixerDeviceSink,
   player: Player,
 }
 
@@ -34,7 +34,7 @@ impl Audio {
 
     Ok(Self {
       output_device,
-      _sink: sink,
+      sink,
       player,
     })
   }
@@ -69,7 +69,7 @@ impl Audio {
     }
 
     self.output_device = output_device;
-    self._sink = sink;
+    self.sink = sink;
     self.player = player;
 
     Ok(())
@@ -79,7 +79,7 @@ impl Audio {
   ///
   /// ### 必选参数
   /// * `path` - 音频文件路径
-  pub fn load_from_file(&mut self, path: &str) -> anyhow::Result<()> {
+  pub fn load_from_file(&self, path: &str) -> anyhow::Result<()> {
     let file = File::open(path)?;
     let source = Decoder::try_from(file)?;
 
@@ -93,7 +93,7 @@ impl Audio {
   /// ### 必选参数
   /// * `stream` - 音频流
   /// * `file_size` - 音频文件总大小
-  pub fn load_from_stream<T>(&mut self, stream: T, file_size: u64) -> anyhow::Result<()>
+  pub fn load_from_stream<T>(&self, stream: T, file_size: u64) -> anyhow::Result<()>
   where
     T: Read + Seek + Send + Sync + 'static,
   {
@@ -123,8 +123,7 @@ impl Audio {
   }
 
   /// ## 停止音频
-  pub fn stop(&mut self) {
-    let _ = self.player.try_seek(Duration::ZERO);
+  pub fn stop(&self) {
     self.player.pause();
     self.player.stop();
   }

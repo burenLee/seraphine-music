@@ -8,9 +8,10 @@ use tauri_plugin_http::reqwest::{
 
 use crate::{
   http::{
-    client::HttpClient,
-    config::{DynamicModeConfig, HttpConfig, StaticConfigMode, KG_BASE_URL},
-    cookie::{HttpCookie, ModeCookies},
+    client::Client,
+    config::{Config, DynamicModeConfig, StaticModeConfig},
+    cookie::{Cookie, ModeCookies},
+    KG_BASE_URL,
   },
   utils::helper::{sign_key, sign_params_android, sign_params_register, sign_params_web},
 };
@@ -22,8 +23,7 @@ pub enum EncryptType {
   Register,
 }
 
-#[derive(Debug)]
-pub struct HttpRequest {
+pub struct Request {
   base_url: String,           // 基础URL
   url: String,                // 请求URL
   method: Method,             // 请求方法, 默认 GET
@@ -36,7 +36,7 @@ pub struct HttpRequest {
   encrypt_type: EncryptType,  // 加密类型, 默认 Android
 }
 
-impl Default for HttpRequest {
+impl Default for Request {
   fn default() -> Self {
     Self {
       base_url: KG_BASE_URL.to_string(),
@@ -53,7 +53,7 @@ impl Default for HttpRequest {
   }
 }
 
-impl HttpRequest {
+impl Request {
   /// ## 构建请求实例
   pub fn new() -> Self {
     Self::default()
@@ -172,16 +172,16 @@ impl HttpRequest {
   /// ## 构建客户端
   ///
   /// 合并默认参数与请求头, 按需添加 key 与 signature 字段
-  pub fn builder(self) -> HttpClient {
-    let static_config = match HttpConfig::get_static_config() {
-      StaticConfigMode::KgMobile(config) => config,
-      StaticConfigMode::KgLite(config) => config,
+  pub fn builder(self) -> Client {
+    let static_config = match Config::get_static_config() {
+      StaticModeConfig::KgMobile(config) => config,
+      StaticModeConfig::KgLite(config) => config,
     };
-    let dynamic_config = match HttpConfig::get_dynamic_config() {
+    let dynamic_config = match Config::get_dynamic_config() {
       DynamicModeConfig::KgMobile(config) => config,
       DynamicModeConfig::KgLite(config) => config,
     };
-    let cookies = match HttpCookie::get_cookies() {
+    let cookies = match Cookie::get_cookies() {
       ModeCookies::KgMobile(cookies) => cookies,
       ModeCookies::KgLite(cookies) => cookies,
     };
@@ -313,7 +313,7 @@ impl HttpRequest {
       params.clear();
     }
 
-    HttpClient::new(url, self.method)
+    Client::new(url, self.method)
       .headers(headers)
       .params(params)
       .data(self.data)

@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use crate::{
   api::types::ApiResult,
   http::{
-    config::{DynamicModeConfig, HttpConfig, StaticConfigMode},
-    cookie::{HttpCookie, ModeCookies},
-    request::HttpRequest,
+    config::{Config, DynamicModeConfig, StaticModeConfig},
+    cookie::{Cookie, ModeCookies},
+    request::Request,
   },
   utils::helper::sign_key_params,
 };
@@ -38,15 +38,15 @@ pub async fn api_personal_fm(
   remain_songcnt: Option<u8>,
   platform: Option<String>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
-  let cookies = match HttpCookie::get_cookies() {
+  let cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -79,7 +79,7 @@ pub async fn api_personal_fm(
     "playtime": playtime.unwrap_or_default(),
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/v2/personal_recommend".to_string())
     .post()
     .header("x-router", "persnfm.service.kugou.com")

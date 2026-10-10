@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{api::types::ApiResult, http::request::HttpRequest};
+use crate::{api::types::ApiResult, http::request::Request};
 
 use crate::utils::logger::LogErrExt;
 
@@ -11,7 +11,7 @@ pub async fn api_music_everyday_recommend() -> ApiResult<HashMap<String, Value>>
   let params = json!({ "platform": "android" });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/everyday_song_recommend")
     .post()
     .header("x-router", "everydayrec.service.kugou.com")

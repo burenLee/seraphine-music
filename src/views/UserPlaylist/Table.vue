@@ -80,15 +80,16 @@ const handleLoad = async (gid: string) => {
   } catch {
     notify.error('获取歌单歌曲失败');
   } finally {
+    listStore.isHeaderLoading = false;
     listStore.isTableLoading = false;
   }
 };
 
 watch(() => route.params.gid, handleLoad, { immediate: true });
 onUnmounted(() => {
-  listStore.resetList(listType);
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
+  listStore.resetList(listType);
 });
 </script>
 

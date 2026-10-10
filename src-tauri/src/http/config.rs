@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::{LazyLock, RwLock};
@@ -7,28 +6,20 @@ use uuid::Uuid;
 
 use crate::{
   app::{
-    config::APP_HANDLE,
+    config::Config as AppConfig,
     mode::{AppMode, Mode},
   },
+  http::{CONFIG_KEY, HTTP_STORE},
   utils::{crypto::encrypt_md5, tools::gen_random_string},
 };
 
-pub const HTTP_STORE: &str = "http.json";
-pub const CONFIG_KEY: &str = "config";
-pub const COOKIE_KEY: &str = "cookie";
-
-pub const KG_BASE_URL: &str = "https://gateway.kugou.com";
-pub const KG_BASE_DOMAIN: &str = ".kugou.com";
-
-#[derive(Debug)]
 /// 静态配置
-pub struct HttpStaticConfig {
-  pub kg_mobile: KgStaticConfig,
-  pub kg_lite: KgStaticConfig,
+pub struct StaticConfig {
+  pub kg_mobile: StaticKgConfig,
+  pub kg_lite: StaticKgConfig,
 }
 
-#[derive(Debug)]
-pub struct KgStaticConfig {
+pub struct StaticKgConfig {
   pub api_ver: u16,
   pub src_appid: u16,
   pub appid: u16,
@@ -47,13 +38,13 @@ pub struct KgStaticConfig {
   pub key_params_padding: &'static str,
 }
 
-pub enum StaticConfigMode {
-  KgMobile(KgStaticConfig),
-  KgLite(KgStaticConfig),
+pub enum StaticModeConfig {
+  KgMobile(StaticKgConfig),
+  KgLite(StaticKgConfig),
 }
 
-const STATIC_CONFIG: HttpStaticConfig = HttpStaticConfig {
-  kg_mobile: KgStaticConfig {
+const STATIC_CONFIG: StaticConfig = StaticConfig {
+  kg_mobile: StaticKgConfig {
     api_ver: 20,
     src_appid: 2919,
     appid: 1005,
@@ -76,7 +67,7 @@ UR4tvOGOqp94TJtQ1EPnWGWXngpeIW5GxoQGao1rmYWAu6oi1z9XkChrsUdC6DJE
     key_cloud_padding: "ebd1ac3134c880bda6a2194537843caa0162e2e7",
     key_params_padding: "OIlwieks28dk2k092lksi2UIkp",
   },
-  kg_lite: KgStaticConfig {
+  kg_lite: StaticKgConfig {
     api_ver: 20,
     src_appid: 2919,
     appid: 3116,
@@ -102,13 +93,13 @@ LgFVxtzIY41Pe7lPOgsfTCn5kZcvKhYKJesKnnJDNr5/abvTGf+rHG3YRwsCHcQ0
 };
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct HttpDynamicConfig {
-  pub kg_mobile: KgDynamicConfig,
-  pub kg_lite: KgDynamicConfig,
+pub struct DynamicConfig {
+  pub kg_mobile: DynamicKgConfig,
+  pub kg_lite: DynamicKgConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KgDynamicConfig {
+pub struct DynamicKgConfig {
   pub mid: String,   // 设备 MID
   pub guid: String,  // 设备全局唯一标识符
   pub dev: String,   // 开发设备标识符
@@ -116,13 +107,13 @@ pub struct KgDynamicConfig {
   pub webgl: String, // WebGL 指纹哈希值
 }
 
-impl Default for KgDynamicConfig {
+impl Default for DynamicKgConfig {
   fn default() -> Self {
     let guid = encrypt_md5(Uuid::new_v4());
     let mid = u128::from_str_radix(&guid, 16).unwrap_or(0).to_string();
     let dev = gen_random_string(10);
 
-    KgDynamicConfig {
+    DynamicKgConfig {
       mid,
       guid,
       dev,
@@ -133,17 +124,17 @@ impl Default for KgDynamicConfig {
 }
 
 pub enum DynamicModeConfig {
-  KgMobile(KgDynamicConfig),
-  KgLite(KgDynamicConfig),
+  KgMobile(DynamicKgConfig),
+  KgLite(DynamicKgConfig),
 }
 
 // 动态配置
-static DYNAMIC_CONFIG: LazyLock<RwLock<HttpDynamicConfig>> =
-  LazyLock::new(|| RwLock::new(HttpDynamicConfig::default()));
+static DYNAMIC_CONFIG: LazyLock<RwLock<DynamicConfig>> =
+  LazyLock::new(|| RwLock::new(DynamicConfig::default()));
 
-pub struct HttpConfig;
+pub struct Config;
 
-impl HttpConfig {
+impl Config {
   /// ## 初始化配置
   ///
   /// 从 store 中加载已保存的动态配置
@@ -155,12 +146,12 @@ impl HttpConfig {
   }
 
   /// ## 从 store 加载动态配置
-  fn load_config() -> HttpDynamicConfig {
-    APP_HANDLE
-      .get()
-      .and_then(|app_handle| app_handle.store(HTTP_STORE).ok())
+  fn load_config() -> DynamicConfig {
+    AppConfig::app()
+      .store(HTTP_STORE)
+      .ok()
       .and_then(|store| store.get(CONFIG_KEY))
-      .and_then(|value| serde_json::from_value::<HttpDynamicConfig>(value).ok())
+      .and_then(|value| serde_json::from_value::<DynamicConfig>(value).ok())
       .unwrap_or_default()
   }
 
@@ -168,9 +159,8 @@ impl HttpConfig {
   ///
   /// ### 必选参数
   /// * `config` - 动态配置
-  fn save_config(config: &HttpDynamicConfig) -> anyhow::Result<()> {
-    let app_handle = APP_HANDLE.get().ok_or(anyhow!("未获取到APP_HANDLE"))?;
-    let store = app_handle.store(HTTP_STORE)?;
+  fn save_config(config: &DynamicConfig) -> anyhow::Result<()> {
+    let store = AppConfig::app().store(HTTP_STORE)?;
     store.set(CONFIG_KEY, json!(config));
     store.save()?;
 
@@ -178,10 +168,10 @@ impl HttpConfig {
   }
 
   /// ## 获取当前模式的静态配置
-  pub fn get_static_config() -> &'static StaticConfigMode {
-    match AppMode::get_mode() {
-      Mode::KgMobile => &StaticConfigMode::KgMobile(STATIC_CONFIG.kg_mobile),
-      Mode::KgLite => &StaticConfigMode::KgLite(STATIC_CONFIG.kg_lite),
+  pub fn get_static_config() -> &'static StaticModeConfig {
+    match Mode::get_mode() {
+      AppMode::KgMobile => &StaticModeConfig::KgMobile(STATIC_CONFIG.kg_mobile),
+      AppMode::KgLite => &StaticModeConfig::KgLite(STATIC_CONFIG.kg_lite),
     }
   }
 
@@ -189,9 +179,9 @@ impl HttpConfig {
   pub fn get_dynamic_config() -> DynamicModeConfig {
     let dynamic_config = DYNAMIC_CONFIG.read().unwrap_or_else(|e| e.into_inner());
 
-    match AppMode::get_mode() {
-      Mode::KgMobile => DynamicModeConfig::KgMobile(dynamic_config.kg_mobile.clone()),
-      Mode::KgLite => DynamicModeConfig::KgLite(dynamic_config.kg_lite.clone()),
+    match Mode::get_mode() {
+      AppMode::KgMobile => DynamicModeConfig::KgMobile(dynamic_config.kg_mobile.clone()),
+      AppMode::KgLite => DynamicModeConfig::KgLite(dynamic_config.kg_lite.clone()),
     }
   }
 
@@ -219,9 +209,9 @@ impl HttpConfig {
     let dynamic_config = {
       let mut dynamic_config = DYNAMIC_CONFIG.write().unwrap_or_else(|e| e.into_inner());
 
-      match AppMode::get_mode() {
-        Mode::KgMobile => dynamic_config.kg_mobile = KgDynamicConfig::default(),
-        Mode::KgLite => dynamic_config.kg_lite = KgDynamicConfig::default(),
+      match Mode::get_mode() {
+        AppMode::KgMobile => dynamic_config.kg_mobile = DynamicKgConfig::default(),
+        AppMode::KgLite => dynamic_config.kg_lite = DynamicKgConfig::default(),
       };
 
       dynamic_config.clone()
@@ -236,22 +226,15 @@ mod tests {
   use super::*;
 
   #[test]
-  fn config_constants() {
-    assert_eq!(HTTP_STORE, "http.json");
-    assert_eq!(CONFIG_KEY, "config");
-    assert_eq!(COOKIE_KEY, "cookie");
-    assert_eq!(KG_BASE_URL, "https://gateway.kugou.com");
-    assert_eq!(KG_BASE_DOMAIN, ".kugou.com");
-  }
-
-  #[test]
   fn kg_dynamic_config_default_fields() {
-    let config = KgDynamicConfig::default();
+    let config = DynamicKgConfig::default();
 
     // guid 为 32 位 16 进制字符串, mid 为其十进制表示
     assert_eq!(config.guid.len(), 32);
     assert!(config.guid.chars().all(|c| c.is_ascii_hexdigit()));
-    let mid_expected = u128::from_str_radix(&config.guid, 16).unwrap_or(0).to_string();
+    let mid_expected = u128::from_str_radix(&config.guid, 16)
+      .unwrap_or(0)
+      .to_string();
     assert_eq!(config.mid, mid_expected);
 
     assert_eq!(config.dev.len(), 10);
@@ -261,9 +244,9 @@ mod tests {
 
   #[test]
   fn get_static_config_defaults_to_kg_lite() {
-    match HttpConfig::get_static_config() {
-      StaticConfigMode::KgLite(config) => assert_eq!(config.appid, 3116),
-      StaticConfigMode::KgMobile(_) => panic!("默认模式应为 KgLite"),
+    match Config::get_static_config() {
+      StaticModeConfig::KgLite(config) => assert_eq!(config.appid, 3116),
+      StaticModeConfig::KgMobile(_) => panic!("默认模式应为 KgLite"),
     }
   }
 }

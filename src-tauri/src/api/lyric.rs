@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use crate::{
   api::types::{ApiResult, LyricGet},
   http::{
-    config::{HttpConfig, StaticConfigMode},
-    request::HttpRequest,
+    config::{Config, StaticModeConfig},
+    request::Request,
   },
   music::lyric::{decode_lyric, Lyric, LyricFormat},
 };
@@ -28,9 +28,9 @@ pub async fn api_lyric_search(
   album_audio_id: Option<u8>,
   man: Option<&str>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let static_config = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let static_config = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let params = json!({
@@ -45,7 +45,7 @@ pub async fn api_lyric_search(
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .base_url("https://lyrics.kugou.com")
     .url("/v1/search")
     .params(params)
@@ -85,7 +85,7 @@ pub async fn api_lyric_get(
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  let resp: LyricGet = HttpRequest::new()
+  let resp: LyricGet = Request::new()
     .base_url("https://lyrics.kugou.com")
     .url("/download")
     .params(params)

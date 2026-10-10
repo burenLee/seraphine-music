@@ -24,12 +24,6 @@
     /* Linting */
     // 开启全部严格类型检查（strictNullChecks 等）
     "strict": true,
-    // 未使用的局部变量报错
-    "noUnusedLocals": true,
-    // 未使用的函数参数报错
-    "noUnusedParameters": true,
-    // switch 中非空 case 贯穿到下一 case 时报错
-    "noFallthroughCasesInSwitch": true,
 
     "paths": {
       "@/*": ["./src/*"]

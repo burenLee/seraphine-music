@@ -91,7 +91,7 @@ const { unobserve } = useObserver(listRef, (entry) => {
 
   <!-- 无数据状态 -->
   <div
-    v-else-if="!data"
+    v-else-if="data.list.length === 0"
     class="card flex items-center justify-center gap-3"
     :style="{ height: `${TotalHeight}rem` }"
   >

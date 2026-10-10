@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{api::types::ApiResult, http::request::HttpRequest, utils::logger::LogErrExt};
+use crate::{api::types::ApiResult, http::request::Request, utils::logger::LogErrExt};
 
 #[tauri::command]
 /// ## 排行榜列表
@@ -12,7 +12,7 @@ pub async fn api_rank_list(withsong: Option<u8>) -> ApiResult<HashMap<String, Va
   let params = json!({ "withsong": withsong.unwrap_or(0), "plat": 2, "parentid": 0 });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/ocean/v6/rank/list")
     .params(params)
     .builder()
@@ -24,7 +24,7 @@ pub async fn api_rank_list(withsong: Option<u8>) -> ApiResult<HashMap<String, Va
 #[tauri::command]
 /// ## 排行榜推荐列表
 pub async fn api_rank_top() -> ApiResult<HashMap<String, Value>> {
-  HttpRequest::new()
+  Request::new()
     .url("/mobileservice/api/v5/rank/rec_rank_list")
     .builder()
     .json()
@@ -60,7 +60,7 @@ pub async fn api_rank_audio(
     "type": 1,
   });
 
-  HttpRequest::new()
+  Request::new()
     .url("/openapi/kmr/v2/rank/audio")
     .post()
     .header("kg-tid", "369")

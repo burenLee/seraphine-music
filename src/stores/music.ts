@@ -4,7 +4,7 @@ import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 
 import { notify } from '@/components/Notification.vue';
-import { getFullName, getOrigin } from '@/utils/music';
+import { getFullName, getOrigin, setAppTitle } from '@/utils/music';
 import {
   ApiInvokeStatus,
   Interval,
@@ -12,7 +12,7 @@ import {
   PlayingOrigin,
   PlayingQuality,
 } from '@/utils/params';
-import { genRandomNum, invoke, setAppTitle } from '@/utils/tools';
+import { genRandomNum, invoke } from '@/utils/tools';
 
 import { useListStore } from './list';
 import { useLyricStore } from './lyric';
@@ -113,30 +113,27 @@ export const useMusicStore = defineStore(
       origin.value = newOrigin;
 
       try {
-        const PLAY_ERROR = new Error();
-
         switch (origin.value) {
           case PlayingOrigin.Local:
-            if (!music.value.path) throw PLAY_ERROR;
+            if (!music.value.path) throw new Error();
 
             await invoke('music_player_load_file', { path: music.value.path });
             break;
+
           case PlayingOrigin.Online:
-            if (!music.value.hash) throw PLAY_ERROR;
+            if (!music.value.hash) throw new Error();
 
             const { status, backupUrl } = await invoke('api_song_url', {
               hash: music.value.hash,
               quality: quality.value,
             });
-            if (status !== ApiInvokeStatus.Success || !backupUrl?.length) {
-              throw PLAY_ERROR;
-            } else {
-              music.value.path = backupUrl[0];
-              await invoke('music_player_load_url', {
-                url: music.value.path,
-                hash: music.value.hash,
-              });
-            }
+            if (status !== ApiInvokeStatus.Success || !backupUrl?.length) throw new Error();
+
+            music.value.path = backupUrl[0];
+            await invoke('music_player_load_url', {
+              url: music.value.path,
+              hash: music.value.hash,
+            });
 
             break;
         }
@@ -146,11 +143,14 @@ export const useMusicStore = defineStore(
       } catch {
         notify.warning(`无法播放：《${newMusic.title}》，自动切换下一首...`);
 
+        // 开启重试
         startTryNext();
       } finally {
         isLoading.value = false;
-        await setAppTitle(getFullName(newMusic));
-        await loadLyric(music.value);
+
+        setAppTitle(getFullName(newMusic));
+        loadLyric(music.value);
+        syncMetadata();
       }
     };
 
@@ -161,6 +161,8 @@ export const useMusicStore = defineStore(
       try {
         await invoke('music_player_play');
         isPlaying.value = true;
+
+        syncMetadata();
       } catch {
         notify.error('无法播放音频');
       }
@@ -171,6 +173,8 @@ export const useMusicStore = defineStore(
       try {
         await invoke('music_player_pause');
         isPlaying.value = false;
+
+        syncMetadata();
       } catch {
         notify.error('无法暂停音频');
       }
@@ -188,6 +192,7 @@ export const useMusicStore = defineStore(
         downloadProgress.value = 0;
 
         setAppTitle('Seraphine');
+        syncMetadata();
       } catch {
         notify.error('无法停止音频');
       }
@@ -200,6 +205,19 @@ export const useMusicStore = defineStore(
       } catch {
         notify.error('无法跳转');
       }
+    };
+
+    /** 向媒体控件同步数据 */
+    const syncMetadata = () => {
+      invoke('music_media_sync_metadata', {
+        cover: music.value?.cover || undefined,
+        title: music.value?.title || undefined,
+        artist: music.value?.artist || undefined,
+        album: music.value?.album || undefined,
+        duration: music.value?.duration || 0,
+        position: playProgress.value,
+        isPlaying: isPlaying.value,
+      });
     };
 
     /** 自动播放下一首 */

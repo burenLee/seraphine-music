@@ -4,14 +4,14 @@ use serde_json::{Map, Value};
 use std::{sync::LazyLock, time::Duration};
 use tauri_plugin_http::reqwest::{
   header::{HeaderMap, HeaderName, HeaderValue},
-  Client, Error, IntoUrl, Method, RequestBuilder, Response,
+  Client as ReqwestClient, Error, IntoUrl, Method, RequestBuilder, Response,
 };
 
-use crate::http::cookie::HttpCookie;
+use crate::http::cookie::Cookie;
 
-static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-  Client::builder()
-    .cookie_provider(HttpCookie::get_jar())
+static CLIENT: LazyLock<ReqwestClient> = LazyLock::new(|| {
+  ReqwestClient::builder()
+    .cookie_provider(Cookie::jar())
     .gzip(true)
     .connect_timeout(Duration::from_secs(10))
     .read_timeout(Duration::from_secs(30))
@@ -19,12 +19,11 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     .expect("构建 HTTP CLIENT 失败")
 });
 
-#[derive(Debug)]
-pub struct HttpClient {
+pub struct Client {
   builder: RequestBuilder,
 }
 
-impl HttpClient {
+impl Client {
   /// ## 构建客户端
   ///
   /// ### 必选参数
@@ -32,7 +31,7 @@ impl HttpClient {
   /// * `method` - 请求方法
   pub fn new<U: IntoUrl>(url: U, method: Method) -> Self {
     Self {
-      builder: HTTP_CLIENT.request(method, url),
+      builder: CLIENT.request(method, url),
     }
   }
 

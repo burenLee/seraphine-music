@@ -39,9 +39,10 @@ const getMode = async () => {
 const modeSelect = async (mode: Mode) => {
   if (mode === settingStore.mode) return;
 
+  modeVisible.value = false;
+
   try {
     await invoke('app_mode_set', { mode });
-    modeVisible.value = false;
 
     // TODO: 改变mode需要一个重置全局变量的方法
     // reload()
@@ -59,15 +60,16 @@ onMounted(async () => {
 <template>
   <div class="relative" v-on-click-outside="() => (modeVisible = false)">
     <div
-      class="flex cursor-pointer items-center whitespace-nowrap font-bold text-minor"
+      class="flex cursor-pointer items-center justify-center gap-1 text-minor"
       @click="modeVisible = !modeVisible"
     >
-      <div class="w-0 flex-1 truncate">{{ modeSelection?.label || '未选择模式' }}</div>
+      <div class="whitespace-nowrap font-bold">{{ modeSelection?.label || '未知模式' }}</div>
       <SvgIcon class="transition-transform" :class="modeVisible ? 'rotate-180' : ''" name="Down" />
     </div>
 
     <SelectModal
       class="absolute left-1/2 top-full -translate-x-1/2"
+      transition="zoom-top"
       :visible="modeVisible"
       :options="modeOptions"
       :selection="modeSelection"

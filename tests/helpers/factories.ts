@@ -39,6 +39,7 @@ export const makePlayingMusic = (overrides: Partial<PlayingMusicInfo> = {}): Pla
     cover: null,
     title: `Song ${id}`,
     artist: `Artist ${id}`,
+    album: `Album ${id}`,
     duration: 180,
     ...overrides,
   };

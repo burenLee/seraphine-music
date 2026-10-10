@@ -43,9 +43,9 @@ pub struct MusicInfo {
   sort: usize,            // 排序
 }
 
-struct MusicScan;
+struct Scan;
 
-impl MusicScan {
+impl Scan {
   /// ## 扫描文件夹
   ///
   /// ### 必选参数
@@ -295,7 +295,7 @@ pub async fn music_scan_dir(
   let start_index = start_index.unwrap_or_default();
   let scan_types = scan_types.unwrap_or_else(|| MUSIC_EXT.iter().map(|e| e.to_string()).collect());
 
-  MusicScan::scan_dir(dir_paths, start_index, scan_types)
+  Scan::scan_dir(dir_paths, start_index, scan_types)
 }
 
 #[tauri::command]
@@ -315,7 +315,7 @@ pub async fn music_scan_file(
 ) -> Option<Vec<MusicInfo>> {
   let start_index = start_index.unwrap_or_default();
 
-  MusicScan::scan_file(file_paths, start_index)
+  Scan::scan_file(file_paths, start_index)
 }
 
 #[tauri::command]
@@ -326,7 +326,7 @@ pub fn music_scan_cancel() {
 
 #[cfg(test)]
 mod tests {
-  use std::{fs, path::PathBuf};
+  use std::fs;
 
   use super::*;
 
@@ -371,14 +371,14 @@ mod tests {
     fs::write(&file_path, b"x").unwrap();
     let abs = file_path.to_string_lossy().to_string();
 
-    let result = MusicScan::filter_file_path(vec![abs.clone(), abs]);
+    let result = Scan::filter_file_path(vec![abs.clone(), abs]);
 
     assert_eq!(result, vec![file_path]);
   }
 
   #[test]
   fn filter_file_path_rejects_relative_and_nonexistent() {
-    let result = MusicScan::filter_file_path(vec![
+    let result = Scan::filter_file_path(vec![
       "relative/path.mp3".to_string(),
       "/nonexistent/abs.mp3".to_string(),
     ]);
@@ -393,7 +393,7 @@ mod tests {
     let sub = parent.join("sub");
     fs::create_dir_all(&sub).unwrap();
 
-    let result = MusicScan::filter_dir_path(vec![
+    let result = Scan::filter_dir_path(vec![
       parent.to_string_lossy().to_string(),
       sub.to_string_lossy().to_string(),
     ]);
@@ -403,7 +403,7 @@ mod tests {
 
   #[test]
   fn filter_dir_path_rejects_relative() {
-    let result = MusicScan::filter_dir_path(vec!["relative/dir".to_string()]);
+    let result = Scan::filter_dir_path(vec!["relative/dir".to_string()]);
 
     assert!(result.is_empty());
   }

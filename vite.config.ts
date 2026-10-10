@@ -10,6 +10,7 @@ export default defineConfig({
   },
   plugins: [vue(), Icons()],
   build: {
+    target: 'es2020',
     minify: 'oxc',
     cssMinify: 'lightningcss',
     rolldownOptions: {

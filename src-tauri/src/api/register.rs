@@ -5,9 +5,9 @@ use crate::{
   api::types::RegisterDev,
   app::mode::{AppMode, Mode},
   http::{
-    config::{DynamicModeConfig, HttpConfig},
-    cookie::{HttpCookie, ModeCookies},
-    request::HttpRequest,
+    config::{Config, DynamicModeConfig},
+    cookie::{Cookie, ModeCookies},
+    request::Request,
   },
   utils::{
     crypto::{decrypt_aes_playlist, encrypt_aes_playlist, encrypt_rsa_pad},
@@ -18,7 +18,7 @@ use crate::{
 #[tauri::command]
 /// ## 获取 dfid
 pub async fn api_register_dev() -> Result<(), String> {
-  let mut cookies = match HttpCookie::get_cookies() {
+  let mut cookies = match Cookie::get_cookies() {
     ModeCookies::KgMobile(cookies) => cookies,
     ModeCookies::KgLite(cookies) => cookies,
   };
@@ -28,7 +28,7 @@ pub async fn api_register_dev() -> Result<(), String> {
     return Ok(());
   }
 
-  let dynamic_config = match HttpConfig::get_dynamic_config() {
+  let dynamic_config = match Config::get_dynamic_config() {
     DynamicModeConfig::KgMobile(config) => config,
     DynamicModeConfig::KgLite(config) => config,
   };
@@ -75,7 +75,7 @@ pub async fn api_register_dev() -> Result<(), String> {
   let params = json!({ "part": 1, "platid": 1, "p": p });
   let Value::Object(params) = params else { unreachable!() };
 
-  let resp_bytes = HttpRequest::new()
+  let resp_bytes = Request::new()
     .base_url("https://userservice.kugou.com")
     .url("/risk/v2/r_register_dev")
     .post()
@@ -104,12 +104,12 @@ pub async fn api_register_dev() -> Result<(), String> {
 
   cookies.dfid = data.dfid.clone();
 
-  let cookies = match AppMode::get_mode() {
-    Mode::KgMobile => ModeCookies::KgMobile(cookies),
-    Mode::KgLite => ModeCookies::KgLite(cookies),
+  let cookies = match Mode::get_mode() {
+    AppMode::KgMobile => ModeCookies::KgMobile(cookies),
+    AppMode::KgLite => ModeCookies::KgLite(cookies),
   };
 
-  HttpCookie::set_cookies(cookies).log_command("api_register_dev", "设置cookies失败")?;
+  Cookie::set_cookies(cookies).log_command("api_register_dev", "设置cookies失败")?;
 
   Ok(())
 }

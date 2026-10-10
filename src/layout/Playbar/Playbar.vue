@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEventListener, watchThrottled } from '@vueuse/core';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import Carousel from '@/components/Carousel.vue';
 import Image from '@/components/Image.vue';
@@ -37,6 +37,12 @@ watchThrottled(
   () => musicStore.playProgress,
   (pg) => !musicStore.isDragging && (playProgress.value = pg),
   { throttle: Interval.Long },
+);
+
+// 切歌时立即归零进度, 避免节流同步滞后导致进度条在新 duration 下跳变
+watch(
+  () => musicStore.music?.id,
+  () => (playProgress.value = 0),
 );
 
 // 监听空格来暂停/播放

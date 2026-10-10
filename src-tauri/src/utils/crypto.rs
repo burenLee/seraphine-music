@@ -13,7 +13,7 @@ use rsa::{
 use sha1::Sha1;
 
 use crate::{
-  http::config::{HttpConfig, KgStaticConfig, StaticConfigMode},
+  http::config::{Config, StaticKgConfig, StaticModeConfig},
   utils::tools::gen_random_string,
 };
 
@@ -113,9 +113,9 @@ pub fn decrypt_aes(data: impl AsRef<[u8]>, key: &str, iv: Option<&str>) -> anyho
 /// ### 可选参数
 /// * `pem` - 公钥, 不传时使用当前模式的公钥
 pub fn encrypt_rsa_unpad(data: impl AsRef<[u8]>, pem: Option<&str>) -> anyhow::Result<String> {
-  let KgStaticConfig { rsa_pem, .. } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let StaticKgConfig { rsa_pem, .. } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let key = RsaPublicKey::from_public_key_pem(pem.unwrap_or(rsa_pem))?;
@@ -136,9 +136,9 @@ pub fn encrypt_rsa_unpad(data: impl AsRef<[u8]>, pem: Option<&str>) -> anyhow::R
 /// ### 必选参数
 /// * `data` - 待加密的数据
 pub fn encrypt_rsa_pad(data: impl AsRef<[u8]>) -> anyhow::Result<String> {
-  let KgStaticConfig { rsa_pem, .. } = match HttpConfig::get_static_config() {
-    StaticConfigMode::KgMobile(config) => config,
-    StaticConfigMode::KgLite(config) => config,
+  let StaticKgConfig { rsa_pem, .. } = match Config::get_static_config() {
+    StaticModeConfig::KgMobile(config) => config,
+    StaticModeConfig::KgLite(config) => config,
   };
 
   let key = RsaPublicKey::from_public_key_pem(rsa_pem)?;
@@ -198,7 +198,10 @@ mod tests {
 
   #[test]
   fn sha1_known_vector() {
-    assert_eq!(encrypt_sha1("abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
+    assert_eq!(
+      encrypt_sha1("abc"),
+      "a9993e364706816aba3e25717850c26c9cd0d89d"
+    );
   }
 
   #[test]

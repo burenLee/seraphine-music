@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
   api::types::ApiResult,
   app::mode::{AppMode, Mode},
-  http::request::HttpRequest,
+  http::request::Request,
   utils::logger::LogErrExt,
 };
 
@@ -62,9 +62,9 @@ pub async fn api_song_url(
   album_audio_id: Option<u64>,
   free_part: Option<u8>,
 ) -> ApiResult<HashMap<String, Value>> {
-  let (pid, page_id, ppage_id) = match AppMode::get_mode() {
-    Mode::KgMobile => (2, 151369488, "463467626,350369493,788954147"),
-    Mode::KgLite => (411, 967177915, "356753938,823673182,967485191"),
+  let (pid, page_id, ppage_id) = match Mode::get_mode() {
+    AppMode::KgMobile => (2, 151369488, "463467626,350369493,788954147"),
+    AppMode::KgLite => (411, 967177915, "356753938,823673182,967485191"),
   };
 
   let params = json!({
@@ -88,7 +88,7 @@ pub async fn api_song_url(
   });
   let Value::Object(params) = params else { unreachable!() };
 
-  HttpRequest::new()
+  Request::new()
     .url("/v5/url")
     .header("x-router", "trackercdn.kugou.com")
     .params(params)
@@ -105,11 +105,26 @@ mod tests {
 
   #[test]
   fn quality_serializes_to_expected_strings() {
-    assert_eq!(serde_json::to_string(&Quality::Bitrate128).unwrap(), "\"128\"");
-    assert_eq!(serde_json::to_string(&Quality::Bitrate320).unwrap(), "\"320\"");
-    assert_eq!(serde_json::to_string(&Quality::BitrateFlac).unwrap(), "\"flac\"");
-    assert_eq!(serde_json::to_string(&Quality::MagicPiano).unwrap(), "\"magic_piano\"");
-    assert_eq!(serde_json::to_string(&Quality::ViperAtmos).unwrap(), "\"viper_atmos\"");
+    assert_eq!(
+      serde_json::to_string(&Quality::Bitrate128).unwrap(),
+      "\"128\""
+    );
+    assert_eq!(
+      serde_json::to_string(&Quality::Bitrate320).unwrap(),
+      "\"320\""
+    );
+    assert_eq!(
+      serde_json::to_string(&Quality::BitrateFlac).unwrap(),
+      "\"flac\""
+    );
+    assert_eq!(
+      serde_json::to_string(&Quality::MagicPiano).unwrap(),
+      "\"magic_piano\""
+    );
+    assert_eq!(
+      serde_json::to_string(&Quality::ViperAtmos).unwrap(),
+      "\"viper_atmos\""
+    );
   }
 
   #[test]

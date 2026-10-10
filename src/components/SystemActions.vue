@@ -46,7 +46,6 @@ const themeIcon = computed<IconName>(() => {
       return 'Sun';
   }
 });
-const maxIcon = computed<IconName>(() => (settingStore.isMaximized ? 'Restore' : 'Square'));
 
 const handleTheme = (mode: ThemeMode) => {
   colorMode.value = mode;
@@ -164,7 +163,13 @@ const handleConfirm = () => {
   </div>
   <SvgIcon class="action-icon" name="PIP" title="迷你播放器" size="18" @click="handleMiniPlayer" />
   <SvgIcon class="action-icon" name="Remove" title="最小化" size="20" @click="handleMinimize" />
-  <SvgIcon class="action-icon" :name="maxIcon" title="最大化" size="18" @click="handleMaximize" />
+  <SvgIcon
+    class="action-icon"
+    :name="settingStore.isMaximized ? 'Restore' : 'Square'"
+    title="最大化"
+    size="16"
+    @click="handleMaximize"
+  />
   <SvgIcon class="action-icon hover:text-error" name="Close" size="20" @click="handleClose" />
 
   <Modal

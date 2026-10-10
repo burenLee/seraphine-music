@@ -149,11 +149,11 @@ onUnmounted(clearWhellTimer);
   >
     <!-- 加载中状态 -->
     <template v-if="lyricStore.isLoading">
-      <div class="flex h-full items-center justify-center text-xl font-bold">歌词加载中...</div>
+      <div class="flex h-full items-center justify-center text-xl font-bold">加载中...</div>
     </template>
 
     <!-- 无歌词状态 -->
-    <template v-else-if="!lyricStore.lyric || lyricStore.lyric.lines.length === 0">
+    <template v-else-if="!lyricStore.lyric?.lines.length">
       <div class="flex h-full items-center justify-center">
         <span class="text-xl font-bold text-minor">暂无歌词</span>
         <ActionButton

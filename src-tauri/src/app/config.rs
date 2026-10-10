@@ -1,31 +1,23 @@
 use std::sync::OnceLock;
 use tauri::AppHandle;
 
-pub const APP_STORE: &str = "app.json";
-pub const MODE_KEY: &str = "mode";
+static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
-// 全局 AppHandle
-pub static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+pub struct Config;
 
-pub struct AppConfig;
-
-impl AppConfig {
+impl Config {
   /// ## 初始化配置
   ///
   /// ### 必选参数
   /// * `app_handle` - 应用句柄
   pub fn init(app_handle: &AppHandle) {
-    APP_HANDLE.get_or_init(|| app_handle.clone());
+    APP_HANDLE
+      .set(app_handle.clone())
+      .expect("无法设置 APP_HANDLE");
   }
-}
 
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn config_constants() {
-    assert_eq!(APP_STORE, "app.json");
-    assert_eq!(MODE_KEY, "mode");
+  /// ## 获取APP_HANDLE
+  pub fn app() -> &'static AppHandle {
+    APP_HANDLE.get().expect("无法获取 APP_HANDLE")
   }
 }

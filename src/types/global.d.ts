@@ -107,6 +107,7 @@ declare global {
     cover: string | null;
     title: string;
     artist: string | null;
+    album: string | null;
     duration: number;
   }
 
@@ -394,6 +395,22 @@ declare global {
     music_lyric_get: {
       args: { id: string; name: string; fmt: LyricFormat };
       return: ApiLyricGet;
+    };
+    music_lyric_save: {
+      args: { id: string; name: string; fmt: LyricFormat; conetnt: string };
+      return: undefined;
+    };
+    music_media_sync_metadata: {
+      args: {
+        cover?: string;
+        title?: string;
+        artist?: string;
+        album?: string;
+        duration?: number;
+        position?: number;
+        isPlaying?: boolean;
+      };
+      return: undefined;
     };
     app_mode_all: {
       args: undefined;

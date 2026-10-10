@@ -6,7 +6,7 @@ import UserPlaylist from './UserPlaylist.vue';
 
 <template>
   <aside class="card z-10 flex flex-col rounded-none border-0">
-    <div data-tauri-drag-region class="px-8 pt-6">
+    <div data-tauri-drag-region class="px-6 pt-6">
       <div
         class="pointer-events-none bg-gradient-to-r from-info to-success bg-clip-text font-mono text-3xl font-bold text-transparent"
       >

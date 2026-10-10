@@ -24,7 +24,6 @@ const qualitySelection = computed(
 );
 
 const modeSelect = async (quality: PlayingQuality) => {
-  const currentProgress = musicStore.playProgress;
   const wasPlaying = musicStore.isPlaying;
 
   musicStore.setQuality(quality);
@@ -34,7 +33,6 @@ const modeSelect = async (quality: PlayingQuality) => {
     autoPlay: false,
   });
 
-  if (currentProgress > 0) await musicStore.seek(currentProgress);
   if (wasPlaying) await musicStore.play();
 
   qualityVisible.value = false;

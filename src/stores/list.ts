@@ -118,23 +118,27 @@ export const useListStore = defineStore(
     const removeList = (type: ListType, ids: ID[]) => {
       const musicList = LIST_MAP[type];
 
+      // 如果播放列表删除当前的是播放歌曲,则清除播放
+      if (type === ListType.Play && ids.some((id) => id === musicStore.music?.id))
+        musicStore.setMusic(undefined);
+
       const filterList = musicList.value.list.filter((music) => !ids.includes(music.id));
 
       musicList.value.list = filterList;
       musicList.value.info.count = filterList.length;
 
       clearCheckedList();
-
-      // 如果删除当前的是播放歌曲,则清除播放
-      if (musicStore.music && ids.includes(musicStore.music.id)) musicStore.setMusic(undefined);
     };
 
     /** 清空列表项 */
     const clearList = (type: ListType) => {
       const musicList = LIST_MAP[type];
 
-      // 如果删除当前的是播放歌曲,则清除播放
-      if (musicList.value.list.some((item) => item.id === musicStore.music?.id))
+      // 如果播放列表删除当前的是播放歌曲,则清除播放
+      if (
+        type === ListType.Play &&
+        musicList.value.list.some((item) => item.id === musicStore.music?.id)
+      )
         musicStore.setMusic(undefined);
 
       musicList.value.list.length = 0;
@@ -147,8 +151,11 @@ export const useListStore = defineStore(
     const resetList = (type: ListType) => {
       const musicList = LIST_MAP[type];
 
-      // 如果删除当前的是播放歌曲,则清除播放
-      if (musicList.value.list.some((item) => item.id === musicStore.music?.id))
+      // 如果播放列表删除当前的是播放歌曲,则清除播放
+      if (
+        type === ListType.Play &&
+        musicList.value.list.some((item) => item.id === musicStore.music?.id)
+      )
         musicStore.setMusic(undefined);
 
       musicList.value.list.length = 0;

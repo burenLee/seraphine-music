@@ -1,5 +1,4 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -77,12 +76,6 @@ export function formatCount(num: number) {
   if (num >= 1e8) return `${(num / 1e8).toFixed(1).replace(/\.0$/, '')}亿`;
   if (num >= 1e4) return `${(num / 1e4).toFixed(1).replace(/\.0$/, '')}万`;
   return num.toString();
-}
-
-/** 设置应用标题 */
-export async function setAppTitle(title: string) {
-  document.title = title;
-  await getCurrentWindow().setTitle(title);
 }
 
 /**

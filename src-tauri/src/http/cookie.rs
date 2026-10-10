@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
@@ -13,23 +12,15 @@ use tauri_plugin_store::StoreExt;
 
 use crate::{
   app::{
-    config::APP_HANDLE,
+    config::Config,
     mode::{AppMode, Mode},
   },
-  http::config::{COOKIE_KEY, HTTP_STORE, KG_BASE_DOMAIN, KG_BASE_URL},
-  utils::{
-    logger::LogErrExt,
-    tools::{gen_url, gen_valid_cookie},
-  },
+  http::{COOKIE_KEY, HTTP_STORE, KG_BASE_DOMAIN, KG_BASE_URL},
+  log_err,
+  utils::tools::{gen_url, gen_valid_cookie},
 };
 
-static HTTP_COOKIE_JAR: LazyLock<Arc<Jar>> = LazyLock::new(|| Arc::new(Jar::default()));
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct HttpCookie {
-  pub kg_mobile: KgCookie,
-  pub kg_lite: KgCookie,
-}
+static COOKIE_JAR: LazyLock<Arc<Jar>> = LazyLock::new(|| Arc::new(Jar::default()));
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KgCookie {
@@ -110,16 +101,21 @@ impl From<HeaderValue> for KgCookie {
   }
 }
 
-#[derive(Debug)]
 pub enum ModeCookies {
   KgMobile(KgCookie),
   KgLite(KgCookie),
 }
 
-impl HttpCookie {
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Cookie {
+  kg_mobile: KgCookie,
+  kg_lite: KgCookie,
+}
+
+impl Cookie {
   /// ## 获取 cookie 管理器
-  pub fn get_jar() -> Arc<Jar> {
-    HTTP_COOKIE_JAR.clone()
+  pub fn jar() -> Arc<Jar> {
+    COOKIE_JAR.clone()
   }
 
   /// ## 初始化 cookie
@@ -128,21 +124,23 @@ impl HttpCookie {
   pub fn init() {
     let http_cookies = Self::load_cookies();
 
-    let cookies = match AppMode::get_mode() {
-      Mode::KgMobile => ModeCookies::KgMobile(http_cookies.kg_mobile),
-      Mode::KgLite => ModeCookies::KgLite(http_cookies.kg_lite),
+    let cookies = match Mode::get_mode() {
+      AppMode::KgMobile => ModeCookies::KgMobile(http_cookies.kg_mobile),
+      AppMode::KgLite => ModeCookies::KgLite(http_cookies.kg_lite),
     };
 
-    let _ = Self::set_cookies(cookies).log_err("HttpCookie::init", "初始化失败");
+    if let Err(e) = Self::set_cookies(cookies) {
+      log_err!("HttpCookie::init", e, "初始化失败");
+    }
   }
 
   /// ## 从 store 加载 cookie
-  fn load_cookies() -> HttpCookie {
-    APP_HANDLE
-      .get()
-      .and_then(|app_handle| app_handle.store(HTTP_STORE).ok())
+  fn load_cookies() -> Cookie {
+    Config::app()
+      .store(HTTP_STORE)
+      .ok()
       .and_then(|store| store.get(COOKIE_KEY))
-      .and_then(|value| serde_json::from_value::<HttpCookie>(value).ok())
+      .and_then(|value| serde_json::from_value::<Cookie>(value).ok())
       .unwrap_or_default()
   }
 
@@ -150,9 +148,8 @@ impl HttpCookie {
   ///
   /// ### 必选参数
   /// * `cookies` - cookie
-  fn save_cookies(cookies: &HttpCookie) -> anyhow::Result<()> {
-    let app_handle = APP_HANDLE.get().ok_or(anyhow!("未获取到APP_HANDLE"))?;
-    let store = app_handle.store(HTTP_STORE)?;
+  fn save_cookies(cookies: &Cookie) -> anyhow::Result<()> {
+    let store = Config::app().store(HTTP_STORE)?;
     store.set(COOKIE_KEY, json!(cookies));
     store.save()?;
 
@@ -161,18 +158,20 @@ impl HttpCookie {
 
   /// ## 获取当前模式的 cookie
   pub fn get_cookies() -> ModeCookies {
-    match AppMode::get_mode() {
-      Mode::KgMobile => ModeCookies::KgMobile(
-        HTTP_COOKIE_JAR
-          .cookies(&gen_url(KG_BASE_URL))
+    let url = gen_url(KG_BASE_URL);
+
+    match Mode::get_mode() {
+      AppMode::KgMobile => ModeCookies::KgMobile(
+        COOKIE_JAR
+          .cookies(&url)
           .map(|header| KgCookie::from(header))
-          .unwrap_or_else(|| HttpCookie::default().kg_mobile),
+          .unwrap_or_else(|| Cookie::default().kg_mobile),
       ),
-      Mode::KgLite => ModeCookies::KgLite(
-        HTTP_COOKIE_JAR
-          .cookies(&gen_url(KG_BASE_URL))
+      AppMode::KgLite => ModeCookies::KgLite(
+        COOKIE_JAR
+          .cookies(&url)
           .map(|header| KgCookie::from(header))
-          .unwrap_or_else(|| HttpCookie::default().kg_lite),
+          .unwrap_or_else(|| Cookie::default().kg_lite),
       ),
     }
   }
@@ -184,30 +183,26 @@ impl HttpCookie {
   pub fn set_cookies(cookies: ModeCookies) -> anyhow::Result<()> {
     let mut http_cookies = Self::load_cookies();
 
-    let (cookie_map, url) = match cookies {
+    let url = gen_url(KG_BASE_URL);
+    let cookie_map = match cookies {
       ModeCookies::KgMobile(cookies) => {
         let cookie_map = cookies.to_hashmap();
         http_cookies.kg_mobile = cookies;
 
-        (cookie_map, gen_url(KG_BASE_URL))
+        cookie_map
       }
       ModeCookies::KgLite(cookies) => {
         let cookie_map = cookies.to_hashmap();
         http_cookies.kg_lite = cookies;
 
-        (cookie_map, gen_url(KG_BASE_URL))
+        cookie_map
       }
     };
 
     for (k, v) in cookie_map {
-      HTTP_COOKIE_JAR.add_cookie_str(
-        &format!(
-          "{}={}; Domain={KG_BASE_DOMAIN}; Path=/",
-          gen_valid_cookie(k),
-          gen_valid_cookie(v)
-        ),
-        &url,
-      );
+      let cookie = gen_valid_cookie(format!("{k}={v}"));
+
+      COOKIE_JAR.add_cookie_str(&format!("{cookie}; Domain={KG_BASE_DOMAIN}; Path=/"), &url);
     }
 
     Self::save_cookies(&http_cookies)?;
@@ -217,37 +212,12 @@ impl HttpCookie {
 
   /// ## 清除当前模式的 cookie
   pub fn clear_cookies() -> anyhow::Result<()> {
-    let mut http_cookies = Self::load_cookies();
-
-    let (cookie_map, url) = match AppMode::get_mode() {
-      Mode::KgMobile => {
-        let cookies = KgCookie::default();
-        let cookies_map = cookies.to_hashmap();
-        http_cookies.kg_mobile = cookies;
-
-        (cookies_map, gen_url(KG_BASE_URL))
-      }
-      Mode::KgLite => {
-        let cookies = KgCookie::default();
-        let cookies_map = cookies.to_hashmap();
-        http_cookies.kg_lite = cookies;
-
-        (cookies_map, gen_url(KG_BASE_URL))
-      }
+    let cookies = match Mode::get_mode() {
+      AppMode::KgMobile => ModeCookies::KgMobile(KgCookie::default()),
+      AppMode::KgLite => ModeCookies::KgLite(KgCookie::default()),
     };
 
-    for (k, v) in cookie_map {
-      HTTP_COOKIE_JAR.add_cookie_str(
-        &format!(
-          "{}={}; Domain={KG_BASE_DOMAIN}; Path=/",
-          gen_valid_cookie(k),
-          gen_valid_cookie(v)
-        ),
-        &url,
-      );
-    }
-
-    Self::save_cookies(&http_cookies)?;
+    Self::set_cookies(cookies)?;
 
     Ok(())
   }

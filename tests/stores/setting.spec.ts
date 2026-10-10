@@ -10,7 +10,7 @@ import { useSettingStore } from '@/stores/setting';
 import { AutoStartMode, CloseStatus, Mode, ShortcutKey } from '@/utils/params';
 
 import { createTestPinia } from '../helpers/factories';
-import { flushAsync } from '../helpers/mocks';
+import { flushAsync, listenMock } from '../helpers/mocks';
 
 const registerMock = vi.mocked(register);
 const unregisterMock = vi.mocked(unregister);
@@ -103,7 +103,7 @@ describe('基础设置', () => {
 });
 
 describe('全局快捷键注册', () => {
-  it('水合后注册 8 个全局快捷键与 3 个媒体快捷键', async () => {
+  it('水合后注册 8 个全局快捷键，并监听 media:command', async () => {
     useSettingStore();
     await flushAsync();
 
@@ -122,9 +122,11 @@ describe('全局快捷键注册', () => {
     ]) {
       expect(shortcuts).toContain(s);
     }
-    for (const s of ['MediaPlayPause', 'MediaTrackNext', 'MediaTrackPrevious']) {
-      expect(shortcuts).toContain(s);
-    }
+    // 媒体键改走系统原生通道，不再注册 MPRIS/SMTC 类 global-shortcut
+    expect(shortcuts).not.toContain('MediaPlayPause');
+    expect(shortcuts).not.toContain('MediaTrackNext');
+    expect(shortcuts).not.toContain('MediaTrackPrevious');
+    expect(listenMock).toHaveBeenCalledWith('media:command', expect.any(Function));
   });
 
   it('已注册的快捷键跳过重复注册', async () => {
@@ -174,10 +176,10 @@ describe('全局快捷键注册', () => {
     }
   });
 
-  it('toggleMediaShortcutState 关闭后重新开启可重新注册', async () => {
+  it('toggleMediaShortcutState 关闭后重新开启会重新监听 media:command', async () => {
     const store = useSettingStore();
     await flushAsync();
-    registerMock.mockClear();
+    listenMock.mockClear();
 
     store.toggleMediaShortcutState();
     expect(store.mediaShortcutState).toBe(false);
@@ -186,8 +188,7 @@ describe('全局快捷键注册', () => {
     await flushAsync();
     expect(store.mediaShortcutState).toBe(true);
 
-    const shortcuts = registerMock.mock.calls.map(([shortcut]) => shortcut);
-    expect(shortcuts).toContain('MediaPlayPause');
+    expect(listenMock).toHaveBeenCalledWith('media:command', expect.any(Function));
   });
 });
 
