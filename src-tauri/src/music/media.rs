@@ -362,20 +362,20 @@ mod linux {
             Ok(())
           });
           // PlayPause: 根据当前播放状态映射为播放/暂停
-          b.method("PlayPause", (), (), |_, _, _: ()| {
-            let is_playing = STATE
-              .get()
-              .and_then(|s| {
-                s.playback
-                  .lock()
-                  .unwrap_or_else(|e| e.into_inner())
-                  .as_ref()
-              })
-              .map(|p| p.is_playing)
-              .unwrap_or(false);
-            let event = if is_playing { MediaCommandEvent::Pause } else { MediaCommandEvent::Play };
-            let _ = app.emit(MEDIA_COMMAND, event);
-            Ok(())
+          b.method("PlayPause", (), (), {
+            let state = state.clone();
+            move |_, _, _: ()| {
+              let is_playing = state
+                .playback
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .map(|p| p.is_playing)
+                .unwrap_or(false);
+              let event = if is_playing { MediaCommandEvent::Pause } else { MediaCommandEvent::Play };
+              let _ = app.emit(MEDIA_COMMAND, event);
+              Ok(())
+            }
           });
           b.method("Stop", (), (), |_, _, _: ()| {
             let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Other);
