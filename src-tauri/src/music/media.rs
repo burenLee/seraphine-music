@@ -163,6 +163,7 @@ mod macos {
     Artwork, HandlerStatus, MediaPlayerError, NowPlayingInfo, NowPlayingInfoCenter, PlaybackState,
     RemoteCommandCenter,
   };
+  use tauri::Emitter;
 
   use crate::{
     app::config::Config,
@@ -262,7 +263,8 @@ mod linux {
   use anyhow::anyhow;
   use dbus::{
     arg::{RefArg, Variant},
-    blocking::Connection,
+    blocking::SyncConnection,
+    channel::Sender,
     Message,
   };
   use dbus_crossroads::{Crossroads, IfaceBuilder};
@@ -291,7 +293,7 @@ mod linux {
   }
 
   struct State {
-    conn: Connection,
+    conn: SyncConnection,
     metadata: Mutex<Option<Metadata>>,
     playback: Mutex<Option<Playback>>,
   }
@@ -299,7 +301,7 @@ mod linux {
   static STATE: OnceLock<Arc<State>> = OnceLock::new();
 
   pub fn register_commands() -> anyhow::Result<()> {
-    let conn = Connection::new_session()?;
+    let conn = SyncConnection::new_session()?;
     conn.request_name(DBUS_NAME, false, true, false)?;
 
     let state = STATE.get_or_init(|| {
@@ -551,7 +553,10 @@ mod linux {
   }
 
   /// 广播 MPRIS 属性变化，通知桌面环境媒体指示器刷新
-  fn emit_properties_changed(conn: &Connection, changed: HashMap<&str, Variant<Box<dyn RefArg>>>) {
+  fn emit_properties_changed(
+    conn: &SyncConnection,
+    changed: HashMap<&str, Variant<Box<dyn RefArg>>>,
+  ) {
     let msg = Message::signal(
       &dbus::Path::from(OBJECT_PATH),
       &"org.freedesktop.DBus.Properties".into(),
