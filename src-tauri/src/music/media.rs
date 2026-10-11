@@ -2,9 +2,11 @@ use serde::Serialize;
 use std::{fs, path::PathBuf};
 use tauri_plugin_http::reqwest::Method;
 
-#[cfg(target_os = "windows")]
-use crate::utils::logger::LogErrExt;
-use crate::{app::dir::Dir, http::client::Client, log_err, log_warn, utils::crypto::encrypt_md5};
+use crate::{
+  app::dir::Dir,
+  http::client::Client,
+  utils::{crypto::encrypt_md5, logger::LogErrExt},
+};
 
 /// 媒体键命令事件名（Rust -> 前端）
 pub const MEDIA_COMMAND: &str = "media:command";
@@ -37,12 +39,14 @@ impl Media {
   /// - `macOS`: NowPlaying / MPRemoteCommandCenter
   /// - `Linux`: MPRIS
   pub fn init() {
-    if let Err(e) = {
-      #[cfg(target_os = "windows")]
-      windows::register_commands()
-    } {
-      log_err!("Media::init", e, "初始化系统媒体控制失败");
-    };
+    #[cfg(target_os = "windows")]
+    let _ = windows::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
+
+    #[cfg(target_os = "macos")]
+    let _ = macos::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
+
+    #[cfg(target_os = "linux")]
+    let _ = linux::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
   }
 }
 
@@ -72,6 +76,7 @@ mod windows {
   static MEDIA_PLAYER: OnceLock<MediaPlayer> = OnceLock::new();
 
   pub fn register_commands() -> anyhow::Result<()> {
+    let app = Config::app();
     let media_player = MediaPlayer::new()?;
 
     // 关闭自动联动，自己接管SMTC命令
@@ -91,7 +96,7 @@ mod windows {
               _ => MediaCommandEvent::Other,
             };
 
-            let _ = Config::app().emit(MEDIA_COMMAND, payload);
+            let _ = app.emit(MEDIA_COMMAND, payload);
           }
         }
 
@@ -150,74 +155,90 @@ mod windows {
   }
 }
 
+/// macOS: 基于 mediaplayer crate 的 MPRemoteCommandCenter / NowPlayingInfoCenter，
+/// 接入控制中心 Now Playing 与媒体键。
 #[cfg(target_os = "macos")]
 mod macos {
   use mediaplayer::{
-    HandlerStatus, MediaPlayerError, NowPlayingInfo, NowPlayingInfoCenter, PlaybackState,
+    Artwork, HandlerStatus, MediaPlayerError, NowPlayingInfo, NowPlayingInfoCenter, PlaybackState,
     RemoteCommandCenter,
   };
 
-  use crate::{log_err, utils::logger::LogErrExt};
+  use crate::{
+    app::config::Config,
+    log_err,
+    music::media::{MediaCommandEvent, MediaMusic, MEDIA_COMMAND},
+    utils::logger::LogErrExt,
+  };
 
-  pub fn setup() {
-    if let Err(e) = register_commands() {
-      log_err!("macos::setup", e, "媒体键注册失败");
-    }
-  }
-
-  fn register_commands() -> Result<(), MediaPlayerError> {
+  pub fn register_commands() -> anyhow::Result<()> {
+    let app = Config::app();
     let mut command_remote = RemoteCommandCenter::shared();
 
     // 注册播放命令
     let play_command = command_remote.play_command();
-    let app = play_command.set_enabled(true);
-    play_command
-      .add_handler(|_| HandlerStatus::Success)
-      .log_err("register_commands", "注册播放命令失败")?;
+    play_command.set_enabled(true);
+    play_command.add_handler(|_| {
+      let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Play);
+      HandlerStatus::Success
+    })?;
 
     // 注册暂停命令
     let pause_command = command_remote.pause_command();
     pause_command.set_enabled(true);
-    pause_command
-      .add_handler(|_| HandlerStatus::Success)
-      .log_err("register_commands", "注册暂停命令失败")?;
+    pause_command.add_handler(|_| {
+      let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Pause);
+      HandlerStatus::Success
+    })?;
 
     // 注册上一曲命令
     let prev_command = command_remote.previous_track_command();
     prev_command.set_enabled(true);
-    prev_command
-      .add_handler(|_| HandlerStatus::Success)
-      .log_err("register_commands", "注册上一曲命令失败")?;
+    prev_command.add_handler(|_| {
+      let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Prev);
+      HandlerStatus::Success
+    })?;
 
     // 注册下一曲命令
     let next_command = command_remote.next_track_command();
     next_command.set_enabled(true);
-    next_command
-      .add_handler(|_| HandlerStatus::Success)
-      .log_err("register_commands", "注册下一曲命令失败")?;
+    next_command.add_handler(|_| {
+      let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Next);
+      HandlerStatus::Success
+    })?;
 
     Ok(())
   }
 
-  fn sync_metadata(
-    title: &str,
-    artist: &str,
-    album: &str,
-    duration: f64,
-    position: f64,
-    is_playing: bool,
-  ) -> Result<(), MediaPlayerError> {
+  pub fn sync_metadata(media_music: MediaMusic) -> anyhow::Result<()> {
+    let MediaMusic {
+      title,
+      artist,
+      album,
+      duration,
+      position,
+      is_playing,
+      cover,
+    } = media_music;
+
     // 构建播放信息
-    let info = NowPlayingInfo::new()
-      .title(title) // 歌曲名
-      .artist(artist) // 艺术家
-      .album_title(album) // 专辑名
-      .playback_duration(duration) // 总时长 秒
-      .elapsed_playback_time(position) // 当前已播放秒数
-      .playback_rate(if is_playing { 1.0 } else { 0.0 }); // 播放倍速
+    let mut info = NowPlayingInfo::new()
+      .title(title)
+      .artist(artist)
+      .album_title(album)
+      .playback_duration(duration)
+      .elapsed_playback_time(position)
+      .playback_rate(if is_playing { 1.0 } else { 0.0 });
+
+    // 封面: 加载失败则跳过, 不影响文字元数据
+    let artwork = cover.as_deref().and_then(|path| {
+      Artwork::from_path(path)
+        .log_err("sync_metadata", "加载封面失败")
+        .ok()
+    });
 
     let info_center = NowPlayingInfoCenter::default_center();
-    info_center.set_now_playing_info(&info)?;
+    info_center.set_now_playing_info_with_artwork(&info, artwork.as_ref())?;
     info_center.set_playback_state(if is_playing {
       PlaybackState::Playing
     } else {
@@ -232,17 +253,26 @@ mod macos {
 /// 暴露给桌面环境媒体指示器（如 GNOME/KDE 的媒体控件）。
 #[cfg(target_os = "linux")]
 mod linux {
-  use std::collections::HashMap;
-  use std::sync::{Arc, Mutex, OnceLock};
-  use std::thread;
+  use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock},
+    thread,
+  };
 
-  use dbus::arg::{RefArg, Variant};
-  use dbus::blocking::Connection;
-  use dbus::Message;
+  use anyhow::anyhow;
+  use dbus::{
+    arg::{RefArg, Variant},
+    blocking::Connection,
+    Message,
+  };
   use dbus_crossroads::{Crossroads, IfaceBuilder};
-  use tauri::{AppHandle, Emitter};
+  use tauri::Emitter;
 
-  use super::MEDIA_COMMAND;
+  use crate::{
+    app::config::Config,
+    music::media::{MediaCommandEvent, MediaMusic, MEDIA_COMMAND},
+    utils::logger::LogErrExt,
+  };
 
   const DBUS_NAME: &str = "org.mpris.MediaPlayer2.seraphine";
   const OBJECT_PATH: &str = "/org/mpris/MediaPlayer2";
@@ -250,7 +280,9 @@ mod linux {
   struct Metadata {
     title: Option<String>,
     artist: Option<String>,
+    album: Option<String>,
     duration: Option<f64>,
+    cover: Option<String>,
   }
 
   struct Playback {
@@ -266,28 +298,18 @@ mod linux {
 
   static STATE: OnceLock<Arc<State>> = OnceLock::new();
 
-  pub fn setup() {
-    let conn = match Connection::new_session() {
-      Ok(conn) => conn,
-      Err(e) => {
-        log::warn!("Linux MPRIS 初始化失败: 无法连接 session bus ({e})");
-        return;
-      }
-    };
-    if let Err(e) = conn.request_name(DBUS_NAME, false, true, false) {
-      log::warn!("Linux MPRIS 初始化失败: 服务名被占用 ({e})");
-      return;
-    }
+  pub fn register_commands() -> anyhow::Result<()> {
+    let conn = Connection::new_session()?;
+    conn.request_name(DBUS_NAME, false, true, false)?;
 
-    let state = Arc::new(State {
-      conn,
-      metadata: Mutex::new(None),
-      playback: Mutex::new(None),
+    let state = STATE.get_or_init(|| {
+      Arc::new(State {
+        conn,
+        metadata: Mutex::new(None),
+        playback: Mutex::new(None),
+      })
     });
-    let _ = STATE.set(state.clone());
 
-    let state = state.clone();
-    let app = app.clone();
     thread::spawn(move || {
       let mut cr = Crossroads::new();
 
@@ -317,31 +339,45 @@ mod linux {
       // org.mpris.MediaPlayer2.Player 接口
       let player_token = cr.register("org.mpris.MediaPlayer2.Player", {
         let state = state.clone();
-        let app = app.clone();
+        let app = Config::app();
+
         move |b: &mut IfaceBuilder<()>| {
           // 方法：系统媒体键 / 媒体控件调用时回推命令
-          for method in ["Play", "Pause", "PlayPause", "Stop"] {
-            b.method(method, (), (), {
-              let handle = app.clone();
-              move |_, _, _: ()| {
-                let _ = handle.emit(MEDIA_COMMAND, "play_pause");
-                Ok(())
-              }
-            });
-          }
-          b.method("Next", (), (), {
-            let handle = app.clone();
-            move |_, _, _: ()| {
-              let _ = handle.emit(MEDIA_COMMAND, "next");
-              Ok(())
-            }
+          b.method("Play", (), (), |_, _, _: ()| {
+            let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Play);
+            Ok(())
           });
-          b.method("Previous", (), (), {
-            let handle = app.clone();
-            move |_, _, _: ()| {
-              let _ = handle.emit(MEDIA_COMMAND, "prev");
-              Ok(())
-            }
+          b.method("Pause", (), (), |_, _, _: ()| {
+            let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Pause);
+            Ok(())
+          });
+          // PlayPause: 根据当前播放状态映射为播放/暂停
+          b.method("PlayPause", (), (), |_, _, _: ()| {
+            let is_playing = STATE
+              .get()
+              .and_then(|s| {
+                s.playback
+                  .lock()
+                  .unwrap_or_else(|e| e.into_inner())
+                  .as_ref()
+              })
+              .map(|p| p.is_playing)
+              .unwrap_or(false);
+            let event = if is_playing { MediaCommandEvent::Pause } else { MediaCommandEvent::Play };
+            let _ = app.emit(MEDIA_COMMAND, event);
+            Ok(())
+          });
+          b.method("Stop", (), (), |_, _, _: ()| {
+            let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Other);
+            Ok(())
+          });
+          b.method("Next", (), (), |_, _, _: ()| {
+            let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Next);
+            Ok(())
+          });
+          b.method("Previous", (), (), |_, _, _: ()| {
+            let _ = app.emit(MEDIA_COMMAND, MediaCommandEvent::Prev);
+            Ok(())
           });
           // 拖动进度条（前端暂不处理，仅确认收到）
           b.method("Seek", ("offset",), (), |_, _, (_offset,): (i64,)| Ok(()));
@@ -366,7 +402,9 @@ mod linux {
               Ok(build_metadata(
                 md.and_then(|m| m.title.as_deref()),
                 md.and_then(|m| m.artist.as_deref()),
+                md.and_then(|m| m.album.as_deref()),
                 md.and_then(|m| m.duration),
+                md.and_then(|m| m.cover.as_deref()),
               ))
             }
           });
@@ -403,13 +441,17 @@ mod linux {
         log::warn!("Linux MPRIS 服务运行失败: {e}");
       }
     });
+
+    Ok(())
   }
 
   /// 构建 MPRIS 元数据字典（a{sv}）
   fn build_metadata(
     title: Option<&str>,
     artist: Option<&str>,
+    album: Option<&str>,
     duration: Option<f64>,
+    cover: Option<&str>,
   ) -> HashMap<String, Variant<Box<dyn RefArg>>> {
     let mut map: HashMap<String, Variant<Box<dyn RefArg>>> = HashMap::new();
     map.insert(
@@ -428,49 +470,70 @@ mod linux {
         Variant(Box::new(vec![artist.to_string()]) as Box<dyn RefArg>),
       );
     }
+    if let Some(album) = album {
+      map.insert(
+        "xesam:album".to_string(),
+        Variant(Box::new(album.to_string()) as Box<dyn RefArg>),
+      );
+    }
     if let Some(duration) = duration {
       map.insert(
         "mpris:length".to_string(),
         Variant(Box::new((duration * 1_000_000.0) as i64) as Box<dyn RefArg>),
       );
     }
+    // 封面: MPRIS 只接受 URI, 本地路径转 file:// 引用
+    if let Some(cover) = cover {
+      map.insert(
+        "mpris:artUrl".to_string(),
+        Variant(Box::new(format!("file://{cover}")) as Box<dyn RefArg>),
+      );
+    }
     map
   }
 
-  pub fn sync_metadata(title: Option<String>, artist: Option<String>, duration: Option<f64>) {
-    let Some(state) = STATE.get() else {
-      return;
-    };
+  pub fn sync_metadata(media_music: MediaMusic) -> anyhow::Result<()> {
+    let state = STATE.get().ok_or(anyhow!("获取 STATE 失败"))?;
+
+    let MediaMusic {
+      title,
+      artist,
+      album,
+      duration,
+      position,
+      is_playing,
+      cover,
+    } = media_music;
+
+    // 空字符串与无效数值视为未提供
+    let filter = |s: String| (!s.is_empty()).then_some(s);
 
     *state.metadata.lock().unwrap_or_else(|e| e.into_inner()) = Some(Metadata {
-      title: title.clone(),
-      artist: artist.clone(),
-      duration,
+      title: filter(title),
+      artist: filter(artist),
+      album: filter(album),
+      duration: (duration > 0.0).then_some(duration),
+      cover,
     });
+    *state.playback.lock().unwrap_or_else(|e| e.into_inner()) = Some(Playback {
+      is_playing,
+      position: (position > 0.0).then_some(position),
+    });
+
+    let metadata = state.metadata.lock().unwrap_or_else(|e| e.into_inner());
+    let md = metadata.as_ref();
 
     let mut changed: HashMap<&str, Variant<Box<dyn RefArg>>> = HashMap::new();
     changed.insert(
       "Metadata",
       Variant(Box::new(build_metadata(
-        title.as_deref(),
-        artist.as_deref(),
-        duration,
+        md.and_then(|m| m.title.as_deref()),
+        md.and_then(|m| m.artist.as_deref()),
+        md.and_then(|m| m.album.as_deref()),
+        md.and_then(|m| m.duration),
+        md.and_then(|m| m.cover.as_deref()),
       )) as Box<dyn RefArg>),
     );
-    emit_properties_changed(&state.conn, changed);
-  }
-
-  pub fn sync_playback(position: Option<f64>, is_playing: bool) {
-    let Some(state) = STATE.get() else {
-      return;
-    };
-
-    *state.playback.lock().unwrap_or_else(|e| e.into_inner()) = Some(Playback {
-      is_playing,
-      position,
-    });
-
-    let mut changed: HashMap<&str, Variant<Box<dyn RefArg>>> = HashMap::new();
     changed.insert(
       "PlaybackStatus",
       Variant(
@@ -480,9 +543,11 @@ mod linux {
     );
     changed.insert(
       "Position",
-      Variant(Box::new(position.map(|p| (p * 1_000_000.0) as i64).unwrap_or(0)) as Box<dyn RefArg>),
+      Variant(Box::new((position * 1_000_000.0) as i64) as Box<dyn RefArg>),
     );
     emit_properties_changed(&state.conn, changed);
+
+    Ok(())
   }
 
   /// 广播 MPRIS 属性变化，通知桌面环境媒体指示器刷新
@@ -502,7 +567,6 @@ mod linux {
 ///
 /// 网络封面会下载并持久缓存到封面目录, 命中时直接复用
 ///
-///
 /// ### 必选参数
 /// * `cover` - 封面, 本地路径或网络 URL
 async fn cache_cover(cover: &str) -> Option<String> {
@@ -515,7 +579,7 @@ async fn cache_cover(cover: &str) -> Option<String> {
   }
 
   // 网络 URL: 按 url 的 md5 命名, 命中复用
-  let url = cover.replace("{size}", "64");
+  let url = cover.replace("{size}", "120");
   let ext = url
     .rsplit('.')
     .next()
@@ -524,23 +588,20 @@ async fn cache_cover(cover: &str) -> Option<String> {
   let path = Dir::cover().join(format!("{}.{}", encrypt_md5(cover), ext));
 
   if path.exists() {
-    return Some(path.to_string_lossy().into_owned());
+    Some(path.to_string_lossy().into_owned())
+  } else {
+    let bytes = Client::new(url, Method::GET)
+      .bytes()
+      .await
+      .log_err("cache_cover", "获取封面失败")
+      .ok()?;
+
+    fs::write(&path, bytes)
+      .log_err("cache_cover", "写入封面失败")
+      .ok()?;
+
+    Some(path.to_string_lossy().into_owned())
   }
-
-  let bytes = match Client::new(url, Method::GET).bytes().await {
-    Ok(bytes) => bytes,
-    Err(e) => {
-      log_warn!("cache_cover", e, "下载封面失败");
-      return None;
-    }
-  };
-
-  if let Err(e) = fs::write(&path, &bytes) {
-    log_warn!("cache_cover", e, "写入封面失败");
-    return None;
-  }
-
-  Some(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -580,6 +641,12 @@ pub async fn music_media_sync_metadata(
 
   #[cfg(target_os = "windows")]
   windows::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
+
+  #[cfg(target_os = "macos")]
+  macos::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
+
+  #[cfg(target_os = "linux")]
+  linux::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
 
   Ok(())
 }
