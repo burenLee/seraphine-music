@@ -5,6 +5,7 @@ use tauri_plugin_http::reqwest::Method;
 use crate::{
   app::dir::Dir,
   http::client::Client,
+  log_err,
   utils::{crypto::encrypt_md5, logger::LogErrExt},
 };
 
@@ -31,6 +32,13 @@ pub struct MediaMusic {
   cover: Option<String>,
 }
 
+#[cfg(target_os = "windows")]
+use windows as platform;
+#[cfg(target_os = "macos")]
+use macos as platform;
+#[cfg(target_os = "linux")]
+use linux as platform;
+
 pub struct Media;
 
 impl Media {
@@ -39,14 +47,12 @@ impl Media {
   /// - `macOS`: NowPlaying / MPRemoteCommandCenter
   /// - `Linux`: MPRIS
   pub fn init() {
-    #[cfg(target_os = "windows")]
-    let _ = windows::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
+    let _ = platform::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
+  }
 
-    #[cfg(target_os = "macos")]
-    let _ = macos::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
-
-    #[cfg(target_os = "linux")]
-    let _ = linux::register_commands().log_err("Media::init", "初始化系统媒体控制失败");
+  /// ## 同步媒体元数据与播放状态
+  pub fn sync_metadata(media_music: MediaMusic) -> anyhow::Result<()> {
+    platform::sync_metadata(media_music)
   }
 }
 
@@ -223,13 +229,13 @@ mod macos {
     } = media_music;
 
     // 构建播放信息
-    let mut info = NowPlayingInfo::new()
+    let info = NowPlayingInfo::new()
       .title(title)
       .artist(artist)
       .album_title(album)
-      .playback_duration(duration)
-      .elapsed_playback_time(position)
-      .playback_rate(if is_playing { 1.0 } else { 0.0 });
+      .playback_duration(duration) // 总时长 秒
+      .elapsed_playback_time(position) // 当前已播放秒数
+      .playback_rate(if is_playing { 1.0 } else { 0.0 }); // 播放倍速
 
     // 封面: 加载失败则跳过, 不影响文字元数据
     let artwork = cover.as_deref().and_then(|path| {
@@ -258,13 +264,15 @@ mod linux {
     collections::HashMap,
     sync::{Arc, Mutex, OnceLock},
     thread,
+    time::Duration,
   };
 
   use anyhow::anyhow;
   use dbus::{
     arg::{RefArg, Variant},
     blocking::SyncConnection,
-    channel::Sender,
+    channel::{MatchingReceiver, Sender},
+    message::MatchRule,
     Message,
   };
   use dbus_crossroads::{Crossroads, IfaceBuilder};
@@ -439,59 +447,27 @@ mod linux {
       });
 
       cr.insert(OBJECT_PATH, &[root_token, player_token], ());
-      if let Err(e) = cr.serve(&state.conn) {
-        log::warn!("Linux MPRIS 服务运行失败: {e}");
+
+      // dbus-crossroads 0.5.3 的 serve() 仅支持非线程安全的 blocking::Connection,
+      // 手动实现等价逻辑, 适配线程安全的 SyncConnection
+      state.conn.start_receive(
+        MatchRule::new_method_call(),
+        Box::new(move |msg, conn| {
+          cr.handle_message(msg, conn).unwrap();
+          true
+        }),
+      );
+
+      // serve clients forever
+      loop {
+        if let Err(e) = state.conn.process(Duration::from_millis(1000)) {
+          log::warn!("Linux MPRIS 事件循环失败: {e}");
+          break;
+        }
       }
     });
 
     Ok(())
-  }
-
-  /// 构建 MPRIS 元数据字典（a{sv}）
-  fn build_metadata(
-    title: Option<&str>,
-    artist: Option<&str>,
-    album: Option<&str>,
-    duration: Option<f64>,
-    cover: Option<&str>,
-  ) -> HashMap<String, Variant<Box<dyn RefArg>>> {
-    let mut map: HashMap<String, Variant<Box<dyn RefArg>>> = HashMap::new();
-    map.insert(
-      "mpris:trackid".to_string(),
-      Variant(Box::new("/org/mpris/MediaPlayer2/Track/1".to_string()) as Box<dyn RefArg>),
-    );
-    if let Some(title) = title {
-      map.insert(
-        "xesam:title".to_string(),
-        Variant(Box::new(title.to_string()) as Box<dyn RefArg>),
-      );
-    }
-    if let Some(artist) = artist {
-      map.insert(
-        "xesam:artist".to_string(),
-        Variant(Box::new(vec![artist.to_string()]) as Box<dyn RefArg>),
-      );
-    }
-    if let Some(album) = album {
-      map.insert(
-        "xesam:album".to_string(),
-        Variant(Box::new(album.to_string()) as Box<dyn RefArg>),
-      );
-    }
-    if let Some(duration) = duration {
-      map.insert(
-        "mpris:length".to_string(),
-        Variant(Box::new((duration * 1_000_000.0) as i64) as Box<dyn RefArg>),
-      );
-    }
-    // 封面: MPRIS 只接受 URI, 本地路径转 file:// 引用
-    if let Some(cover) = cover {
-      map.insert(
-        "mpris:artUrl".to_string(),
-        Variant(Box::new(format!("file://{cover}")) as Box<dyn RefArg>),
-      );
-    }
-    map
   }
 
   pub fn sync_metadata(media_music: MediaMusic) -> anyhow::Result<()> {
@@ -550,6 +526,53 @@ mod linux {
     emit_properties_changed(&state.conn, changed);
 
     Ok(())
+  }
+
+  /// 构建 MPRIS 元数据字典（a{sv}）
+  fn build_metadata(
+    title: Option<&str>,
+    artist: Option<&str>,
+    album: Option<&str>,
+    duration: Option<f64>,
+    cover: Option<&str>,
+  ) -> HashMap<String, Variant<Box<dyn RefArg>>> {
+    let mut map: HashMap<String, Variant<Box<dyn RefArg>>> = HashMap::new();
+    map.insert(
+      "mpris:trackid".to_string(),
+      Variant(Box::new("/org/mpris/MediaPlayer2/Track/1".to_string()) as Box<dyn RefArg>),
+    );
+    if let Some(title) = title {
+      map.insert(
+        "xesam:title".to_string(),
+        Variant(Box::new(title.to_string()) as Box<dyn RefArg>),
+      );
+    }
+    if let Some(artist) = artist {
+      map.insert(
+        "xesam:artist".to_string(),
+        Variant(Box::new(vec![artist.to_string()]) as Box<dyn RefArg>),
+      );
+    }
+    if let Some(album) = album {
+      map.insert(
+        "xesam:album".to_string(),
+        Variant(Box::new(album.to_string()) as Box<dyn RefArg>),
+      );
+    }
+    if let Some(duration) = duration {
+      map.insert(
+        "mpris:length".to_string(),
+        Variant(Box::new((duration * 1_000_000.0) as i64) as Box<dyn RefArg>),
+      );
+    }
+    // 封面: MPRIS 只接受 URI, 本地路径转 file:// 引用
+    if let Some(cover) = cover {
+      map.insert(
+        "mpris:artUrl".to_string(),
+        Variant(Box::new(format!("file://{cover}")) as Box<dyn RefArg>),
+      );
+    }
+    map
   }
 
   /// 广播 MPRIS 属性变化，通知桌面环境媒体指示器刷新
@@ -644,14 +667,7 @@ pub async fn music_media_sync_metadata(
     media_music.is_playing = is_playing;
   }
 
-  #[cfg(target_os = "windows")]
-  windows::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
-
-  #[cfg(target_os = "macos")]
-  macos::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
-
-  #[cfg(target_os = "linux")]
-  linux::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
+  Media::sync_metadata(media_music).log_command("music_media_sync_metadata", "同步失败")?;
 
   Ok(())
 }
