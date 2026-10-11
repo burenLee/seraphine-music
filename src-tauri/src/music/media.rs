@@ -5,7 +5,6 @@ use tauri_plugin_http::reqwest::Method;
 use crate::{
   app::dir::Dir,
   http::client::Client,
-  log_err,
   utils::{crypto::encrypt_md5, logger::LogErrExt},
 };
 
@@ -32,12 +31,12 @@ pub struct MediaMusic {
   cover: Option<String>,
 }
 
-#[cfg(target_os = "windows")]
-use windows as platform;
-#[cfg(target_os = "macos")]
-use macos as platform;
 #[cfg(target_os = "linux")]
 use linux as platform;
+#[cfg(target_os = "macos")]
+use macos as platform;
+#[cfg(target_os = "windows")]
+use windows as platform;
 
 pub struct Media;
 
@@ -173,7 +172,6 @@ mod macos {
 
   use crate::{
     app::config::Config,
-    log_err,
     music::media::{MediaCommandEvent, MediaMusic, MEDIA_COMMAND},
     utils::logger::LogErrExt,
   };
@@ -281,7 +279,6 @@ mod linux {
   use crate::{
     app::config::Config,
     music::media::{MediaCommandEvent, MediaMusic, MEDIA_COMMAND},
-    utils::logger::LogErrExt,
   };
 
   const DBUS_NAME: &str = "org.mpris.MediaPlayer2.seraphine";
@@ -321,10 +318,13 @@ mod linux {
     });
 
     thread::spawn(move || {
-      let mut cr = Crossroads::new();
+      // Crossroads 是 Send 但非 Sync, 而 SyncConnection::start_receive 的回调要求
+      // Send + Sync, 故用 Mutex 包裹以满足 Sync 约束
+      let cr = Arc::new(Mutex::new(Crossroads::new()));
+      let mut cr_guard = cr.lock().unwrap_or_else(|e| e.into_inner());
 
       // org.mpris.MediaPlayer2 根接口
-      let root_token = cr.register("org.mpris.MediaPlayer2", |b: &mut IfaceBuilder<()>| {
+      let root_token = cr_guard.register("org.mpris.MediaPlayer2", |b: &mut IfaceBuilder<()>| {
         b.property("CanQuit").get(|_, _| Ok(false));
         b.property("CanRaise").get(|_, _| Ok(false));
         b.property("HasTrackList").get(|_, _| Ok(false));
@@ -347,7 +347,7 @@ mod linux {
       });
 
       // org.mpris.MediaPlayer2.Player 接口
-      let player_token = cr.register("org.mpris.MediaPlayer2.Player", {
+      let player_token = cr_guard.register("org.mpris.MediaPlayer2.Player", {
         let state = state.clone();
         let app = Config::app();
 
@@ -446,14 +446,17 @@ mod linux {
         }
       });
 
-      cr.insert(OBJECT_PATH, &[root_token, player_token], ());
+      cr_guard.insert(OBJECT_PATH, &[root_token, player_token], ());
+      drop(cr_guard);
 
       // dbus-crossroads 0.5.3 的 serve() 仅支持非线程安全的 blocking::Connection,
       // 手动实现等价逻辑, 适配线程安全的 SyncConnection
+      let cr_handle = cr.clone();
       state.conn.start_receive(
         MatchRule::new_method_call(),
         Box::new(move |msg, conn| {
-          cr.handle_message(msg, conn).unwrap();
+          let mut cr_guard = cr_handle.lock().unwrap_or_else(|e| e.into_inner());
+          cr_guard.handle_message(msg, conn).unwrap();
           true
         }),
       );
