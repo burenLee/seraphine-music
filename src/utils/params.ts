@@ -486,17 +486,3 @@ export const DefaultSystemFonts = [
   ['Source Code Pro', 'Source Code Pro'],
   ['Fira Code', 'Fira Code'],
 ] as const;
-
-export const ActionBtnTheme: Record<BtnTheme, string> = {
-  default: 'action-default',
-  info: 'action-info',
-  success: 'action-success',
-  warning: 'action-warning',
-  error: 'action-error',
-} as const;
-
-export const ActionBtnSize: Record<BtnSize, string> = {
-  small: 'h-6 px-2',
-  middle: 'h-8 px-3',
-  large: 'h-10 px-4',
-} as const;
