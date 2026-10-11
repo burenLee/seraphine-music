@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.2] - 2026-10-11
+
+### 新增
+
+- Windows/macOS/Linux 新增媒体控制
+- 播放栏添加我喜欢按钮
+
 ## [0.2.0] - 2026-09-29
 
 ### 新增
