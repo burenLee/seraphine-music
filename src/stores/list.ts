@@ -171,17 +171,17 @@ export const useListStore = defineStore(
 
     /** 设置喜欢列表项 */
     const setLikeListRaw = (newList: MusicInfo[]) => {
-      like.value.list = new Map(newList.map((item) => [Number(item.id), item.fileId || '']));
+      like.value.list = new Map(newList.map((item) => [+item.id, item.fileId || '']));
     };
 
     /** 添加喜欢列表项 */
     const addLikeList = (newList: MusicInfo[]) => {
-      newList.forEach((item) => like.value.list.set(Number(item.id), item.fileId || ''));
+      newList.forEach((item) => like.value.list.set(+item.id, item.fileId || ''));
     };
 
     /** 移除喜欢列表项 */
     const removeLikeList = (newList: MusicInfo[]) => {
-      newList.forEach((item) => like.value.list.delete(Number(item.id)));
+      newList.forEach((item) => like.value.list.delete(+item.id));
     };
 
     /** 清空喜欢列表项 */

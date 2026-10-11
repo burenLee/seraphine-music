@@ -18,7 +18,7 @@ const isSvip = computed(() => userStore.userinfo?.youthVip === YouthVip.Svip);
     <div class="w-40 font-bold">用户:</div>
 
     <div class="space-y-3">
-      <div v-if="userStore.userinfo" class="relative flex cursor-pointer items-center">
+      <div v-if="userStore.userinfo" class="relative flex cursor-pointer items-center gap-1">
         <Image class="size-6 rounded-full" :src="userStore.userinfo.pic" icon="User" />
         <div class="max-w-24 truncate pl-1 font-bold" :title="userStore.userinfo.nickname">
           {{ userStore.userinfo.nickname }}

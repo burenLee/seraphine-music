@@ -1,19 +1,18 @@
 ﻿<script lang="ts" setup>
 import { IconMap, IconName } from '@/utils/icons';
+import { ActionBtnSize, ActionBtnTheme } from '@/utils/params';
 import { cn } from '@/utils/tools';
-
-type BtnMode = 'text' | 'button';
-type BtnTheme = 'default' | 'info' | 'success' | 'warning' | 'error';
 
 interface Props {
   mode?: BtnMode;
   theme?: BtnTheme;
+  size?: BtnSize;
   /** 前缀图标 */
   prefixIcon?: IconName;
   /** 后缀图标 */
   suffixIcon?: IconName;
   /** 图标尺寸 */
-  size?: number | string;
+  iconSize?: number | string;
   disabled?: boolean;
 }
 
@@ -24,41 +23,35 @@ interface Emits {
 const {
   mode = 'button',
   theme = 'default',
+  size = 'middle',
   prefixIcon,
   suffixIcon,
-  size = 16,
+  iconSize = 16,
   disabled,
 } = defineProps<Props>();
 const emits = defineEmits<Emits>();
-
-const themes: Record<BtnTheme, string> = {
-  default: 'action-default',
-  info: 'action-info',
-  success: 'action-success',
-  warning: 'action-warning',
-  error: 'action-error',
-};
 </script>
 
 <template>
   <button
     :class="
       cn(
-        'flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-bold transition-all active:scale-90',
+        'flex items-center justify-center rounded-lg border transition-all active:scale-90',
         mode === 'text' && '!border-none !bg-transparent',
-        themes[theme],
+        ActionBtnTheme[theme],
+        ActionBtnSize[size],
         $attrs.class,
       )
     "
     :data-disabled="disabled"
     @click="emits('click', $event)"
   >
-    <component v-if="prefixIcon" :is="IconMap[prefixIcon]" :height="size" :width="size" />
+    <component v-if="prefixIcon" :is="IconMap[prefixIcon]" :height="iconSize" :width="iconSize" />
 
-    <div class="whitespace-nowrap px-1">
+    <div class="whitespace-nowrap px-1 text-xs font-bold">
       <slot></slot>
     </div>
 
-    <component v-if="suffixIcon" :is="IconMap[suffixIcon]" :height="size" :width="size" />
+    <component v-if="suffixIcon" :is="IconMap[suffixIcon]" :height="iconSize" :width="iconSize" />
   </button>
 </template>

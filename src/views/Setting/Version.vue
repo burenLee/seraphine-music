@@ -35,6 +35,8 @@ const progressPercent = computed(() =>
 
         <ActionButton
           theme="success"
+          size="small"
+          prefixIcon="Refresh"
           :disabled="updaterStore.isChecking || updaterStore.isDownloading"
           @click="updaterStore.check"
         >

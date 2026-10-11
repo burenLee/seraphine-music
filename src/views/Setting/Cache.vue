@@ -14,7 +14,7 @@ interface CacheOption {
 const cacheOptions = ref<CacheOption[]>([
   { label: '音频', value: '' },
   { label: '歌词', value: '' },
-  { label: '封面(本地音频)', value: '' },
+  { label: '封面', value: '' },
   { label: '日志', value: '' },
 ]);
 const clearOption = ref<CacheOption>();
@@ -32,7 +32,7 @@ const getPaths = async () => {
         case '歌词':
           option.value = path_all.lyric;
           break;
-        case '封面(本地音频)':
+        case '封面':
           option.value = path_all.cover;
           break;
         case '日志':
@@ -83,10 +83,10 @@ onMounted(() => {
 
     <div class="flex-1 space-y-3">
       <div v-for="(option, index) in cacheOptions" :key="index" class="flex items-center gap-3">
-        <div class="w-32">{{ option.label }}</div>
+        <div class="w-12">{{ option.label }}</div>
         <input class="card min-w-0 flex-1 truncate px-2 py-1" :value="option.value" readonly />
         <ActionButton theme="success" @click="setPath()" disabled>设置</ActionButton>
-        <ActionButton theme="success" @click="openDir(option.value)">打开</ActionButton>
+        <ActionButton theme="success" @click="openDir(option.value)"> 打开 </ActionButton>
         <ActionButton theme="error" @click="clearCache(option)">清理</ActionButton>
       </div>
     </div>

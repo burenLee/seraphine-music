@@ -51,11 +51,11 @@ const cover = computed(() => {
           <div class="ml-4 flex-1">共 {{ musicList.info.count || 0 }} 首</div>
         </div>
 
-        <div class="flex h-8 items-center gap-2 whitespace-nowrap">
-          <div class="font-bold leading-8">{{ musicList.info.artist }}</div>
+        <div class="flex h-8 items-center gap-2">
+          <div class="whitespace-nowrap font-bold leading-8">{{ musicList.info.artist }}</div>
 
           <div
-            class="card rounded border-info px-1 text-xs font-bold leading-4 text-info"
+            class="card whitespace-nowrap rounded border-info px-1 text-xs font-bold leading-4 text-info"
             v-for="(tag, index) in musicList.info.tags"
             :key="index"
           >

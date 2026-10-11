@@ -31,6 +31,10 @@ declare global {
   /** 翻译列表 */
   type Translation = Record<LyricTransMode.Roman | LyricTransMode.Trans, string[]>;
 
+  type BtnMode = 'text' | 'button';
+  type BtnTheme = 'default' | 'info' | 'success' | 'warning' | 'error';
+  type BtnSize = 'small' | 'middle' | 'large';
+
   /** 后端接口第一层返回结果 */
   interface ApiResponse<T = any> {
     status: number;

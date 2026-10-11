@@ -75,8 +75,8 @@ const handleClick = () => {
   <div class="flex text-base">
     <div class="w-40 font-bold">快捷键:</div>
 
-    <div>
-      <label class="mt-3 flex w-fit cursor-pointer items-center gap-2">
+    <div class="space-y-3">
+      <label class="flex w-fit cursor-pointer items-center gap-2">
         <input
           type="checkbox"
           :checked="settingStore.mediaShortcutState"
@@ -93,10 +93,12 @@ const handleClick = () => {
         />
         启用全局快捷键
 
-        <ActionButton theme="success" @click="handleReset">重置</ActionButton>
+        <ActionButton theme="success" size="small" prefixIcon="Restart" @click="handleReset">
+          重置
+        </ActionButton>
       </label>
 
-      <div class="mt-3 flex flex-1 gap-6" :data-disabled="!settingStore.globalShortcutState">
+      <div class="flex flex-1 gap-6" :data-disabled="!settingStore.globalShortcutState">
         <div class="flex-1 space-y-3" v-for="(shortcut, index) in shortcutGroups" :key="index">
           <div v-for="item in shortcut" :key="item.key" class="flex items-center gap-3">
             <div class="w-20">{{ item.label }}</div>

@@ -146,7 +146,7 @@ watchThrottled(searchQuery, handleSearch, { throttle: Interval.Sec });
     <Transition name="zoom-top">
       <div
         v-if="searchVisible && searchResult"
-        class="card absolute left-2 top-full w-72 space-y-4 bg-background p-4 shadow-md shadow-shadow"
+        class="card absolute left-1/2 top-full w-72 -translate-x-1/2 space-y-4 bg-background p-4 shadow-md shadow-shadow"
       >
         <div class="flex gap-3">
           <div class="w-9 leading-8 text-minor">单曲:</div>

@@ -71,10 +71,12 @@ onMounted(() => {
     <div class="space-y-3">
       <div class="relative text-sm" v-on-click-outside="() => (fontFamilyVisible = false)">
         <div
-          class="flex cursor-pointer items-center whitespace-nowrap font-bold"
+          class="flex cursor-pointer items-center gap-1"
           @click="fontFamilyVisible = !fontFamilyVisible"
         >
-          <div>{{ fontFamilySelection?.label || '默认字体 ' }}</div>
+          <div class="whitespace-nowrap font-bold">
+            {{ fontFamilySelection?.label || '默认字体 ' }}
+          </div>
           <SvgIcon
             class="transition-transform"
             :class="fontFamilyVisible ? 'rotate-180' : ''"
@@ -104,10 +106,10 @@ onMounted(() => {
 
         <div class="relative text-sm" v-on-click-outside="() => (autoStartModeVisible = false)">
           <div
-            class="flex cursor-pointer items-center whitespace-nowrap font-bold"
+            class="flex cursor-pointer items-center gap-1"
             @click="autoStartModeVisible = !autoStartModeVisible"
           >
-            <div>{{ autoStartModeSelection.label }}</div>
+            <div class="whitespace-nowrap font-bold">{{ autoStartModeSelection.label }}</div>
             <SvgIcon
               class="transition-transform"
               :class="autoStartModeVisible ? 'rotate-180' : ''"
@@ -116,7 +118,7 @@ onMounted(() => {
           </div>
 
           <SelectModal
-            class="absolute -left-4 top-full"
+            class="absolute left-1/2 top-full -translate-x-1/2"
             transition="zoom-top"
             :visible="autoStartModeVisible"
             :options="autoStartOptions"
@@ -127,12 +129,12 @@ onMounted(() => {
 
       <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">
         <input type="checkbox" />
-        最小化时, 开启节省性能模式
+        将 Seraphine 设为默认播放器
       </label>
 
       <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">
         <input type="checkbox" />
-        将 Seraphine 设为默认播放器
+        最小化时, 开启轻量模式
       </label>
 
       <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">

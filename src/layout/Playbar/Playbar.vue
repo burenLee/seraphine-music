@@ -14,6 +14,7 @@ import { Interval, PlayingOrigin } from '@/utils/params';
 import { formatDuration } from '@/utils/tools.ts';
 
 import DesktopLyric from './DesktopLyric.vue';
+import Like from './Like.vue';
 import PlayList from './PlayList.vue';
 import PlayMode from './PlayMode.vue';
 import Quality from './Quality.vue';
@@ -145,6 +146,7 @@ useEventListener(document, 'keyup', (e: KeyboardEvent) => {
         {{ formatDuration(playProgress) }} /
         {{ formatDuration(musicStore.music?.duration ?? 0) }}
       </div>
+      <Like />
       <PlayMode />
       <Volume />
       <Quality />

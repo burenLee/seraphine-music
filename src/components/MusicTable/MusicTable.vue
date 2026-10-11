@@ -58,7 +58,7 @@ const getCover = computed(() =>
 );
 
 const isPlaying = (id: ID) => musicStore.music?.id == id;
-const isLike = (id: ID) => listStore.like.list.get(Number(id));
+const isLike = (id: ID) => listStore.like.list.get(+id);
 
 const handleInfinite = () => {
   emits('infinite');
@@ -123,8 +123,8 @@ const removeUserPlaylist = async (music: MusicInfo) => {
 
   try {
     const { status } = await invoke('api_playlist_tracks_del', {
-      listId: Number(musicList.value.info.id),
-      fileIds: [Number(music.fileId)],
+      listId: +musicList.value.info.id,
+      fileIds: [+music.fileId],
     });
     if (status !== ApiInvokeStatus.Success) {
       notify.error('删除失败');
@@ -252,13 +252,13 @@ const handleLike = async (music: MusicInfo) => {
 
 const handleUnlike = async (music: MusicInfo) => {
   // 同一首歌的每个歌单的fileid是不同的, 获取我喜欢歌单的fileid
-  const fileId = listStore.like.list.get(Number(music.id))?.toString();
+  const fileId = listStore.like.list.get(+music.id)?.toString();
   if (!fileId) return;
 
   try {
     const { status } = await invoke('api_playlist_tracks_del', {
-      listId: Number(listStore.like.info.id),
-      fileIds: [Number(fileId)],
+      listId: +listStore.like.info.id,
+      fileIds: [+fileId],
     });
     if (status !== ApiInvokeStatus.Success) {
       notify.error('删除失败');

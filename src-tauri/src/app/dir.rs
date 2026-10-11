@@ -34,9 +34,9 @@ impl Dir {
       .unwrap_or_else(|_| env::temp_dir());
     let app_log_dir = path.app_log_dir().unwrap_or_else(|_| env::temp_dir());
 
-    let audio_dir = Self::gen_dir(&app_local_data_dir, AUDIO_DIR);
-    let lyric_dir = Self::gen_dir(&app_local_data_dir, LYRIC_DIR);
-    let cover_dir = Self::gen_dir(&app_local_data_dir, COVER_DIR);
+    let audio_dir = Self::create_dir(&app_local_data_dir, AUDIO_DIR);
+    let lyric_dir = Self::create_dir(&app_local_data_dir, LYRIC_DIR);
+    let cover_dir = Self::create_dir(&app_local_data_dir, COVER_DIR);
 
     APP_DIR.get_or_init(|| AppDir {
       app_data: app_data_dir,
@@ -53,7 +53,7 @@ impl Dir {
   /// ### 必选参数
   /// * `parent` - 父目录
   /// * `dir_path` - 目录名称
-  fn gen_dir(parent: &PathBuf, dir_path: &str) -> PathBuf {
+  fn create_dir(parent: &PathBuf, dir_path: &str) -> PathBuf {
     let path = parent.join(dir_path);
 
     if !path.exists() {
@@ -68,51 +68,45 @@ impl Dir {
   }
 
   /// ## 获取应用数据目录
-  pub fn app_data() -> PathBuf {
-    match APP_DIR.get() {
-      Some(dirs) => dirs.app_data.clone(),
-      None => env::temp_dir(),
-    }
+  pub fn app_data() -> &'static PathBuf {
+    let dir = APP_DIR.get().expect("无法获取 APP_DIR");
+
+    &dir.app_data
   }
 
   /// ## 获取本地数据目录
-  pub fn app_local_data() -> PathBuf {
-    match APP_DIR.get() {
-      Some(dirs) => dirs.app_local_data.clone(),
-      None => env::temp_dir(),
-    }
+  pub fn app_local_data() -> &'static PathBuf {
+    let dir = APP_DIR.get().expect("无法获取 APP_DIR");
+
+    &dir.app_local_data
   }
 
   /// ## 获取日志目录
-  pub fn app_log() -> PathBuf {
-    match APP_DIR.get() {
-      Some(dirs) => dirs.app_log.clone(),
-      None => env::temp_dir(),
-    }
+  pub fn app_log() -> &'static PathBuf {
+    let dir = APP_DIR.get().expect("无法获取 APP_DIR");
+
+    &dir.app_log
   }
 
   /// ## 获取音频目录
-  pub fn audio() -> PathBuf {
-    match APP_DIR.get() {
-      Some(dirs) => dirs.audio.clone(),
-      None => env::temp_dir(),
-    }
+  pub fn audio() -> &'static PathBuf {
+    let dir = APP_DIR.get().expect("无法获取 APP_DIR");
+
+    &dir.audio
   }
 
   /// ## 获取歌词目录
-  pub fn lyric() -> PathBuf {
-    match APP_DIR.get() {
-      Some(dirs) => dirs.lyric.clone(),
-      None => env::temp_dir(),
-    }
+  pub fn lyric() -> &'static PathBuf {
+    let dir = APP_DIR.get().expect("无法获取 APP_DIR");
+
+    &dir.lyric
   }
 
   /// ## 获取封面目录
-  pub fn cover() -> PathBuf {
-    match APP_DIR.get() {
-      Some(dirs) => dirs.cover.clone(),
-      None => env::temp_dir(),
-    }
+  pub fn cover() -> &'static PathBuf {
+    let dir = APP_DIR.get().expect("无法获取 APP_DIR");
+
+    &dir.cover
   }
 }
 
@@ -152,7 +146,7 @@ pub fn app_dirs_all() -> HashMap<String, String> {
 ///
 /// ### 必选参数
 /// * `path` - 目录路径
-pub fn app_dirs_clear(path: &str) -> Result<(), String> {
+pub fn app_dirs_clear(path: &str) -> Result<usize, String> {
   let dir_path = PathBuf::from(path);
   if !dir_path.exists() {
     return Err("目录不存在".to_string());
@@ -183,7 +177,7 @@ pub fn app_dirs_clear(path: &str) -> Result<(), String> {
     }
   }
 
-  Ok(())
+  Ok(fail_total)
 }
 
 #[cfg(test)]
@@ -202,7 +196,7 @@ mod tests {
     let temp = tempfile::tempdir().unwrap();
     let parent = temp.path().to_path_buf();
 
-    let child = Dir::gen_dir(&parent, "sub");
+    let child = Dir::create_dir(&parent, "sub");
 
     assert!(child.is_dir());
     assert_eq!(child, parent.join("sub"));
@@ -213,8 +207,8 @@ mod tests {
     let temp = tempfile::tempdir().unwrap();
     let parent = temp.path().to_path_buf();
 
-    let first = Dir::gen_dir(&parent, "sub");
-    let second = Dir::gen_dir(&parent, "sub");
+    let first = Dir::create_dir(&parent, "sub");
+    let second = Dir::create_dir(&parent, "sub");
 
     assert_eq!(first, second);
   }

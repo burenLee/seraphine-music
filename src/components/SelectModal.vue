@@ -30,7 +30,7 @@ const emits = defineEmits<IEmits>();
       <li
         v-for="(option, index) in options"
         :key="index"
-        class="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors"
+        class="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2 transition-colors"
         :class="option.value === selection?.value ? 'card-actived' : 'card-hover'"
         :data-disabled="option.disabled"
         @click="emits('select', option.value, option)"

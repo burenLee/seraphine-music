@@ -98,7 +98,7 @@ const { unobserve } = useObserver(listRef, (entry) => {
       mode="text"
       theme="info"
       suffix-icon="Refresh"
-      size="20"
+      iconSize="20"
       @click="handleRefresh"
     >
       重试
@@ -108,12 +108,12 @@ const { unobserve } = useObserver(listRef, (entry) => {
   <!-- 存在数据状态 -->
   <div v-else>
     <div class="flex items-center justify-between gap-3">
-      <div class="flex h-6 flex-1 items-center gap-3 overflow-hidden whitespace-nowrap">
+      <div class="flex h-6 flex-1 items-center gap-3 overflow-hidden">
         <div class="h-full w-1 rounded bg-minor"></div>
-        <div class="text-base font-bold">{{ data.info.title }}</div>
+        <div class="whitespace-nowrap text-base font-bold">{{ data.info.title }}</div>
 
         <div
-          class="card rounded border-info px-1 text-xs font-bold leading-4 text-info"
+          class="card whitespace-nowrap rounded border-info px-1 text-xs font-bold leading-4 text-info"
           v-for="(tag, index) in data.info.tags"
           :key="index"
         >

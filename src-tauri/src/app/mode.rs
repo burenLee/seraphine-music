@@ -59,7 +59,9 @@ impl Mode {
 
   /// ## 获取当前应用模式
   pub fn get_mode() -> AppMode {
-    *APP_MODE.read().unwrap_or_else(|e| e.into_inner())
+    let app_mode = APP_MODE.read().unwrap_or_else(|e| e.into_inner());
+
+    app_mode.clone()
   }
 
   /// ## 设置应用模式
@@ -112,7 +114,7 @@ pub fn app_mode_get() -> AppMode {
 /// ### 必选参数
 /// * `mode` - 应用模式
 pub fn app_mode_set(mode: AppMode) -> Result<(), String> {
-  Mode::set_mode(mode).log_command(module_path!(), "[app_mode_set] 保存应用模式失败")
+  Mode::set_mode(mode).log_command("app_mode_set", "保存应用模式失败")
 }
 
 #[cfg(test)]

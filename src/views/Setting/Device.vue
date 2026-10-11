@@ -73,11 +73,8 @@ onMounted(async () => {
 
     <div class="space-y-3">
       <div class="relative text-sm" v-on-click-outside="() => (deviceVisible = false)">
-        <div
-          class="flex cursor-pointer items-center whitespace-nowrap font-bold"
-          @click="deviceVisible = !deviceVisible"
-        >
-          <div>{{ deviceSelection?.label || '默认设备 ' }}</div>
+        <div class="flex cursor-pointer items-center gap-1" @click="deviceVisible = !deviceVisible">
+          <div class="whitespace-nowrap font-bold">{{ deviceSelection?.label || '默认设备 ' }}</div>
           <SvgIcon
             class="transition-transform"
             :class="deviceVisible ? 'rotate-180' : ''"
