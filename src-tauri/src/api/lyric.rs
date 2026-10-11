@@ -7,7 +7,7 @@ use crate::{
     config::{Config, StaticModeConfig},
     request::Request,
   },
-  music::lyric::{decode_lyric, Lyric, LyricFormat},
+  music::lyric::{decode_lyric, LyricFormat},
 };
 
 use crate::utils::logger::LogErrExt;
@@ -74,11 +74,13 @@ pub async fn api_lyric_get(
   fmt: Option<LyricFormat>,
   decode: Option<bool>,
   client: Option<&str>,
-) -> Result<Lyric, String> {
+) -> Result<String, String> {
+  let fmt = fmt.unwrap_or(LyricFormat::Krc);
+
   let params = json!({
     "id": id,
     "accesskey": accesskey,
-    "fmt": fmt.unwrap_or(LyricFormat::Krc),
+    "fmt": fmt,
     "client":  client.unwrap_or("android"),
     "ver": "1",
     "charset": "utf8",
@@ -98,18 +100,10 @@ pub async fn api_lyric_get(
     return Err("无法获取歌词".to_string());
   }
 
-  // 接口返回的歌词内容的格式
-  let resp_fmt = if resp.contenttype == 0 { LyricFormat::Krc } else { LyricFormat::Lrc };
-
-  // 解码歌词
   let decoded_content = match decode.unwrap_or(true) {
-    true => decode_lyric(&resp.content, &resp_fmt).log_command("api_lyric_get", "解码失败")?,
-    false => String::new(),
+    true => decode_lyric(&resp.content, &fmt).log_command("api_lyric_get", "解码失败")?,
+    false => resp.content,
   };
 
-  Ok(Lyric {
-    id: resp.id,
-    fmt: resp_fmt,
-    content: decoded_content,
-  })
+  Ok(decoded_content)
 }

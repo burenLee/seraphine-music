@@ -30,7 +30,7 @@ describe('初始默认值', () => {
     expect(store.pageVisible).toBe(false);
     expect(store.pageMode).toBe(LyricPageMode.Cover);
     expect(store.isLoading).toBe(false);
-    expect(store.lyric).toBeUndefined();
+    expect(store.lyric).toStrictEqual({ id: '', fmt: LyricFormat.Krc, lines: [] });
     expect(store.fontFamily).toBe('system-ui');
     expect(store.fontSize).toBe(LyricFontSize.Default);
     expect(store.textColor).toBe(LyricBaseColor.Blue);
@@ -76,7 +76,7 @@ describe('外观设置', () => {
     store.setTextColor(LyricBaseColor.Red);
     store.setTextAlign(LyricTextAlign.Center);
     store.setTransMode(LyricTransMode.Trans);
-    store.setMatchedLyric(1, { id: 'l1', fmt: LyricFormat.Krc });
+    store.setMatchedLyric(1, 'l1', LyricFormat.Krc);
 
     expect(store.textColor).toBe(LyricBaseColor.Red);
     expect(store.textAlign).toBe(LyricTextAlign.Center);
@@ -86,12 +86,12 @@ describe('外观设置', () => {
 });
 
 describe('setOffsetMap 歌词偏移', () => {
-  it('无当前歌词时不生效', () => {
+  it('默认歌词(id为空)时仍会写入 offsetMap', () => {
     const store = useLyricStore();
 
-    store.setOffsetMap('add');
+    store.setOffsetMap('restart');
 
-    expect(store.offsetMap).toStrictEqual({});
+    expect(store.offsetMap).toStrictEqual({ '': LyricOffset.Default });
   });
 
   it('按步进调整并重置', () => {
@@ -115,13 +115,9 @@ describe('load 歌词加载（核心路径）', () => {
   it('本地命中：按 matchedMap 调 music_lyric_get 并解析 KRC', async () => {
     const store = useLyricStore();
     const music = makePlayingMusic({ id: 7 });
-    store.setMatchedLyric(7, { id: 'krc-1', fmt: LyricFormat.Krc });
+    store.setMatchedLyric(7, 'krc-1', LyricFormat.Krc);
     mockInvoke({
-      music_lyric_get: {
-        id: 'krc-1',
-        fmt: LyricFormat.Krc,
-        content: '[0,1000]<0,500,0>Hello',
-      },
+      music_lyric_get: '[0,1000]<0,500,0>Hello',
     });
 
     await store.load(music);
@@ -138,10 +134,10 @@ describe('load 歌词加载（核心路径）', () => {
     const store = useLyricStore();
     const music = makePlayingMusic({ id: 8, hash: 'h8' });
     const normal = makeLyricCandidate({ id: 'c-normal', product_from: '其他' });
-    const official = makeLyricCandidate({ id: 'c-official', product_from: '官方推荐歌词' });
+    const official = makeLyricCandidate({ id: 'c-official', product_from: '官方推荐歌词', contenttype: 1 });
     mockInvoke({
       api_lyric_search: { status: 200, candidates: [normal, official] },
-      api_lyric_get: { id: 'c-official', fmt: LyricFormat.Lrc, content: '[00:01.00]first line' },
+      api_lyric_get: '[00:01.00]first line',
     });
 
     await store.load(music);
@@ -157,7 +153,7 @@ describe('load 歌词加载（核心路径）', () => {
     const music = makePlayingMusic({ id: 9 });
     const candidate = makeLyricCandidate({ id: 'c-direct', contenttype: 1 });
     mockInvoke({
-      music_lyric_get: { id: 'c-direct', fmt: LyricFormat.Lrc, content: '[00:01.00]line' },
+      music_lyric_get: '[00:01.00]line',
     });
 
     await store.load(music, candidate);
@@ -173,14 +169,14 @@ describe('load 歌词加载（核心路径）', () => {
 
     await store.load(makePlayingMusic({ id: 10 }));
 
-    expect(store.lyric).toBeUndefined();
+    expect(store.lyric).toStrictEqual({ id: '', fmt: LyricFormat.Krc, lines: [] });
     expect(store.matchedMap[10]).toBeUndefined();
   });
 
   it('后端异常时提示错误且不中断', async () => {
     const store = useLyricStore();
     const music = makePlayingMusic({ id: 11 });
-    store.setMatchedLyric(11, { id: 'k1', fmt: LyricFormat.Krc });
+    store.setMatchedLyric(11, 'k1', LyricFormat.Krc);
     mockInvoke({
       music_lyric_get: () => {
         throw new Error('io error');
@@ -192,7 +188,7 @@ describe('load 歌词加载（核心路径）', () => {
     await flushAsync();
 
     expect(notifyMock.error).toHaveBeenCalledWith('获取本地歌词失败');
-    expect(store.lyric).toBeUndefined();
+    expect(store.lyric).toStrictEqual({ id: '', fmt: LyricFormat.Krc, lines: [] });
     expect(store.isLoading).toBe(false);
   });
 });

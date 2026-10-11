@@ -23,8 +23,9 @@ const pageModeSelection = computed(
 );
 
 const pageModeSelect = (mode: LyricPageMode) => {
-  lyricStore.setPageMode(mode);
   pageVisible.value = false;
+
+  lyricStore.setPageMode(mode);
 };
 </script>
 

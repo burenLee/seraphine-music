@@ -6,16 +6,8 @@ use std::{fmt, fs, io::Read};
 
 use crate::{
   app::dir::Dir,
-  log_err,
   utils::{logger::LogErrExt, tools::gen_valid_path},
 };
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Lyric {
-  pub id: String,
-  pub fmt: LyricFormat,
-  pub content: String,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -37,50 +29,29 @@ impl fmt::Display for LyricFormat {
 /// ## 获取本地歌词
 ///
 /// ### 必选参数
-/// * `id` - 歌词id
-/// * `name` - 歌词名称
-/// * `fmt` - 歌词类型
-pub fn music_lyric_get(id: &str, name: &str, fmt: LyricFormat) -> Option<Lyric> {
-  let lyric_path = Dir::lyric().join(gen_valid_path(format!("{name} - {id}.{fmt}")));
+/// * `file_name` - 歌词文件全称(带后缀)
+pub fn music_lyric_get(file_name: &str) -> Option<String> {
+  let lyric_path = Dir::lyric().join(gen_valid_path(file_name));
 
   if !lyric_path.exists() {
     return None;
   }
 
-  let content = match fs::read_to_string(&lyric_path) {
-    Ok(txt) => txt,
-    Err(e) => {
-      log_err!("music_lyric_get", e);
-      return None;
-    }
-  };
-
-  Some(Lyric {
-    id: id.to_owned(),
-    fmt,
-    content,
-  })
+  fs::read_to_string(&lyric_path)
+    .log_err("music_lyric_get", "读取歌词文件失败")
+    .ok()
 }
 
 #[tauri::command]
 /// ## 保存歌词
 ///
 /// ### 必选参数
-/// * `id` - 歌词id
-/// * `name` - 歌词名称
-/// * `fmt` - 歌词类型
-/// * `conetnt` - 解码后的歌词内容
-pub fn music_lyric_save(
-  id: &str,
-  name: &str,
-  fmt: LyricFormat,
-  conetnt: &str,
-) -> Result<(), String> {
-  let lyric_path = Dir::lyric().join(gen_valid_path(format!("{name} - {id}.{fmt}")));
+/// * `file_name` - 歌词文件全称(带后缀)
+/// * `content` - 解码后的歌词内容
+pub fn music_lyric_save(file_name: &str, content: &str) -> Result<(), String> {
+  let lyric_path = Dir::lyric().join(gen_valid_path(file_name));
 
-  fs::write(lyric_path, conetnt).log_command("music_lyric_save", "无法保存歌词")?;
-
-  Ok(())
+  fs::write(lyric_path, content).log_command("music_lyric_save", "无法保存歌词")
 }
 
 /// ## 解码歌词内容
@@ -103,7 +74,7 @@ pub fn decode_lyric(content: &str, fmt: &LyricFormat) -> anyhow::Result<String> 
 ///
 /// ### 必选参数
 /// * `content` - krc 歌词内容
-pub fn decode_krc_lyric(content: &[u8]) -> anyhow::Result<String> {
+fn decode_krc_lyric(content: &[u8]) -> anyhow::Result<String> {
   if content.len() < 4 {
     return Err(anyhow!("数据长度不足"));
   }

@@ -11,7 +11,6 @@ import { invoke } from '@/utils/tools';
 
 import App from './App.vue';
 import vCopy from './directives/copy';
-import { setupErrorCapture } from './utils/logger.ts';
 
 // 由于tauri应用启动时在webview没有完成渲染前会出现白屏
 // 所以在此延迟打开窗口
@@ -28,7 +27,5 @@ const app = createApp(App)
   .use(createPinia().use(piniaPluginPersistedstate))
   .use(router)
   .directive('copy', vCopy);
-
-setupErrorCapture(app);
 
 app.mount('#app');

@@ -17,14 +17,17 @@ import { invoke } from '@/utils/tools';
 type MatchedMap = Record<ID, { id: string; fmt: LyricFormat }>;
 type OffsetMap = Record<ID, number>;
 
+const Default_Lyric: LyricInfo = { id: '', fmt: LyricFormat.Krc, lines: [] };
+
 /** 歌词配置 */
 export const useLyricStore = defineStore(
   'lyric',
   () => {
     const pageVisible = ref(false); // 歌词页可见性
     const pageMode = ref(LyricPageMode.Cover); // 歌词页背景模式
+
     const isLoading = ref(false);
-    const lyric = ref<LyricInfo>(); // 歌词属性
+    const lyric = ref<LyricInfo>(Default_Lyric); // 歌词属性
     const fontFamily = ref<FontValue>('system-ui'); // 歌词字体
     const fontSize = ref<number>(LyricFontSize.Default); // 歌词字体大小
     const textColor = ref<LyricBaseColor | string>(LyricBaseColor.Blue); // 歌词字体颜色
@@ -33,10 +36,18 @@ export const useLyricStore = defineStore(
     const matchedMap = ref<MatchedMap>({}); // 歌词匹配列表, 记录歌曲使用的歌词id
     const offsetMap = ref<OffsetMap>({}); // 歌词偏移量列表
 
-    const togglePageVisible = () => (pageVisible.value = !pageVisible.value);
-    const setPageMode = (newMode: LyricPageMode) => (pageMode.value = newMode);
-    const setLyric = (newLyric: LyricInfo | undefined) => (lyric.value = newLyric);
-    const setFontFamily = (newFontFamily: FontValue) => (fontFamily.value = newFontFamily);
+    const togglePageVisible = () => {
+      pageVisible.value = !pageVisible.value;
+    };
+    const setPageMode = (newMode: LyricPageMode) => {
+      pageMode.value = newMode;
+    };
+    const setLyric = (newLyricInfo: LyricInfo) => {
+      lyric.value = newLyricInfo;
+    };
+    const setFontFamily = (newFontFamily: FontValue) => {
+      fontFamily.value = newFontFamily;
+    };
     const setFontSize = (mode: 'add' | 'sub' | 'restart') => {
       switch (mode) {
         case 'add':
@@ -50,11 +61,17 @@ export const useLyricStore = defineStore(
           break;
       }
     };
-    const setTextColor = (newColor: LyricBaseColor | string) => (textColor.value = newColor);
-    const setTextAlign = (newTextAlign: LyricTextAlign) => (textAlign.value = newTextAlign);
-    const setTransMode = (newTransMode: LyricTransMode) => (transMode.value = newTransMode);
-    const setMatchedLyric = (musicId: ID, lyricInfo: { id: string; fmt: LyricFormat }) => {
-      matchedMap.value[musicId] = lyricInfo;
+    const setTextColor = (newColor: LyricBaseColor | string) => {
+      textColor.value = newColor;
+    };
+    const setTextAlign = (newTextAlign: LyricTextAlign) => {
+      textAlign.value = newTextAlign;
+    };
+    const setTransMode = (newTransMode: LyricTransMode) => {
+      transMode.value = newTransMode;
+    };
+    const setMatchedLyric = (musicId: ID, lyricId: string, lyricFmt: LyricFormat) => {
+      matchedMap.value[musicId] = { id: lyricId, fmt: lyricFmt };
     };
     const setOffsetMap = (mode: 'add' | 'sub' | 'restart') => {
       if (!lyric.value) return;
@@ -76,8 +93,6 @@ export const useLyricStore = defineStore(
     const load = async (music: PlayingMusicInfo, lyric?: ApiLyricCandidate) => {
       isLoading.value = true;
 
-      let lyricInfo: LyricInfo | undefined = undefined;
-
       const lyricGet = (await getLocalLyric(music, lyric)) || (await getOnlineLyric(music, lyric));
       if (lyricGet) {
         let lyricLines: LyricLine[] = [];
@@ -91,22 +106,10 @@ export const useLyricStore = defineStore(
             break;
         }
 
-        lyricInfo = { id: lyricGet.id, fmt: lyricGet.fmt, lines: lyricLines };
-      }
-
-      if (lyricInfo) {
-        setLyric(lyricInfo);
-        setMatchedLyric(music.id, { id: lyricInfo.id, fmt: lyricInfo.fmt });
-
-        // 保存到本地
-        invoke('music_lyric_save', {
-          id: lyricGet!.id,
-          name: getFullName(music),
-          fmt: lyricGet!.fmt,
-          conetnt: lyricGet!.content,
-        });
+        setLyric({ id: lyricGet.id, fmt: lyricGet.fmt, lines: lyricLines });
+        setMatchedLyric(music.id, lyricGet.id, lyricGet.fmt);
       } else {
-        setLyric(undefined);
+        setLyric(Default_Lyric);
       }
 
       isLoading.value = false;
@@ -114,20 +117,25 @@ export const useLyricStore = defineStore(
 
     /** 获取本地歌词 */
     const getLocalLyric = async (music: PlayingMusicInfo, lyric?: ApiLyricCandidate) => {
+      let id, fmt;
+
+      if (lyric) {
+        id = lyric.id;
+        fmt = lyric.contenttype === 0 ? LyricFormat.Krc : LyricFormat.Lrc;
+      } else {
+        const matchedLyric = matchedMap.value[music.id];
+        if (!matchedLyric) return;
+
+        id = matchedLyric.id;
+        fmt = matchedLyric.fmt;
+      }
+
       try {
-        let id = lyric?.id;
-        let fmt = lyric?.contenttype === 0 ? LyricFormat.Krc : LyricFormat.Lrc;
+        const content = await invoke('music_lyric_get', {
+          fileName: `${getFullName(music)} - ${id}.${fmt}`,
+        });
 
-        if (!lyric) {
-          const matchedLyric = matchedMap.value[music.id];
-          if (!matchedLyric) return;
-
-          id = matchedLyric.id;
-          fmt = matchedLyric.fmt;
-        }
-        if (!id) return;
-
-        return await invoke('music_lyric_get', { id, name: getFullName(music), fmt });
+        return { id, fmt, content };
       } catch {
         notify.error('获取本地歌词失败');
       }
@@ -148,7 +156,14 @@ export const useLyricStore = defineStore(
           lyric = candidates.find((item) => item.product_from === '官方推荐歌词') || candidates[0];
         }
 
-        return await invoke('api_lyric_get', { id: lyric.id, accesskey: lyric.accesskey });
+        const { id, accesskey, contenttype } = lyric;
+        const fmt = contenttype === 0 ? LyricFormat.Krc : LyricFormat.Lrc;
+        const content = await invoke('api_lyric_get', { id, accesskey, fmt });
+
+        // 保存到本地(静默失败)
+        invoke('music_lyric_save', { fileName: `${getFullName(music)} - ${id}.${fmt}`, content });
+
+        return { id, fmt, content };
       } catch {
         notify.error('获取在线歌词失败');
       }

@@ -32,8 +32,10 @@ pub fn run() {
       app::config::Config::init(app_handle);
       app::mode::Mode::init();
       app::dir::Dir::init();
+
       http::config::Config::init();
       http::cookie::Cookie::init();
+
       music::player::Player::init();
       music::media::Media::init();
 

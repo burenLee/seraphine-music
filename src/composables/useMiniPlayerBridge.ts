@@ -22,9 +22,7 @@ export function useMiniPlayerBridge() {
   const stopFns: (() => void)[] = [];
 
   // 当前歌词的偏移量
-  const lyricOffset = computed(() =>
-    lyricStore.lyric ? lyricStore.offsetMap[lyricStore.lyric.id] || 0 : 0,
-  );
+  const lyricOffset = computed(() => lyricStore.offsetMap[lyricStore.lyric.id] || 0);
 
   const syncAudio = async () => {
     const data: MiniPlayerAudio = {
@@ -47,9 +45,9 @@ export function useMiniPlayerBridge() {
   };
 
   const syncLyric = () => {
-    if (!lyricStore.lyric) return;
+    const { id, lines } = lyricStore.lyric;
+    if (!id) return;
 
-    const lines = lyricStore.lyric.lines;
     const pg = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION;
 
     let text = '';

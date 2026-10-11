@@ -11,7 +11,6 @@ static APP_DIR: OnceLock<AppDir> = OnceLock::new();
 
 struct AppDir {
   app_data: PathBuf,
-
   app_local_data: PathBuf,
   app_log: PathBuf,
 
@@ -29,12 +28,7 @@ impl Dir {
   pub fn init() {
     let path = Config::app().path();
 
-    let app_data_dir = path.app_data_dir().unwrap_or_else(|_| {
-      path
-        .app_local_data_dir()
-        .unwrap_or_else(|_| env::temp_dir())
-    });
-
+    let app_data_dir = path.app_data_dir().unwrap_or_else(|_| env::temp_dir());
     let app_local_data_dir = path
       .app_local_data_dir()
       .unwrap_or_else(|_| env::temp_dir());

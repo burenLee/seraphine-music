@@ -23,14 +23,6 @@ export default defineConfig({
         minify: {
           compress: { dropConsole: true },
         },
-        codeSplitting: {
-          minSize: 10 * 1024,
-          groups: [
-            { test: /node_modules\/vue/, name: 'vue' },
-            { test: /node_modules\/pinia/, name: 'pinia' },
-            { test: /node_modules\/@vueuse/, name: 'vueuse' },
-          ],
-        },
       },
     },
   },

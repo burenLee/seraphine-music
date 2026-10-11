@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "set-ver": "node scripts/sync-version.cjs",
     "tauri": "tauri",
+    "tauri:build": "node scripts/tauri-build.cjs",
     "test": "vitest run",
     "tsc-check": "vue-tsc --noEmit"
   },

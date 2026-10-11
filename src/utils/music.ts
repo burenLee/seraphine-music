@@ -16,7 +16,7 @@ export function getPic(url: string, size = PicSize.Sm) {
 /**
  * 获取音频标题
  * @param music 音频
- * @param mode 排列模式, "ta": `title - artist`, "at": `artist - title`
+ * @param mode 排列模式, `ta`: `title - artist`, `at`: `artist - title`
  */
 export function getFullName(music: PlayingMusicInfo | MusicInfo, mode: 'ta' | 'at' = 'ta') {
   return music.artist

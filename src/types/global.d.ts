@@ -310,8 +310,6 @@ declare global {
     app_dirs_all: {
       args: undefined;
       return: {
-        app_data: string;
-        app_local_data: string;
         app_log: string;
         audio: string;
         lyric: string;
@@ -393,11 +391,11 @@ declare global {
       return: undefined;
     };
     music_lyric_get: {
-      args: { id: string; name: string; fmt: LyricFormat };
-      return: ApiLyricGet;
+      args: { fileName: string };
+      return: string;
     };
     music_lyric_save: {
-      args: { id: string; name: string; fmt: LyricFormat; conetnt: string };
+      args: { fileName: string; content: string };
       return: undefined;
     };
     music_media_sync_metadata: {
@@ -436,7 +434,7 @@ declare global {
         decode?: boolean;
         client?: 'android';
       };
-      return: ApiLyricGet;
+      return: string;
     };
     api_music_everyday_recommend: {
       args: undefined;

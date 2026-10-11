@@ -28,9 +28,7 @@ const lyricPadding = ref(0); // 歌词容器内边距
 const isWheelling = ref(false); // 鼠标滚轮是否正在滚动
 
 // 当前歌词的偏移量
-const lyricOffset = computed(() =>
-  lyricStore.lyric ? lyricStore.offsetMap[lyricStore.lyric.id] || 0 : 0,
-);
+const lyricOffset = computed(() => lyricStore.offsetMap[lyricStore.lyric.id] || 0);
 const fontSize = computed(
   () => lyricStore.fontSize + (settingStore.isFullscreen || settingStore.isMaximized ? 4 : 0),
 );
@@ -46,14 +44,14 @@ const lineHeight = computed(() => {
 
 // 当前高亮歌词行索引
 const currentIndex = computed(() => {
-  if (!lyricStore.lyric) return -1;
+  if (!lyricStore.lyric.id) return -1;
 
-  const progress = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION;
+  const pg = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION;
   return lyricStore.lyric.lines.findIndex((line, index, list) => {
     const start = line.offset;
     const end = list[index + 1]?.offset || Infinity;
 
-    return progress >= start && progress < end;
+    return pg >= start && pg < end;
   });
 });
 
@@ -153,7 +151,7 @@ onUnmounted(clearWhellTimer);
     </template>
 
     <!-- 无歌词状态 -->
-    <template v-else-if="!lyricStore.lyric?.lines.length">
+    <template v-else-if="!lyricStore.lyric.lines.length">
       <div class="flex h-full items-center justify-center">
         <span class="text-xl font-bold text-minor">暂无歌词</span>
         <ActionButton

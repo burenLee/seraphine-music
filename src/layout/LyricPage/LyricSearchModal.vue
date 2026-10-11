@@ -48,7 +48,7 @@ const handleReset = (refresh = false) => {
 
   searchQuery.value = getFullName(musicStore.music, 'at');
   searchList.value.length = 0;
-  selectLyric.value = searchList.value.find((item) => item.id === lyricStore.lyric?.id);
+  selectLyric.value = searchList.value.find((item) => item.id === lyricStore.lyric.id);
 
   if (refresh) handleSearch();
 };
@@ -126,7 +126,7 @@ watch(visible, (visible) => visible && handleReset(true));
             </div>
             <div class="w-16 truncate pr-2 text-center">{{ lyric.score }} 分</div>
             <div class="w-8">
-              <SvgIcon v-if="lyricStore.lyric?.id === lyric.id" name="Unread" size="20" />
+              <SvgIcon v-if="lyricStore.lyric.id === lyric.id" name="Unread" size="20" />
             </div>
           </div>
         </template>

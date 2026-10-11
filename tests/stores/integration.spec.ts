@@ -4,7 +4,7 @@ import { useListStore } from '@/stores/list';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
 import { useUserStore } from '@/stores/user';
-import { ListType, LyricFormat, PlayingOrigin, YouthVip } from '@/utils/params';
+import { ListType, PlayingOrigin, YouthVip } from '@/utils/params';
 
 import {
   createTestPinia,
@@ -55,11 +55,11 @@ describe('N1 选歌↔歌词↔播放↔会员 联动', () => {
     });
     listStore.setList(ListType.Play, makeMusicList([song], { id: 'play' }));
 
-    const official = makeLyricCandidate({ id: 'c-n1', product_from: '官方推荐歌词' });
+    const official = makeLyricCandidate({ id: 'c-n1', product_from: '官方推荐歌词', contenttype: 1 });
     mockInvoke({
       api_song_url: { status: 1, backupUrl: ['https://cdn.example.com/n1.mp3'] },
       api_lyric_search: { status: 200, candidates: [official] },
-      api_lyric_get: { id: 'c-n1', fmt: LyricFormat.Lrc, content: '[00:01.00]N1 lyric line' },
+      api_lyric_get: '[00:01.00]N1 lyric line',
     });
 
     await musicStore.setMusic(song, { origin: PlayingOrigin.Online });
@@ -74,9 +74,9 @@ describe('N1 选歌↔歌词↔播放↔会员 联动', () => {
     // 歌词联动：music.load 的 finally 触发 lyricStore.load（搜索 + 获取 + 解析）
     expect(invokeMock).toHaveBeenCalledWith('api_lyric_search', expect.anything());
     expect(invokeMock).toHaveBeenCalledWith('api_lyric_get', expect.anything());
-    expect(lyricStore.lyric?.id).toBe('c-n1');
-    expect(lyricStore.lyric?.lines).toHaveLength(1);
-    expect(lyricStore.lyric?.lines[0].words[0].text).toBe('N1 lyric line');
+    expect(lyricStore.lyric.id).toBe('c-n1');
+    expect(lyricStore.lyric.lines).toHaveLength(1);
+    expect(lyricStore.lyric.lines[0].words[0].text).toBe('N1 lyric line');
   });
 
   it('切歌→歌词：切换歌曲后歌词随之重新加载', async () => {
@@ -97,22 +97,18 @@ describe('N1 选歌↔歌词↔播放↔会员 联动', () => {
       api_lyric_search: (args) => {
         const keyword = (args as { keyword: string }).keyword;
         const id = keyword.startsWith('A1') ? 'lyric-1' : 'lyric-2';
-        return { status: 200, candidates: [makeLyricCandidate({ id })] };
+        return { status: 200, candidates: [makeLyricCandidate({ id, contenttype: 1 })] };
       },
-      api_lyric_get: (args) => ({
-        id: (args as { id: string }).id,
-        fmt: LyricFormat.Lrc,
-        content: '[00:01.00]line',
-      }),
+      api_lyric_get: () => '[00:01.00]line',
     });
 
     await musicStore.setMusic(list[0], { origin: PlayingOrigin.Local });
     await flush();
-    expect(lyricStore.lyric?.id).toBe('lyric-1');
+    expect(lyricStore.lyric.id).toBe('lyric-1');
 
     await musicStore.setMusic(list[1], { origin: PlayingOrigin.Local });
     await flush();
-    expect(lyricStore.lyric?.id).toBe('lyric-2');
+    expect(lyricStore.lyric.id).toBe('lyric-2');
   });
 
   it('会员联动：KgLite 登录后获取概念版 VIP 等级', async () => {
