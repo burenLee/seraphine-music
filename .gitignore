@@ -30,3 +30,4 @@ src-tauri/Temp/
 .agents/
 .claude/
 .tauri/
+.env

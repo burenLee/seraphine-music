@@ -17,12 +17,20 @@ provide('listType', listType);
 const route = useRoute('TopPlaylistTable');
 const listStore = useListStore();
 
+// 竞态保护：请求序号与卸载标记，避免快速切换歌单时旧请求覆盖新数据
+let requestId = 0;
+let isUnmounted = false;
+
 const handleLoad = async (gid: string) => {
+  const id = ++requestId;
+
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
 
   try {
     const playlist_detail = await invoke('api_playlist_detail', { gids: [gid] });
+    if (isUnmounted || id !== requestId) return;
+
     if (playlist_detail.status !== ApiInvokeStatus.Success || !playlist_detail.data[0]) {
       notify.error('获取歌单信息失败');
     } else {
@@ -51,6 +59,8 @@ const handleLoad = async (gid: string) => {
           page: page++,
           pageSize: PageSize.Max,
         });
+        if (isUnmounted || id !== requestId) return;
+
         if (playlist_tracks_all.status !== ApiInvokeStatus.Success) break;
 
         total += playlist_tracks_all.data.count;
@@ -79,15 +89,19 @@ const handleLoad = async (gid: string) => {
       listStore.setListRaw(listType, list);
     }
   } catch {
+    if (isUnmounted || id !== requestId) return;
     notify.error('获取歌单歌曲失败');
   } finally {
-    listStore.isHeaderLoading = false;
-    listStore.isTableLoading = false;
+    if (!isUnmounted && id === requestId) {
+      listStore.isHeaderLoading = false;
+      listStore.isTableLoading = false;
+    }
   }
 };
 
 watch(() => route.params.gid, handleLoad, { immediate: true });
 onUnmounted(() => {
+  isUnmounted = true;
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
   listStore.resetList(listType);

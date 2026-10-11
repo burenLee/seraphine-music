@@ -17,16 +17,29 @@ provide('listType', listType);
 const route = useRoute('ArtistListTable');
 const listStore = useListStore();
 
+// 竞态保护：请求序号与卸载标记，避免快速切换歌手时旧请求覆盖新数据
+let requestId = 0;
+let isUnmounted = false;
+
 const isFinishing = ref(false);
 const isFinished = ref(false);
 const page = ref(1);
 
 const handleLoad = async (id: string) => {
+  const reqId = ++requestId;
+
+  // 切换歌手时重置分页状态
+  page.value = 1;
+  isFinished.value = false;
+  isFinishing.value = false;
+
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
 
   try {
     const artist_detail = await invoke('api_artist_detail', { id });
+    if (isUnmounted || reqId !== requestId) return;
+
     if (artist_detail.status !== ApiInvokeStatus.Success) {
       notify.error('获取歌手信息失败');
     } else {
@@ -42,6 +55,8 @@ const handleLoad = async (id: string) => {
 
       const list: MusicInfo[] = [];
       const artist_audios = await invoke('api_artist_audios', { id, pageSize: PageSize.More });
+      if (isUnmounted || reqId !== requestId) return;
+
       if (artist_audios.status !== ApiInvokeStatus.Success) {
         notify.error('获取歌手歌曲失败');
       } else {
@@ -66,16 +81,20 @@ const handleLoad = async (id: string) => {
       }
     }
   } catch {
+    if (isUnmounted || reqId !== requestId) return;
     notify.error('获取歌手歌曲失败');
   } finally {
-    listStore.isHeaderLoading = false;
-    listStore.isTableLoading = false;
+    if (!isUnmounted && reqId === requestId) {
+      listStore.isHeaderLoading = false;
+      listStore.isTableLoading = false;
+    }
   }
 };
 
 const handleInfinite = async () => {
   if (isFinishing.value || isFinished.value) return;
 
+  const reqId = requestId;
   isFinishing.value = true;
 
   try {
@@ -84,6 +103,8 @@ const handleInfinite = async () => {
       page: ++page.value,
       pageSize: PageSize.More,
     });
+    if (isUnmounted || reqId !== requestId) return;
+
     if (status !== ApiInvokeStatus.Success) {
       notify.error('获取歌手歌曲失败');
     } else {
@@ -111,14 +132,18 @@ const handleInfinite = async () => {
       if (data.length < PageSize.More) isFinished.value = true;
     }
   } catch {
+    if (isUnmounted || reqId !== requestId) return;
     notify.error('获取歌手歌曲失败');
   } finally {
-    isFinishing.value = false;
+    if (!isUnmounted && reqId === requestId) {
+      isFinishing.value = false;
+    }
   }
 };
 
 watch(() => route.params.id, handleLoad, { immediate: true });
 onUnmounted(() => {
+  isUnmounted = true;
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
   listStore.resetList(listType);
