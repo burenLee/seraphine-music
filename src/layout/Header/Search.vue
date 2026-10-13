@@ -121,15 +121,16 @@ watchThrottled(searchQuery, handleSearch, { throttle: Interval.Sec });
 </script>
 
 <template>
-  <div class="relative px-2" v-on-click-outside="() => (searchVisible = false)">
+  <div class="relative mx-2" v-on-click-outside="() => (searchVisible = false)">
     <div class="relative" :data-disabled="!userStore.userinfo">
       <SvgIcon
         class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2"
         :name="!isSearching ? 'Search' : 'Ring'"
+        size="14"
       />
       <input
         ref="searchInputRef"
-        class="card h-8 w-48 border border-border px-8"
+        class="card h-8 w-48 px-8"
         :placeholder="!userStore.userinfo ? '请登录' : '搜索'"
         v-model="searchQuery"
         @focusin="searchVisible = true"
@@ -137,7 +138,7 @@ watchThrottled(searchQuery, handleSearch, { throttle: Interval.Sec });
       />
       <SvgIcon
         v-if="searchQuery"
-        class="action-icon absolute right-1 top-1/2 size-6 -translate-y-1/2 cursor-pointer"
+        class="action-icon absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
         name="Close"
         @click="handleClear"
       />
@@ -146,7 +147,7 @@ watchThrottled(searchQuery, handleSearch, { throttle: Interval.Sec });
     <Transition name="zoom-top">
       <div
         v-if="searchVisible && searchResult"
-        class="card absolute left-1/2 top-full w-72 -translate-x-1/2 space-y-4 bg-background p-4 shadow-md shadow-shadow"
+        class="card absolute left-1/2 top-full z-10 w-72 -translate-x-1/2 space-y-3 bg-background p-3 shadow-lg shadow-shadow"
       >
         <div class="flex gap-3">
           <div class="w-9 leading-8 text-minor">单曲:</div>

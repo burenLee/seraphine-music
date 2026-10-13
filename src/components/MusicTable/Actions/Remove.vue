@@ -39,7 +39,7 @@ const handleConfirm = () => {
     @cancel="handleCancel"
     @confirm="handleConfirm"
   >
-    <div class="px-4 font-bold">确认删除选中歌曲?</div>
-    <div class="px-4 py-2">tips: 仅删除显示</div>
+    <div class="px-6 font-bold">确认删除选中歌曲?</div>
+    <div class="px-6 py-3">tips: 仅删除显示</div>
   </Modal>
 </template>

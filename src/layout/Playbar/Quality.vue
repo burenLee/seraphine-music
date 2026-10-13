@@ -40,9 +40,9 @@ const modeSelect = async (quality: PlayingQuality) => {
 </script>
 
 <template>
-  <div class="relative mx-2" v-on-click-outside="() => (qualityVisible = false)">
+  <div class="relative px-2" v-on-click-outside="() => (qualityVisible = false)">
     <div
-      class="action-icon w-full font-bold leading-8"
+      class="action-icon size-8 text-center font-bold leading-8"
       :data-disabled="musicStore.origin === PlayingOrigin.Local"
       @click="qualityVisible = !qualityVisible"
     >
@@ -50,7 +50,7 @@ const modeSelect = async (quality: PlayingQuality) => {
     </div>
 
     <SelectModal
-      class="absolute bottom-full left-1/2 mb-2 -translate-x-1/2"
+      class="absolute bottom-full left-1/2 -translate-x-1/2"
       transition="zoom-bottom"
       :visible="qualityVisible"
       :options="qualityOptions"

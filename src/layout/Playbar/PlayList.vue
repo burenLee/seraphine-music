@@ -167,12 +167,18 @@ const handleUnlike = async (music: MusicInfo) => {
 
 <template>
   <div id="Playlist" v-on-click-outside="() => (listVisible = false)">
-    <SvgIcon class="action-icon" name="Playlist" size="18" @click="listVisible = !listVisible" />
+    <ActionButton
+      class="size-8"
+      mode="text"
+      prefix-icon="Playlist"
+      icon-size="18"
+      @click="listVisible = !listVisible"
+    />
 
-    <Transition name="slide-page-left">
+    <Transition name="slide-left-page">
       <div
         v-if="listVisible"
-        class="card fixed bottom-[var(--playbar-height)] right-0 top-[var(--header-height)] z-40 my-4 flex w-80 flex-col bg-background shadow-md shadow-shadow"
+        class="fixed bottom-[var(--playbar-height)] right-0 top-[var(--header-height)] z-40 my-4 flex w-80 flex-col rounded-bl-lg rounded-tl-lg border border-r-0 border-border bg-background shadow-lg shadow-shadow"
       >
         <div class="mt-4 px-4">
           <span class="text-lg font-bold">播放队列</span>
@@ -211,7 +217,9 @@ const handleUnlike = async (music: MusicInfo) => {
           @lineDblClick="handlePlay"
         >
           <template #index="row">
-            <SvgIcon v-if="isPlaying(row.id)" class="text-info" name="Music" />
+            <div v-if="isPlaying(row.id)" class="flex items-center justify-center text-info">
+              <SvgIcon name="Bars" />
+            </div>
             <div v-else class="truncate text-center text-minor">{{ row.index + 1 }}</div>
           </template>
 
@@ -230,19 +238,31 @@ const handleUnlike = async (music: MusicInfo) => {
                 @dblclick.stop
                 @contextmenu.stop
               >
-                <SvgIcon class="action-icon" name="Play" @click="handlePlay(row)" />
+                <ActionButton class="p-2" mode="text" prefixIcon="Play" @click="handlePlay(row)" />
 
-                <template v-if="userStore.userinfo && row.hash">
-                  <SvgIcon
-                    v-if="isLike(row.id)"
-                    class="action-icon text-error"
-                    name="HeartBold"
-                    @click="handleUnlike(row)"
-                  />
-                  <SvgIcon v-else class="action-icon" name="Heart" @click="handleLike(row)" />
-                </template>
+                <ActionButton
+                  v-if="!isLike(row.id)"
+                  class="p-2"
+                  mode="text"
+                  prefixIcon="Heart"
+                  :disabled="!userStore.userinfo || !row.hash"
+                  @click="handleLike(row)"
+                />
+                <ActionButton
+                  v-else
+                  mode="text"
+                  class="p-2 text-error"
+                  prefixIcon="HeartBold"
+                  :disabled="!userStore.userinfo"
+                  @click="handleUnlike(row)"
+                />
 
-                <SvgIcon class="action-icon" name="More" @click="handleContextMenu($event, row)" />
+                <ActionButton
+                  class="p-2"
+                  mode="text"
+                  prefixIcon="More"
+                  @click="handleContextMenu($event, row)"
+                />
               </div>
             </div>
           </template>

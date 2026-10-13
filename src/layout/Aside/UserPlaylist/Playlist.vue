@@ -6,17 +6,17 @@ import { useRoute, useRouter } from 'vue-router';
 import Image from '@/components/Image.vue';
 import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
-import SelectModal from '@/components/SelectModal.vue';
 import SlideBar from '@/components/SlideBar.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useContextMenuStore } from '@/stores/context-menu';
 import { defaultInfo, useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
 import { useRefreshStore } from '@/stores/refresh';
 import { useUserStore } from '@/stores/user';
 import { getOrigin, getPic, getPrivilegeTags } from '@/utils/music';
-import { AddPlaylistType, ApiInvokeStatus, ListType, PageSize, PlaylistType } from '@/utils/params';
+import { ApiInvokeStatus, ListType, PageSize, PlaylistType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
+
+import Add from './Add.vue';
 
 const route = useRoute('UserPlaylistTable');
 const router = useRouter();
@@ -31,22 +31,10 @@ const slideOptions: Array<SelectOption<PlaylistType>> = [
   { label: '自建歌单', value: PlaylistType.User },
   { label: '收藏歌单', value: PlaylistType.Collection },
 ];
-const addOptions = computed<Array<SelectOption<AddPlaylistType>>>(() => [
-  {
-    label: '新建歌单',
-    value: AddPlaylistType.Add,
-    prefixIcon: 'Add',
-    disabled: !userStore.userinfo,
-  },
-  { label: '导入歌单', value: AddPlaylistType.Import, prefixIcon: 'Link', disabled: true },
-]);
 
 const slideSelection = ref(slideOptions[0]);
 const userPlaylist = ref<ApiPlaylist[]>([]);
-const addSelectVisible = ref(false);
 const contextMenuPlaylist = ref<ApiPlaylist>();
-const addModalVisible = ref(false);
-const addForm = ref({ name: '', isPri: 0 });
 const delModalVisible = ref(false);
 
 // 歌单切换效果
@@ -143,18 +131,6 @@ const getLikePlaylist = async () => {
 
 const clearLikePlaylist = () => {
   listStore.clearLikeList();
-};
-
-const handleAddSelect = (type: AddPlaylistType) => {
-  switch (type) {
-    case AddPlaylistType.Add:
-      addModalVisible.value = true;
-      break;
-    case AddPlaylistType.Import:
-      break;
-  }
-
-  addSelectVisible.value = false;
 };
 
 const handlePlay = async (playlist: ApiPlaylist) => {
@@ -270,42 +246,6 @@ const handlePlaylistClick = async ({ list_create_gid }: ApiPlaylist) => {
   }
 };
 
-const handleAddConfirm = async () => {
-  if (!userStore.userinfo) {
-    notify.error('请先登录');
-    return;
-  }
-  if (!addForm.value.name) {
-    notify.error('请填写歌单名称');
-    return;
-  }
-
-  try {
-    const { status } = await invoke('api_playlist_add', {
-      name: addForm.value.name,
-      isPri: addForm.value.isPri,
-      userid: userStore.userinfo.userid,
-    });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('创建歌单失败');
-      return;
-    }
-
-    notify.success('创建歌单成功');
-    handleAddCancel();
-    getUserPlaylist();
-  } catch {
-    notify.error('创建歌单失败');
-  }
-};
-
-const handleAddCancel = () => {
-  addModalVisible.value = false;
-
-  addForm.value.name = '';
-  addForm.value.isPri = 0;
-};
-
 const handleDelConfirm = async () => {
   if (!contextMenuPlaylist.value) {
     notify.error('请选择要删除的歌单');
@@ -354,7 +294,7 @@ watch(
 
 <template>
   <div class="flex flex-col pt-8">
-    <div class="card mx-4 flex items-center justify-between pr-1">
+    <div class="card mx-4 flex items-center justify-between">
       <SlideBar
         class="border-0 bg-transparent"
         :options="slideOptions"
@@ -362,22 +302,7 @@ watch(
         @change="slideSelection = $event"
       />
 
-      <div class="relative" v-on-click-outside="() => (addSelectVisible = false)">
-        <SvgIcon
-          class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
-          name="Add"
-          size="20"
-          @click="addSelectVisible = !addSelectVisible"
-        />
-
-        <SelectModal
-          class="absolute -right-1 top-full"
-          transition="zoom-top-right"
-          :visible="addSelectVisible"
-          :options="addOptions"
-          @select="handleAddSelect"
-        />
-      </div>
+      <Add @refresh="getUserPlaylist" />
     </div>
 
     <!-- 歌单列表 -->
@@ -389,13 +314,12 @@ watch(
         <div
           v-for="playlist in userPlaylist.filter((list) => list.type === PlaylistType.User)"
           :key="playlist.list_create_gid"
-          class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors"
+          class="flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2"
           :class="route.params.gid === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
           @click="handlePlaylistClick(playlist)"
           @contextmenu.prevent="handleContextMenu($event, playlist)"
         >
-          <Image class="size-8" :src="getPic(playlist.pic)" />
-
+          <Image class="size-7" :src="getPic(playlist.pic)" />
           <div class="w-0 flex-1 truncate font-bold">{{ playlist.name }}</div>
         </div>
       </div>
@@ -407,41 +331,17 @@ watch(
         <div
           v-for="playlist in userPlaylist.filter((list) => list.type === PlaylistType.Collection)"
           :key="playlist.list_create_gid"
-          class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors"
+          class="flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2"
           :class="route.params.gid === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
           @click="handlePlaylistClick(playlist)"
           @contextmenu.prevent="handleContextMenu($event, playlist)"
         >
-          <Image class="size-8" :src="getPic(playlist.pic)" />
+          <Image class="size-7" :src="getPic(playlist.pic)" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ playlist.name }}</div>
         </div>
       </div>
     </Transition>
-
-    <!-- 新增歌单弹窗 -->
-    <Modal
-      class="w-80"
-      v-model="addModalVisible"
-      title="新建歌单"
-      confirmLabel="新建"
-      @cancel="handleAddCancel"
-      @confirm="handleAddConfirm"
-    >
-      <form class="px-6" @submit.prevent="handleAddConfirm">
-        <input
-          class="h-8 w-full rounded-md border border-minor bg-background px-2 leading-8"
-          v-model="addForm.name"
-          placeholder="请输入歌单名称"
-        />
-
-        <label class="flex cursor-pointer items-center gap-1 pt-2">
-          <input type="checkbox" v-model="addForm.isPri" :true-value="1" :false-value="0" />
-          <span class="text-sm">设为隐私歌单</span>
-          <SvgIcon name="Info" title="仅自己可见, 且无法分享" />
-        </label>
-      </form>
-    </Modal>
 
     <!-- 确认删除弹窗 -->
     <Modal
@@ -452,7 +352,9 @@ watch(
       @confirm="handleDelConfirm"
     >
       <div class="px-6">
-        确认删除歌单 <span class="font-bold">{{ contextMenuPlaylist?.name }}</span> ?
+        确认删除歌单
+        <span class="font-bold">{{ contextMenuPlaylist?.name }}</span>
+        ?
       </div>
     </Modal>
   </div>

@@ -2,7 +2,6 @@
 import { watch } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useSettingStore } from '@/stores/setting';
 import { cn } from '@/utils/tools';
 
@@ -67,22 +66,23 @@ watch(visible, (visible) => {
     <Transition name="modal">
       <div
         v-if="visible"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-shadow backdrop-blur-sm"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-shadow backdrop-blur"
         :style="{ fontFamily: settingStore.fontFamily }"
         @click="maskClosed && emits('cancel')"
       >
         <div
-          class="modal-container overflow-hidden transition-transform duration-300"
-          :class="cn('z-40 rounded-lg bg-background shadow-md shadow-shadow', $attrs.class)"
+          class="modal-container overflow-hidden"
+          :class="cn('card bg-background shadow-lg shadow-shadow', $attrs.class)"
           @click.stop
         >
           <slot name="header">
-            <div v-if="!hideHeader" class="flex items-center justify-between py-4 pl-6 pr-4">
+            <div v-if="!hideHeader" class="flex items-center justify-between px-6 py-4">
               <div class="text-base font-bold">{{ title }}</div>
-              <SvgIcon
-                class="action-icon hover:text-error"
-                name="Close"
-                size="20"
+              <ActionButton
+                class="hover:text-error"
+                mode="text"
+                prefix-icon="Close"
+                icon-size="24"
                 @click="emits('cancel')"
               />
             </div>

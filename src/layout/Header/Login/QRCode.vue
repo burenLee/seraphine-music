@@ -5,7 +5,7 @@ import { onUnmounted, ref, watch } from 'vue';
 import ActionButton from '@/components/ActionButton.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import { useUserStore } from '@/stores/user';
-import { ApiInvokeStatus, QrcodeStatus, QrcodeType } from '@/utils/params';
+import { ApiInvokeStatus, Interval, QrcodeStatus, QrcodeType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 interface Emits {
@@ -21,9 +21,6 @@ const qrcodeOptions: Array<SlideOption<QrcodeType>> = [
   { label: 'QQ', value: QrcodeType.QQ, disabled: true },
   { label: '微信', value: QrcodeType.WX },
 ];
-
-const POLL_INTERVAL = 1 * 1000; // 轮询间隔时间 1s
-const POLL_TIMEOUT = 60 * 1000; // 轮询超时时间 60s
 
 let qrcodeKey = ''; // 二维码 key
 let pollInterval: ReturnType<typeof setTimeout> | null = null; // 轮询定时器
@@ -135,13 +132,13 @@ const checkKgStatus = async () => {
       qrcodeStatus.value = QrcodeStatus.Fail;
       cleatTimer();
     }
-  }, POLL_INTERVAL);
+  }, Interval.Sec);
 
   if (pollTimeout !== null) clearTimeout(pollTimeout);
   pollTimeout = setTimeout(() => {
     qrcodeStatus.value = QrcodeStatus.Timeout;
     cleatTimer();
-  }, POLL_TIMEOUT);
+  }, Interval.Sec * 60);
 };
 
 // 获取 wx 二维码
@@ -218,13 +215,13 @@ const checkWxStatus = async () => {
       qrcodeStatus.value = QrcodeStatus.Fail;
       cleatTimer();
     }
-  }, POLL_INTERVAL);
+  }, Interval.Sec);
 
   if (pollTimeout !== null) clearTimeout(pollTimeout);
   pollTimeout = setTimeout(() => {
     qrcodeStatus.value = QrcodeStatus.Timeout;
     cleatTimer();
-  }, POLL_TIMEOUT);
+  }, Interval.Sec * 60);
 };
 
 // 清理定时器
@@ -310,6 +307,6 @@ onUnmounted(cleatTimer);
       </div>
     </div>
 
-    <div class="mt-8 font-bold">请使用 {{ qrcodeSelection.label }} 扫码登录</div>
+    <div class="mt-8 font-bold">请使用 {{ qrcodeSelection.label }} APP 扫码登录</div>
   </div>
 </template>

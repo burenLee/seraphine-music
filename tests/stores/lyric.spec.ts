@@ -134,7 +134,11 @@ describe('load 歌词加载（核心路径）', () => {
     const store = useLyricStore();
     const music = makePlayingMusic({ id: 8, hash: 'h8' });
     const normal = makeLyricCandidate({ id: 'c-normal', product_from: '其他' });
-    const official = makeLyricCandidate({ id: 'c-official', product_from: '官方推荐歌词', contenttype: 1 });
+    const official = makeLyricCandidate({
+      id: 'c-official',
+      product_from: '官方推荐歌词',
+      contenttype: 1,
+    });
     mockInvoke({
       api_lyric_search: { status: 200, candidates: [normal, official] },
       api_lyric_get: '[00:01.00]first line',

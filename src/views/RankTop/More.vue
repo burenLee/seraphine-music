@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { onMounted, onUnmounted, provide, ref, useTemplateRef } from 'vue';
 
-import MusicActions from '@/components/MusicTable/MusicActions.vue';
-import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import MusicActions from '@/components/MusicTable/Actions.vue';
+import MusicTable from '@/components/MusicTable/Table.vue';
 import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import { defaultInfo, useListStore } from '@/stores/list';

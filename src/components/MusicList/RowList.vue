@@ -3,7 +3,6 @@ import { useThrottleFn, useWindowSize } from '@vueuse/core';
 import { computed, ref, useTemplateRef } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useObserver } from '@/utils/hooks';
 import { BreakPoint, ColCount, Interval } from '@/utils/params';
 
@@ -77,7 +76,7 @@ const { unobserve } = useObserver(listRef, (entry) => {
         <div class="h-full w-24 rounded bg-card"></div>
       </div>
 
-      <SvgIcon class="action-icon size-6" name="Refresh" @click="handleRefresh" />
+      <ActionButton mode="text" size="small" prefix-icon="Refresh" @click="handleRefresh" />
     </div>
 
     <div class="mt-3 grid gap-3" :style="{ gridTemplateColumns: `repeat(${cols}, 1fr)` }">
@@ -94,11 +93,11 @@ const { unobserve } = useObserver(listRef, (entry) => {
     <div class="text-xl font-bold">无数据或请求失败</div>
 
     <ActionButton
-      class="px-1 text-xl hover:text-info"
+      class="text-xl"
       mode="text"
       theme="info"
-      suffix-icon="Refresh"
-      iconSize="20"
+      prefix-icon="Refresh"
+      icon-size="20"
       @click="handleRefresh"
     >
       重试
@@ -121,13 +120,13 @@ const { unobserve } = useObserver(listRef, (entry) => {
         </div>
       </div>
 
-      <div class="flex h-6 items-center gap-2">
-        <SvgIcon class="action-icon size-6" name="Refresh" @click="handleRefresh" />
+      <div class="flex h-6 items-center gap-3">
+        <ActionButton mode="text" size="small" prefix-icon="Refresh" @click="handleRefresh" />
 
         <ActionButton
           v-if="!notMore"
-          class="h-6 px-1 text-sm hover:text-minor"
           mode="text"
+          size="small"
           suffix-icon="Right"
           @click="handleMore"
         >

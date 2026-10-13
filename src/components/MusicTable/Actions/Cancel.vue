@@ -6,5 +6,5 @@ const { toggleChecked } = useListStore();
 </script>
 
 <template>
-  <ActionButton prefix-icon="Close" iconSize="10" @click="toggleChecked">取消</ActionButton>
+  <ActionButton prefix-icon="Close" @click="toggleChecked">取消</ActionButton>
 </template>

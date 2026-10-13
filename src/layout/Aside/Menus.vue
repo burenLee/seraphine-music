@@ -24,12 +24,12 @@ const menus: Menu[] = [
     <li
       v-for="(menu, index) in menus"
       :key="index"
-      class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-base transition-colors"
+      class="flex h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-base"
       :class="route.path === menu.path ? 'card-actived' : 'card-hover'"
       @click="router.push(menu.path)"
     >
       <SvgIcon :name="menu.icon" />
-      <div>{{ menu.title }}</div>
+      {{ menu.title }}
     </li>
   </ul>
 </template>

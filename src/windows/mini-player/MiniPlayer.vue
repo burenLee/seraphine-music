@@ -6,6 +6,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useColorMode, useThrottleFn } from '@vueuse/core';
 import { computed, ref } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import VirtualList from '@/components/VirtualList.vue';
@@ -13,6 +14,7 @@ import { getFullName, getPic } from '@/utils/music';
 import {
   Interval,
   MiniPlayerEmit,
+  PicSize,
   PlayingOrigin,
   WindowEvent,
   WindowTarget,
@@ -35,18 +37,19 @@ const audio = ref<MiniPlayerAudio>({
   music: undefined,
   origin: PlayingOrigin.Local,
 });
+
 const lyric = ref('');
 const playlist = ref<MusicInfo[]>([]);
 const playlistVisible = ref(false);
 
+// 封面基于主窗口同步过来的 audio 状态计算，避免在迷你播放器中实例化主窗口 store
 const cover = computed(() => {
   if (!audio.value.music?.cover) return '';
 
   return audio.value.origin === PlayingOrigin.Local
     ? convertFileSrc(audio.value.music.cover)
-    : getPic(audio.value.music.cover);
+    : getPic(audio.value.music.cover, PicSize.Md);
 });
-
 const showContent = computed(
   () => lyric.value || (audio.value.music ? getFullName(audio.value.music) : 'Seraphine'),
 );
@@ -60,16 +63,18 @@ const handleSend = (type: MiniPlayerEmit, data?: any) => {
 const showPlaylist = () => {
   playlistVisible.value = !playlistVisible.value;
 
-  const height = playlistVisible.value ? miniPlayerSize.width : miniPlayerSize.height;
-  miniWindow.setSize(new LogicalSize(miniPlayerSize.width, height));
+  miniWindow.setSize(
+    new LogicalSize(
+      miniPlayerSize.width,
+      playlistVisible.value ? miniPlayerSize.width : miniPlayerSize.height,
+    ),
+  );
 };
 
 // 向主窗口发送位置信息并缓存
 miniWindow.onMoved(useThrottleFn((e) => handleSend(MiniPlayerEmit.Pos, e.payload), Interval.Long));
 // 向主窗口发送初始化请求
-emitTo(WindowTarget.Main, WindowEvent.MiniPlayer, {
-  type: MiniPlayerEmit.Init,
-});
+emitTo(WindowTarget.Main, WindowEvent.MiniPlayer, { type: MiniPlayerEmit.Init });
 listen<{ type: MiniPlayerEmit; data: unknown }>(WindowEvent.MiniPlayer, (e) => {
   switch (e.payload.type) {
     case MiniPlayerEmit.Audio:
@@ -92,7 +97,7 @@ listen<{ type: MiniPlayerEmit; data: unknown }>(WindowEvent.MiniPlayer, (e) => {
     <!-- 主体内容 -->
     <div class="flex items-center">
       <!-- 专辑封面 -->
-      <Image data-tauri-drag-region class="size-16 cursor-move" :src="cover" />
+      <Image data-tauri-drag-region class="size-16 cursor-move" :src="cover" icon-size="32" />
 
       <!-- 歌名/歌词区域 -->
       <div class="group relative w-0 flex-1 px-3">
@@ -101,41 +106,52 @@ listen<{ type: MiniPlayerEmit; data: unknown }>(WindowEvent.MiniPlayer, (e) => {
         <div
           class="absolute inset-0 flex justify-between bg-background pl-6 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
         >
-          <div class="flex items-center gap-2">
-            <SvgIcon
-              class="action-icon"
-              name="PreviousBold"
-              size="20"
+          <div class="flex items-center gap-3">
+            <ActionButton
+              class="size-8"
+              mode="text"
+              prefix-icon="PreviousBold"
+              icon-size="20"
               @click="handleSend(MiniPlayerEmit.Prev)"
             />
-            <SvgIcon
+            <ActionButton
               v-if="!audio.isLoading"
-              class="action-icon"
-              :name="audio.isPlaying ? 'PauseBold' : 'PlayBold'"
-              size="24"
+              class="size-8"
+              mode="text"
+              :prefix-icon="audio.isPlaying ? 'PauseBold' : 'PlayBold'"
+              icon-size="24"
               @click="handleSend(audio.isPlaying ? MiniPlayerEmit.Pause : MiniPlayerEmit.Play)"
             />
-            <SvgIcon v-else class="action-icon pointer-events-none" name="Ring" size="24" />
-            <SvgIcon
-              class="action-icon"
-              name="NextBold"
-              size="20"
+            <ActionButton
+              v-else
+              class="pointer-events-none size-8"
+              mode="text"
+              prefix-icon="Ring"
+              icon-size="24"
+            />
+            <ActionButton
+              class="size-8"
+              mode="text"
+              prefix-icon="NextBold"
+              icon-size="20"
               @click="handleSend(MiniPlayerEmit.Next)"
             />
           </div>
 
           <div class="flex items-center">
-            <SvgIcon
-              class="action-icon"
-              name="Playlist"
+            <ActionButton
+              class="size-8"
+              mode="text"
+              prefix-icon="Playlist"
               title="播放列表"
-              size="20"
+              icon-size="20"
               @click="showPlaylist"
             />
-            <SvgIcon
-              class="action-icon shrink-0 hover:text-error"
-              name="Close"
-              size="20"
+            <ActionButton
+              class="size-8 hover:text-error"
+              mode="text"
+              prefix-icon="Close"
+              icon-size="20"
               @click="handleSend(MiniPlayerEmit.Close)"
             />
           </div>
@@ -152,7 +168,9 @@ listen<{ type: MiniPlayerEmit; data: unknown }>(WindowEvent.MiniPlayer, (e) => {
       @lineDblClick="handleSend(MiniPlayerEmit.Set, $event)"
     >
       <template #index="row">
-        <SvgIcon v-if="isPlaying(row.id)" class="text-info" name="Music" />
+        <div v-if="isPlaying(row.id)" class="flex items-center justify-center text-info">
+          <SvgIcon name="Bars" />
+        </div>
         <div v-else class="truncate text-center text-minor">
           {{ row.index + 1 }}
         </div>
@@ -172,7 +190,12 @@ listen<{ type: MiniPlayerEmit; data: unknown }>(WindowEvent.MiniPlayer, (e) => {
             @dblclick.stop
             @contextmenu.stop
           >
-            <SvgIcon class="action-icon" name="Play" @click="handleSend(MiniPlayerEmit.Set, row)" />
+            <ActionButton
+              class="size-8"
+              mode="text"
+              prefix-icon="Play"
+              @click="handleSend(MiniPlayerEmit.Set, row)"
+            />
           </div>
         </div>
       </template>

@@ -7,11 +7,14 @@ interface Props {
   disabled?: boolean;
 }
 
-const { name, size = 16, disabled } = defineProps<Props>();
+const { name, size = 18, disabled } = defineProps<Props>();
 </script>
 
 <template>
-  <div class="flex items-center justify-center" :data-disabled="disabled">
-    <component :is="IconMap[name]" :height="size" :width="size" />
-  </div>
+  <component
+    :is="IconMap[name]"
+    :height="size"
+    :width="size"
+    :data-disabled="disabled || undefined"
+  />
 </template>

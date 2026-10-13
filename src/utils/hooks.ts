@@ -1,4 +1,9 @@
-import { type ShallowRef, onUnmounted, watchEffect } from 'vue';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { ShallowRef, computed, onUnmounted, watchEffect } from 'vue';
+
+import { useMusicStore } from '@/stores/music';
+import { getPic } from '@/utils/music';
+import { PicSize, PlayingOrigin } from '@/utils/params';
 
 interface IntersectionObserverCallback {
   (entry: IntersectionObserverEntry, observer: IntersectionObserver): void;
@@ -78,4 +83,16 @@ export const useObserver = (
   onUnmounted(unobserve);
 
   return { unobserve };
+};
+
+export const useCover = (size: PicSize = PicSize.Sm) => {
+  const musicStore = useMusicStore();
+
+  return computed(() => {
+    if (!musicStore.music?.cover) return;
+
+    return musicStore.origin === PlayingOrigin.Local
+      ? convertFileSrc(musicStore.music.cover)
+      : getPic(musicStore.music.cover, size);
+  });
 };

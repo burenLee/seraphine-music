@@ -27,18 +27,22 @@ watchThrottled(
 
 <template>
   <div class="relative" v-on-click-outside="() => (pickerVisible = false)">
-    <div class="action-icon card p-1" title="歌词颜色" @click="pickerVisible = !pickerVisible">
-      <div class="size-full rounded-md" :style="{ background: lyricStore.textColor }"></div>
+    <div
+      class="action-icon card h-6 w-6 p-1"
+      title="歌词颜色"
+      @click="pickerVisible = !pickerVisible"
+    >
+      <div class="size-6 rounded-md" :style="{ background: lyricStore.textColor }"></div>
     </div>
 
     <Transition name="zoom-fade">
       <div
         v-if="pickerVisible"
-        class="absolute right-full top-0 mr-2 rounded-lg border border-border bg-background p-4 shadow-md"
+        class="absolute right-full top-0 mr-2 rounded-lg border border-border bg-background p-4 shadow"
       >
         <div class="font-bold">歌词颜色</div>
 
-        <div class="flex items-center gap-2 pt-3">
+        <div class="flex items-center gap-3 pt-3">
           <div
             v-for="(color, index) in PresetsColors"
             class="size-4 cursor-pointer rounded-full transition-transform hover:scale-110"
@@ -48,7 +52,7 @@ watchThrottled(
           ></div>
         </div>
 
-        <div class="flex items-center gap-2 pt-3">
+        <div class="flex items-center gap-3 pt-3">
           <input class="size-6 cursor-pointer rounded-md" type="color" v-model="usedColor" />
           <input
             class="rounded-md border border-border bg-card px-2 leading-6"

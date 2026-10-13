@@ -3,7 +3,7 @@ import { vOnClickOutside } from '@vueuse/components';
 import { watchThrottled } from '@vueuse/core';
 import { inject, ref, useTemplateRef } from 'vue';
 
-import SvgIcon from '@/components/SvgIcon.vue';
+import ActionButton from '@/components/ActionButton.vue';
 import { useListStore } from '@/stores/list';
 import { Interval, ListType } from '@/utils/params';
 
@@ -39,23 +39,19 @@ watchThrottled(searchQuery, (query) => search(listType, query), { throttle: Inte
   <div class="flex" v-on-click-outside="() => !searchQuery && (searchVisible = false)">
     <input
       ref="searchInputRef"
-      class="bg-transparent transition-[width,padding]"
+      class="rounded-lg bg-transparent transition-[width,padding]"
       :class="searchVisible ? 'w-36 px-2' : 'w-0 px-0'"
       placeholder="关键词搜索"
       v-model="searchQuery"
     />
 
-    <SvgIcon
+    <ActionButton
       v-if="searchQuery"
-      class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
-      name="Close"
+      class="size-8"
+      mode="text"
+      prefix-icon="Close"
       @click="clearSearch"
     />
-    <SvgIcon
-      v-else
-      class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
-      name="Search"
-      @click="toggleSearch"
-    />
+    <ActionButton v-else class="size-8" mode="text" prefix-icon="Search" @click="toggleSearch" />
   </div>
 </template>

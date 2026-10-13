@@ -31,13 +31,10 @@ const pageModeSelect = (mode: LyricPageMode) => {
 
 <template>
   <div class="relative" v-on-click-outside="() => (pageVisible = false)">
-    <div
-      class="w-26 flex cursor-pointer items-center gap-1 p-1"
-      @click="pageVisible = !pageVisible"
-    >
+    <div class="flex cursor-pointer items-center gap-1 px-2" @click="pageVisible = !pageVisible">
       <SvgIcon :name="pageModeSelection.prefixIcon || 'Picture'" />
       {{ pageModeSelection.label }}
-      <SvgIcon class="transition-transform" :class="{ 'rotate-180': pageVisible }" name="Down" />
+      <SvgIcon class="transition-transform" :class="pageVisible ? 'rotate-180' : ''" name="Down" />
     </div>
 
     <SelectModal

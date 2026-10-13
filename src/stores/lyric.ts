@@ -93,8 +93,10 @@ export const useLyricStore = defineStore(
     const load = async (music: PlayingMusicInfo, lyric?: ApiLyricCandidate) => {
       isLoading.value = true;
 
-      const lyricGet = (await getLocalLyric(music, lyric)) || (await getOnlineLyric(music, lyric));
-      if (lyricGet) {
+      let lyricGet = await getLocalLyric(music, lyric);
+      if (!lyricGet?.content) lyricGet = await getOnlineLyric(music, lyric);
+
+      if (lyricGet?.content) {
         let lyricLines: LyricLine[] = [];
 
         switch (lyricGet.fmt) {

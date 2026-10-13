@@ -1,14 +1,16 @@
 <script lang="ts" setup>
-import ContextMenu from '@/components/ContextMenu.vue';
+import ContextMenuContainer from '@/components/ContextMenu/Container.vue';
 import NotificationContainer from '@/components/Notification.vue';
 import Aside from '@/layout/Aside/Aside.vue';
 import Header from '@/layout/Header/Header.vue';
 import LyricPage from '@/layout/LyricPage/LyricPage.vue';
 import Main from '@/layout/Main/Main.vue';
 import Playbar from '@/layout/Playbar/Playbar.vue';
+import { useLyricStore } from '@/stores/lyric';
 import { useSettingStore } from '@/stores/setting';
 
 const settingStore = useSettingStore();
+const lyricStore = useLyricStore();
 </script>
 
 <template>
@@ -30,12 +32,12 @@ const settingStore = useSettingStore();
     <!-- 主体内容 -->
     <Main />
     <!-- 播放栏 -->
-    <Playbar v-if="!settingStore.isFullscreen" class="col-span-2" />
+    <Playbar v-if="!lyricStore.pageVisible" class="col-span-2" />
+
     <!-- 歌词页 -->
     <LyricPage />
-
-    <!-- 右键菜单 -->
-    <ContextMenu />
+    <!-- 右键菜单容器 -->
+    <ContextMenuContainer />
     <!-- 提示框容器 -->
     <NotificationContainer />
   </div>

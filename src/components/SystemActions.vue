@@ -5,20 +5,20 @@ import { vOnClickOutside } from '@vueuse/components';
 import { useColorMode } from '@vueuse/core';
 import { computed, ref } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useMiniPlayerBridge } from '@/composables/useMiniPlayerBridge';
 import { useSettingStore } from '@/stores/setting';
 import { IconName } from '@/utils/icons';
 import { CloseStatus, ThemeMode, WindowTarget, miniPlayerSize } from '@/utils/params';
 
-const mainWindow = getCurrentWindow();
-
-const colorMode = useColorMode({ emitAuto: true });
 const settingStore = useSettingStore();
+const colorMode = useColorMode({ emitAuto: true });
 const miniBridge = useMiniPlayerBridge();
+
+const mainWindow = getCurrentWindow();
 
 const closeVisible = ref(false);
 const themeVisible = ref(false);
@@ -48,9 +48,8 @@ const themeIcon = computed<IconName>(() => {
 });
 
 const handleTheme = (mode: ThemeMode) => {
-  colorMode.value = mode;
-
   themeVisible.value = false;
+  colorMode.value = mode;
 };
 
 const handleMiniPlayer = async () => {
@@ -83,8 +82,8 @@ const handleMiniPlayer = async () => {
       notify.error('迷你播放器创建失败');
     });
     miniWindow.once('tauri://created', () => {
-      mainWindow.hide();
       miniBridge.start();
+      mainWindow.hide();
     });
     miniWindow.once('tauri://destroyed', () => {
       mainWindow.show();
@@ -143,12 +142,15 @@ const handleConfirm = () => {
 </script>
 
 <template>
+  <div class="mx-1 h-4 w-px bg-minor" />
+
   <div class="relative" v-on-click-outside="() => (themeVisible = false)">
-    <SvgIcon
-      class="action-icon"
-      :name="themeIcon"
+    <ActionButton
+      class="size-8"
+      mode="text"
+      :prefix-icon="themeIcon"
+      icon-size="18"
       title="主题"
-      size="18"
       @click="themeVisible = !themeVisible"
     />
 
@@ -161,16 +163,36 @@ const handleConfirm = () => {
       @select="handleTheme"
     />
   </div>
-  <SvgIcon class="action-icon" name="PIP" title="迷你播放器" size="18" @click="handleMiniPlayer" />
-  <SvgIcon class="action-icon" name="Remove" title="最小化" size="20" @click="handleMinimize" />
-  <SvgIcon
-    class="action-icon"
-    :name="settingStore.isMaximized ? 'Restore' : 'Square'"
-    title="最大化"
-    size="16"
+
+  <ActionButton
+    class="size-8"
+    mode="text"
+    prefix-icon="PIP"
+    icon-size="18"
+    title="迷你播放器"
+    @click="handleMiniPlayer"
+  />
+  <ActionButton
+    class="size-8"
+    mode="text"
+    prefix-icon="Remove"
+    icon-size="18"
+    @click="handleMinimize"
+  />
+  <ActionButton
+    class="size-8"
+    mode="text"
+    :prefix-icon="settingStore.isMaximized ? 'Restore' : 'Square'"
+    icon-size="18"
     @click="handleMaximize"
   />
-  <SvgIcon class="action-icon hover:text-error" name="Close" size="20" @click="handleClose" />
+  <ActionButton
+    class="size-8 hover:text-error"
+    mode="text"
+    prefix-icon="Close"
+    icon-size="20"
+    @click="handleClose"
+  />
 
   <Modal
     v-model="closeVisible"
@@ -179,13 +201,13 @@ const handleConfirm = () => {
     @cancel="handleCancel"
     @confirm="handleConfirm"
   >
-    <div class="px-6">
-      <label class="flex items-center gap-2">
+    <div class="flex items-center gap-3 px-6">
+      <label class="flex cursor-pointer items-center gap-1">
         <input type="radio" name="closeAction" v-model="closeStatus" :value="CloseStatus.Hide" />
         最小化到托盘
       </label>
 
-      <label class="mt-2 flex items-center gap-2">
+      <label class="flex cursor-pointer items-center gap-1">
         <input type="radio" name="closeAction" v-model="closeStatus" :value="CloseStatus.Exit" />
         退出程序
       </label>

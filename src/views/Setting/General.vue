@@ -95,7 +95,7 @@ onMounted(() => {
       </div>
 
       <div class="flex items-center gap-3">
-        <label class="flex cursor-pointer items-center gap-2">
+        <label class="flex cursor-pointer items-center gap-1">
           <input
             type="checkbox"
             v-model="settingStore.autoStartState"
@@ -127,22 +127,22 @@ onMounted(() => {
         </div>
       </div>
 
-      <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">
+      <label class="flex cursor-pointer items-center gap-1" :data-disabled="true">
         <input type="checkbox" />
         将 Seraphine 设为默认播放器
       </label>
 
-      <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">
+      <label class="flex cursor-pointer items-center gap-1" :data-disabled="true">
         <input type="checkbox" />
         最小化时, 开启轻量模式
       </label>
 
-      <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">
+      <label class="flex cursor-pointer items-center gap-1" :data-disabled="true">
         <input type="checkbox" />
         禁用动画效果
       </label>
 
-      <!-- <label class="flex items-center gap-2 cursor-pointer mt-3" :data-disabled="true">
+      <!-- <label class="flex items-center gap-1 cursor-pointer mt-3" :data-disabled="true">
           <input type="checkbox" />
           禁用系统缩放比例
         </label> -->

@@ -3,7 +3,6 @@ import { useThrottleFn, useWindowSize } from '@vueuse/core';
 import { computed, ref, useTemplateRef } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useObserver } from '@/utils/hooks';
 import { BreakPoint, ColCount, Interval } from '@/utils/params';
 
@@ -69,17 +68,17 @@ const { unobserve } = useObserver(listRef, (entry) => {
 
   <!-- 加载状态 -->
   <div v-else-if="loading">
-    <div class="flex justify-between">
+    <div class="flex items-center justify-between">
       <div class="flex h-6 flex-1 items-center gap-3">
         <div class="h-full w-1 rounded-lg bg-minor"></div>
         <div class="h-full w-24 rounded-lg bg-card"></div>
       </div>
 
-      <SvgIcon class="action-icon size-6" name="Refresh" @click="handleRefresh" />
+      <ActionButton mode="text" size="small" prefix-icon="Refresh" @click="handleRefresh" />
     </div>
 
     <div class="mt-3 flex gap-3">
-      <div v-for="col in cols" :key="col" class="card flex-1 border-none p-2">
+      <div v-for="col in cols" :key="col" class="card flex-1 border border-transparent p-2">
         <div class="flex justify-center">
           <div class="h-6 w-24 rounded-lg bg-card"></div>
         </div>
@@ -91,18 +90,18 @@ const { unobserve } = useObserver(listRef, (entry) => {
 
   <!-- 无数据状态 -->
   <div
-    v-else-if="data.list.length === 0"
+    v-else-if="!data.list.length"
     class="card flex items-center justify-center gap-3"
     :style="{ height: `${TotalHeight}rem` }"
   >
-    <div class="text-xl font-bold">无数据或请求失败</div>
+    <div class="text-xl font-bold">未获取到数据</div>
 
     <ActionButton
-      class="px-1 text-xl hover:text-info"
+      class="text-xl"
       mode="text"
       theme="info"
-      suffix-icon="Refresh"
-      iconSize="20"
+      prefix-icon="Refresh"
+      icon-size="20"
       @click="handleRefresh"
     >
       重试
@@ -126,13 +125,13 @@ const { unobserve } = useObserver(listRef, (entry) => {
         </div>
       </div>
 
-      <div class="flex h-6 items-center gap-2">
-        <SvgIcon class="action-icon size-6" name="Refresh" @click="handleRefresh" />
+      <div class="flex items-center gap-3">
+        <ActionButton mode="text" size="small" prefix-icon="Refresh" @click="handleRefresh" />
 
         <ActionButton
           v-if="!notMore"
-          class="h-6 px-1 text-sm hover:text-minor"
           mode="text"
+          size="small"
           suffix-icon="Right"
           @click="handleMore"
         >

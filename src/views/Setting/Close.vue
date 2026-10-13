@@ -10,7 +10,7 @@ const settingStore = useSettingStore();
     <div class="w-40 font-bold">关闭主窗口:</div>
 
     <div class="flex gap-6">
-      <label class="flex cursor-pointer items-center gap-2">
+      <label class="flex cursor-pointer items-center gap-1">
         <input
           type="radio"
           name="closeAction"
@@ -20,7 +20,7 @@ const settingStore = useSettingStore();
         最小化到托盘
       </label>
 
-      <label class="flex cursor-pointer items-center gap-2">
+      <label class="flex cursor-pointer items-center gap-1">
         <input
           type="radio"
           name="closeAction"

@@ -193,8 +193,8 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop });
       v-else-if="!list.length"
       class="flex size-full flex-col items-center justify-center text-minor"
     >
-      <SvgIcon name="Empty" size="64" />
-      <div class="text-xl font-bold">列表为空</div>
+      <SvgIcon name="Empty" size="56" />
+      <div class="text-xl font-bold">垂磬之室</div>
     </div>
 
     <ul v-else :style="{ transform: `translateY(${`${lineHeight * startIndex}`}px)` }">

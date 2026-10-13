@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useTemplateRef } from 'vue';
 
-import ToTop from '@/components/PageActions/ToTop.vue';
+import ActionButton from '@/components/ActionButton.vue';
 import { useRefreshStore } from '@/stores/refresh';
 
 const refreshStore = useRefreshStore();
@@ -19,7 +19,13 @@ const handleToTop = () => {
         <component :is="Component" :key="refreshStore.key" />
       </Transition>
 
-      <ToTop v-if="route.meta.toTop" @click="handleToTop" />
+      <ActionButton
+        v-if="route.meta.toTop"
+        class="size-8 p-0"
+        prefix-icon="Up"
+        title="滚到顶部"
+        @click="handleToTop"
+      />
     </RouterView>
   </main>
 </template>

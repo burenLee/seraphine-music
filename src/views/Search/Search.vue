@@ -3,10 +3,9 @@ import { onMounted, onUnmounted, provide, ref, useTemplateRef, watch } from 'vue
 import { useRoute, useRouter } from 'vue-router';
 
 import Image from '@/components/Image.vue';
-import MusicActions from '@/components/MusicTable/MusicActions.vue';
-import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import MusicActions from '@/components/MusicTable/Actions.vue';
+import MusicTable from '@/components/MusicTable/Table.vue';
 import { notify } from '@/components/Notification.vue';
-import ToTop from '@/components/PageActions/ToTop.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import VirtualList from '@/components/VirtualList.vue';
 import { defaultInfo, useListStore } from '@/stores/list';
@@ -269,7 +268,7 @@ onUnmounted(() => listStore.resetList(listType));
 
       <template #info="row">
         <div class="flex items-center gap-3">
-          <Image class="size-12" :src="getPic(row.cover)" />
+          <Image class="size-12" :src="getPic(row.cover)" icon-size="24" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ row.name }}</div>
         </div>
@@ -294,12 +293,12 @@ onUnmounted(() => listStore.resetList(listType));
 
       <template #info="row">
         <div class="flex items-center gap-3">
-          <Image class="size-12" :src="getPic(row.cover)" />
+          <Image class="size-12" :src="getPic(row.cover)" icon-size="24" />
 
           <div class="w-0 flex-1 overflow-hidden">
-            <div class="music-title flex items-center gap-2">
+            <div class="music-title flex items-center gap-3">
               <div class="min-w-0 truncate">{{ row.title }}</div>
-              <div class="flex flex-1 gap-2">
+              <div class="flex flex-1 gap-3">
                 <div
                   class="card rounded border-info px-1 text-xs font-bold leading-4 text-info"
                   v-for="(tag, index) in row.tags"
@@ -316,7 +315,7 @@ onUnmounted(() => listStore.resetList(listType));
     </VirtualList>
 
     <div v-if="slideSelection.value !== SearchType.Song" class="absolute bottom-4 right-4">
-      <ToTop @click="handleToTop" />
+      <ActionButton class="size-8 p-0" prefix-icon="Up" title="滚到顶部" @click="handleToTop" />
     </div>
   </div>
 </template>

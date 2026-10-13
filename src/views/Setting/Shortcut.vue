@@ -76,7 +76,7 @@ const handleClick = () => {
     <div class="w-40 font-bold">快捷键:</div>
 
     <div class="space-y-3">
-      <label class="flex w-fit cursor-pointer items-center gap-2">
+      <label class="flex w-fit cursor-pointer items-center gap-1">
         <input
           type="checkbox"
           :checked="settingStore.mediaShortcutState"
@@ -85,7 +85,7 @@ const handleClick = () => {
         启用媒体快捷键
       </label>
 
-      <label class="flex w-fit cursor-pointer items-center gap-2">
+      <label class="flex w-fit cursor-pointer items-center gap-1">
         <input
           type="checkbox"
           :checked="settingStore.globalShortcutState"

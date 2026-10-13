@@ -3,11 +3,11 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { computed, inject, onMounted, onUnmounted, ref, useTemplateRef } from 'vue';
 import { useRoute } from 'vue-router';
 
+import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
 import Modal from '@/components/Modal.vue';
+import MusicDetail from '@/components/MusicTable/Detail.vue';
 import { notify } from '@/components/Notification.vue';
-import ToTartget from '@/components/PageActions/ToTartget.vue';
-import ToTop from '@/components/PageActions/ToTop.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import VirtualList from '@/components/VirtualList.vue';
 import { useContextMenuStore } from '@/stores/context-menu';
@@ -17,8 +17,6 @@ import { useUserStore } from '@/stores/user';
 import { getOrigin, getPic } from '@/utils/music';
 import { ApiInvokeStatus, ListType, PlaylistType } from '@/utils/params';
 import { cn, formatDuration, invoke, revealPath } from '@/utils/tools';
-
-import MusicDetail from './MusicDetail.vue';
 
 interface Emits {
   infinite: [];
@@ -324,13 +322,15 @@ defineExpose({ handleToTarget, handleToTop });
     @lineDblClick="handlePlay"
   >
     <template #index="row">
-      <SvgIcon v-if="isPlaying(row.id)" class="text-info" name="Music" />
+      <div v-if="isPlaying(row.id)" class="flex items-center justify-center text-info">
+        <SvgIcon name="Bars" />
+      </div>
       <div v-else class="truncate text-center text-minor">{{ row.index + 1 }}</div>
     </template>
 
     <template #info="row">
       <div class="flex items-center gap-3">
-        <Image class="size-12" :src="row.cover ? getCover(row.cover) : ''" />
+        <Image class="size-12" :src="row.cover ? getCover(row.cover) : ''" icon-size="24" />
 
         <div class="w-0 flex-1 overflow-hidden">
           <div class="flex items-center gap-3">
@@ -356,23 +356,31 @@ defineExpose({ handleToTarget, handleToTop });
           @dblclick.stop
           @contextmenu.stop
         >
-          <SvgIcon class="action-icon" name="Play" @click="handlePlay(row)" />
+          <ActionButton class="p-2" mode="text" prefixIcon="Play" @click="handlePlay(row)" />
 
-          <SvgIcon
-            v-if="isLike(row.id)"
-            class="action-icon text-error"
-            name="HeartBold"
-            @click="handleUnlike(row)"
-          />
-          <SvgIcon
-            v-else
-            class="action-icon"
-            name="Heart"
+          <ActionButton
+            v-if="!isLike(row.id)"
+            class="p-2"
+            mode="text"
+            prefixIcon="Heart"
             :disabled="!userStore.userinfo || !row.hash"
             @click="handleLike(row)"
           />
+          <ActionButton
+            v-else
+            mode="text"
+            class="p-2 text-error"
+            prefixIcon="HeartBold"
+            :disabled="!userStore.userinfo"
+            @click="handleUnlike(row)"
+          />
 
-          <SvgIcon class="action-icon" name="More" @click="handleContextMenu($event, row)" />
+          <ActionButton
+            class="p-2"
+            mode="text"
+            prefixIcon="More"
+            @click="handleContextMenu($event, row)"
+          />
         </div>
       </div>
     </template>
@@ -382,9 +390,15 @@ defineExpose({ handleToTarget, handleToTop });
     </template>
   </VirtualList>
 
-  <div class="absolute bottom-4 right-4">
-    <ToTartget v-if="musicStore.music" @click="handleToTarget" />
-    <ToTop class="mt-3" @click="handleToTop" />
+  <div class="absolute bottom-4 right-4 space-y-3">
+    <ActionButton
+      v-if="musicStore.music"
+      class="size-8 p-0"
+      prefix-icon="Target"
+      title="滚到播放"
+      @click="handleToTarget"
+    />
+    <ActionButton class="size-8 p-0" prefix-icon="Up" title="滚到顶部" @click="handleToTop" />
   </div>
 
   <MusicDetail v-model="musicDetailVisible" :path="contextMenuMusic?.path || ''" />

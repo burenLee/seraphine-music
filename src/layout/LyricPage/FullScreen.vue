@@ -2,7 +2,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEventListener } from '@vueuse/core';
 
-import SvgIcon from '@/components/SvgIcon.vue';
+import ActionButton from '@/components/ActionButton.vue';
 import { useSettingStore } from '@/stores/setting';
 
 const settingStore = useSettingStore();
@@ -17,7 +17,7 @@ const toggleFullScreen = async () => {
 };
 
 useEventListener('keyup', async (e) => {
-  if (e.key !== 'Escape') return;
+  if (e.key !== 'Escape' || settingStore.isFullscreen) return;
 
   await currentWindow.setFullscreen(false);
   settingStore.toggleFullscreenState(false);
@@ -25,9 +25,10 @@ useEventListener('keyup', async (e) => {
 </script>
 
 <template>
-  <SvgIcon
-    class="action-icon"
-    :name="settingStore.isFullscreen ? 'QuitFullScreen' : 'FullScreen'"
+  <ActionButton
+    class="size-8"
+    mode="text"
+    :prefix-icon="settingStore.isFullscreen ? 'QuitFullScreen' : 'FullScreen'"
     @click="toggleFullScreen"
   />
 </template>

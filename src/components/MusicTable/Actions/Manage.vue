@@ -1,14 +1,10 @@
 ﻿<script lang="ts" setup>
-import SvgIcon from '@/components/SvgIcon.vue';
+import ActionButton from '@/components/ActionButton.vue';
 import { useListStore } from '@/stores/list';
 
 const { toggleChecked } = useListStore();
 </script>
 
 <template>
-  <SvgIcon
-    class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
-    name="CheckList"
-    @click="toggleChecked"
-  />
+  <ActionButton class="size-8" mode="text" prefix-icon="CheckList" @click="toggleChecked" />
 </template>

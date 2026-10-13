@@ -24,21 +24,20 @@ export function useMiniPlayerBridge() {
   // 当前歌词的偏移量
   const lyricOffset = computed(() => lyricStore.offsetMap[lyricStore.lyric.id] || 0);
 
-  const syncAudio = async () => {
-    const data: MiniPlayerAudio = {
-      isLoading: musicStore.isLoading,
-      isPlaying: musicStore.isPlaying,
-      music: musicStore.music,
-      origin: musicStore.origin,
-    };
-    await emitTo(WindowTarget.MiniPlayer, WindowEvent.MiniPlayer, {
+  const syncAudio = () => {
+    emitTo(WindowTarget.MiniPlayer, WindowEvent.MiniPlayer, {
       type: MiniPlayerEmit.Audio,
-      data,
+      data: {
+        isLoading: musicStore.isLoading,
+        isPlaying: musicStore.isPlaying,
+        music: musicStore.music,
+        origin: musicStore.origin,
+      },
     });
   };
 
-  const syncPlaylist = async () => {
-    await emitTo(WindowTarget.MiniPlayer, WindowEvent.MiniPlayer, {
+  const syncPlaylist = () => {
+    emitTo(WindowTarget.MiniPlayer, WindowEvent.MiniPlayer, {
       type: MiniPlayerEmit.Playlist,
       data: listStore.play.list,
     });
@@ -85,6 +84,9 @@ export function useMiniPlayerBridge() {
             syncPlaylist();
             syncLyric();
             break;
+          case MiniPlayerEmit.Pos:
+            settingStore.setMiniPlayerPosition(e.payload.data as PhysicalPosition);
+            break;
           case MiniPlayerEmit.Play:
             musicStore.play();
             break;
@@ -104,10 +106,6 @@ export function useMiniPlayerBridge() {
           }
           case MiniPlayerEmit.Close:
             stop();
-            break;
-          case MiniPlayerEmit.Pos:
-            const { x, y } = e.payload.data as PhysicalPosition;
-            settingStore.setMiniPlayerPosition({ x, y });
             break;
         }
       },

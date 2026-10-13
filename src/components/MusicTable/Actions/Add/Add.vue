@@ -3,9 +3,9 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { vOnClickOutside } from '@vueuse/components';
 import { computed, inject, onMounted, ref } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useListStore } from '@/stores/list';
 import { AddMusicType, ListType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
@@ -75,10 +75,11 @@ onMounted(getScanTypes);
 
 <template>
   <div class="relative" v-on-click-outside="() => (addVisible = false)">
-    <SvgIcon
-      class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
-      name="Add"
-      size="22"
+    <ActionButton
+      class="size-8"
+      mode="text"
+      prefix-icon="Add"
+      icon-size="22"
       @click="addVisible = !addVisible"
     />
 

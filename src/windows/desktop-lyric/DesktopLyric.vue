@@ -5,8 +5,8 @@ import { vOnClickOutside } from '@vueuse/components';
 import { useThrottleFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import SelectModal from '@/components/SelectModal.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { getFullName } from '@/utils/music';
 import {
   DesktopLyricEmit,
@@ -145,14 +145,14 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
 
 <template>
   <div
-    class="h-screen w-screen select-none overflow-hidden rounded-lg px-2 text-neutral-200 transition-colors"
-    :class="isHovering ? 'bg-black/80' : 'bg-transparent'"
+    class="h-screen w-screen select-none overflow-hidden rounded-lg px-2 transition-colors"
+    :class="isHovering ? 'bg-black/70' : 'bg-transparent'"
     :style="{
       '--height': `${ContentHeight}px`,
       '--line-height': `${ContentHeight / 2}px`,
     }"
     @mouseenter="isHovering = true"
-    @mouseleave="isHovering = false"
+    @mouseleave="isHovering = true"
   >
     <!-- 工具栏 -->
     <div
@@ -160,85 +160,97 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
       class="flex w-full cursor-move items-center justify-center transition-opacity"
       :class="isHovering ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'"
     >
-      <SvgIcon
-        class="action-icon"
-        name="Music"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Music"
         title="打开主界面"
         @click="handleSend(DesktopLyricEmit.Main)"
       />
 
-      <div class="mx-1 h-4 w-px bg-minor" />
+      <div class="mx-1 h-4 w-px bg-neutral-100/30" />
 
-      <SvgIcon
-        class="action-icon"
-        name="Previous"
-        title="上一首"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Previous"
         @click="handleSend(DesktopLyricEmit.Prev)"
       />
-      <SvgIcon
+      <ActionButton
         v-if="!audio.isLoading"
-        class="action-icon"
-        :name="audio.isPlaying ? 'Pause' : 'Play'"
-        :title="audio.isPlaying ? '暂停' : '播放'"
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        :prefix-icon="audio.isPlaying ? 'Pause' : 'Play'"
         @click="handleSend(audio.isPlaying ? DesktopLyricEmit.Pause : DesktopLyricEmit.Play)"
       />
-      <SvgIcon v-else class="action-icon pointer-events-none" name="Ring" title="加载中" />
-      <SvgIcon
-        class="action-icon"
-        name="Next"
-        title="下一首"
+      <ActionButton
+        v-else
+        class="pointer-events-none size-8 text-neutral-100 hover:text-neutral-100/50"
+        prefix-icon="Ring"
+        title="加载中"
+      />
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Next"
         @click="handleSend(DesktopLyricEmit.Next)"
       />
 
-      <div class="mx-1 h-4 w-px bg-minor" />
+      <div class="mx-1 h-4 w-px bg-neutral-100/30" />
 
-      <SvgIcon
-        class="action-icon"
-        name="ForwardLeft"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="ForwardLeft"
         title="歌词进度 -0.2 秒"
         @click="lyric && desktopLyricStore.setOffsetMap('sub', lyric.id)"
       />
-      <SvgIcon
-        class="action-icon"
-        name="Restart"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Restart"
         title="重置歌词进度"
         @click="lyric && desktopLyricStore.setOffsetMap('restart', lyric.id)"
       />
-      <SvgIcon
-        class="action-icon"
-        name="ForwardRight"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="ForwardRight"
         title="歌词进度 +0.2 秒"
         @click="lyric && desktopLyricStore.setOffsetMap('add', lyric.id)"
       />
 
-      <div class="mx-1 h-4 w-px bg-minor" />
+      <div class="mx-1 h-4 w-px bg-neutral-100/30" />
 
-      <SvgIcon
-        class="action-icon"
-        name="ZoomOut"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="ZoomOut"
         title="减小歌词字体"
         :disabled="desktopLyricStore.fontSize <= LyricFontSize.Min"
         @click="desktopLyricStore.setFontSize('sub')"
       />
-      <SvgIcon
-        class="action-icon"
-        name="Restart"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Restart"
         title="重置歌词字体大小"
         @click="desktopLyricStore.setFontSize('restart')"
       />
-      <SvgIcon
-        class="action-icon"
-        name="ZoomIn"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="ZoomIn"
         title="增大歌词字体"
         :disabled="desktopLyricStore.fontSize >= LyricFontSize.Max"
         @click="desktopLyricStore.setFontSize('add')"
       />
 
-      <div class="mx-1 h-4 w-px bg-minor" />
+      <div class="mx-1 h-4 w-px bg-neutral-100/30" />
 
       <div class="relative" v-on-click-outside="() => (colorVisible = false)">
         <div
-          class="action-icon flex items-center justify-center"
+          class="action-icon size-8 text-center leading-8 text-neutral-100 hover:text-neutral-100/50"
           @click="colorVisible = !colorVisible"
         >
           颜
@@ -247,7 +259,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         <Transition name="zoom-top-right">
           <div
             v-if="colorVisible"
-            class="absolute right-0 top-full flex cursor-default gap-2 rounded-lg bg-neutral-600 p-2"
+            class="absolute right-0 top-full flex cursor-default gap-3 rounded-lg bg-neutral-300 p-2"
           >
             <div
               v-for="(color, index) in PresetsColors"
@@ -262,14 +274,14 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
 
       <div class="relative" v-on-click-outside="() => (fontFamilyVisible = false)">
         <div
-          class="action-icon flex items-center justify-center"
+          class="action-icon size-8 text-center leading-8 text-neutral-100 hover:text-neutral-100/50"
           @click="fontFamilyVisible = !fontFamilyVisible"
         >
           字
         </div>
 
         <SelectModal
-          class="absolute right-0 top-full h-[var(--height)] bg-neutral-600"
+          class="absolute right-0 top-full h-[var(--height)] overflow-y-auto bg-neutral-300"
           transition="zoom-top-right"
           :visible="fontFamilyVisible"
           :options="fontFamilyOptions"
@@ -279,28 +291,35 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
       </div>
 
       <div
-        class="action-icon flex items-center justify-center"
+        class="action-icon size-8 text-center leading-8 text-neutral-100 hover:text-neutral-100/50"
         :class="desktopLyricStore.transMode === LyricTransMode.Trans ? 'text-info' : ''"
         @click="handleTransClick(LyricTransMode.Trans)"
       >
         译
       </div>
       <div
-        class="action-icon flex items-center justify-center"
+        class="action-icon size-8 text-center leading-8 text-neutral-100 hover:text-neutral-100/50"
         :class="desktopLyricStore.transMode === LyricTransMode.Roman ? 'text-info' : ''"
         @click="handleTransClick(LyricTransMode.Roman)"
       >
         音
       </div>
 
-      <div class="mx-1 h-4 w-px bg-minor" />
+      <div class="mx-1 h-4 w-px bg-neutral-100/30" />
 
-      <SvgIcon class="action-icon" name="Lock" @click="handleLock" />
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Lock"
+        icon-size="16"
+        @click="handleLock"
+      />
 
-      <SvgIcon
-        class="action-icon hover:text-error"
-        name="Close"
-        size="20"
+      <ActionButton
+        class="size-8 text-neutral-100 hover:text-error hover:text-neutral-100/50"
+        mode="text"
+        prefix-icon="Close"
+        icon-size="20"
         @click="handleSend(DesktopLyricEmit.Close)"
       />
     </div>

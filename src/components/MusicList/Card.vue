@@ -130,20 +130,19 @@ const handleContextMenu = (e: MouseEvent) => {
 
 <template>
   <div
-    class="card-hover group/card relative flex h-16 cursor-pointer items-center gap-2 rounded-lg px-2 transition-colors"
+    class="card-hover group/card relative flex h-16 cursor-pointer items-center gap-3 rounded-lg px-2 transition-colors"
     @click="handleClick"
     @contextmenu.prevent="handleContextMenu"
   >
-    <Image class="size-12" :src="getPic(data.cover)" />
+    <Image class="size-12" :src="getPic(data.cover)" icon-size="24" />
 
-    <SvgIcon
-      v-if="data.musicInfo"
+    <div
       class="card absolute left-2 top-2 flex size-12 items-center justify-center bg-black/30 text-neutral-50 opacity-0 transition-opacity group-hover/card:opacity-100"
-      name="PlayBold"
-      size="20"
-    />
+    >
+      <SvgIcon v-if="data.musicInfo" name="PlayBold" size="24" />
+    </div>
 
-    <div class="flex h-12 w-0 flex-1 flex-col justify-center">
+    <div class="w-0 flex-1">
       <div class="music-title">{{ data.title }}</div>
       <div v-if="data.artist" class="music-artist">{{ data.artist }}</div>
     </div>

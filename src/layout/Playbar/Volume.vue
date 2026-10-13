@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import ProgressRange from '@/components/ProgressRange.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import { useMusicStore } from '@/stores/music';
@@ -15,10 +16,11 @@ const volumnIcon = computed<IconName>(() =>
 
 <template>
   <div class="group/volumn relative">
-    <SvgIcon
-      class="action-icon"
-      :name="volumnIcon"
-      size="18"
+    <ActionButton
+      class="size-8"
+      mode="text"
+      :prefix-icon="volumnIcon"
+      icon-size="18"
       @click="musicStore.setVolume(musicStore.volume ? 0 : musicStore.lastVolumn)"
     />
 
@@ -26,7 +28,7 @@ const volumnIcon = computed<IconName>(() =>
       class="pointer-events-none absolute bottom-full left-1/2 z-10 -translate-x-1/2 opacity-0 transition-opacity group-hover/volumn:pointer-events-auto group-hover/volumn:opacity-100"
     >
       <div
-        class="card flex w-12 flex-col items-center justify-between border border-border bg-background py-3 shadow-md shadow-shadow"
+        class="card flex w-12 flex-col items-center justify-between border border-border bg-background py-3 shadow-lg shadow-shadow"
       >
         <ProgressRange
           class="h-32"

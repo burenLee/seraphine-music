@@ -360,7 +360,7 @@ export const enum Interval {
 export const enum PicSize {
   Sm = '64',
   Md = '120',
-  Lg = '400',
+  Lg = '360',
 }
 
 /** 概念版vip等级 */

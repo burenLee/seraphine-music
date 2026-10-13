@@ -36,7 +36,7 @@ const handleFontFamilySelect = (font: FontValue) => {
 <template>
   <div class="relative" v-on-click-outside="() => (fontFamilyVisible = false)">
     <div
-      class="action-icon card flex items-center justify-center text-base"
+      class="action-icon card h-8 w-full text-center font-serif text-base leading-8"
       title="歌词字体"
       @click="handleFontFamilyClick"
     >

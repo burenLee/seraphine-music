@@ -21,7 +21,7 @@ const listStore = useListStore();
 
 <template>
   <div class="flex w-full justify-between px-8">
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3">
       <template v-if="!listStore.isChecking">
         <PlayBtn />
       </template>

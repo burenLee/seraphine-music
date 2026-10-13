@@ -22,7 +22,7 @@ export const notify = {
 <script lang="ts" setup>
 import { onBeforeUnmount, ref } from 'vue';
 
-import SvgIcon from '@/components/SvgIcon.vue';
+import ActionButton from '@/components/ActionButton.vue';
 
 defineOptions({ name: 'NotificationContainer' });
 
@@ -72,16 +72,18 @@ onBeforeUnmount(() => {
       <li
         v-for="notification in notifications"
         :key="notification.id"
-        class="pointer-events-auto mb-4 flex w-48 items-center gap-2 overflow-hidden rounded-lg border p-3 shadow-lg shadow-shadow"
+        class="pointer-events-auto mb-4 flex w-48 items-center gap-3 overflow-hidden rounded-lg border p-3 shadow-lg shadow-shadow"
         :class="typeTheme[notification.type]"
       >
         <div class="line-clamp-3 min-w-0 flex-1 font-bold">
           {{ notification.message }}
         </div>
-        <SvgIcon
-          class="size-5 shrink-0 cursor-pointer"
-          name="Close"
-          :size="20"
+
+        <ActionButton
+          class="hover:text-error"
+          mode="text"
+          prefix-icon="Close"
+          icon-size="24"
           @click="remove(notification.id)"
         />
       </li>

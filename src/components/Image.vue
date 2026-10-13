@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref, watchEffect } from 'vue';
 
 import SvgIcon from '@/components/SvgIcon.vue';
 import { IconName } from '@/utils/icons';
 import { cn } from '@/utils/tools';
 
 interface Props {
-  src: string;
+  src: string | null | undefined;
   icon?: IconName;
-  iconSize?: number;
+  iconSize?: string | number;
 }
 
 const props = defineProps<Props>();
@@ -16,49 +16,47 @@ const props = defineProps<Props>();
 const isLoading = ref(false);
 const isReady = ref(false);
 
-watch(
-  () => props.src,
-  (src) => {
-    // 空字符串不发起加载，直接回落到占位图标
-    if (!src) {
-      isLoading.value = false;
-      isReady.value = false;
-      return;
-    }
+// 复用同一个 Image 实例，避免每次 src 变化都重新创建
+const img = new Image();
+img.onload = () => {
+  isLoading.value = false;
+  isReady.value = true;
+};
+img.onerror = () => {
+  isLoading.value = false;
+  isReady.value = false;
+};
 
+watchEffect(() => {
+  if (!props.src) {
+    // 空字符串不发起加载，直接回落到占位图标
+    isLoading.value = false;
+    isReady.value = false;
+  } else {
     isLoading.value = true;
     isReady.value = false;
 
-    const img = new Image();
-    img.onload = () => {
-      isLoading.value = false;
-      isReady.value = true;
-    };
-    img.onerror = () => {
-      isLoading.value = false;
-      isReady.value = false;
-    };
-
-    img.src = src;
-  },
-  { immediate: true },
-);
+    img.src = props.src;
+  }
+});
 </script>
 
 <template>
   <div v-if="isLoading" :class="cn('card', $attrs.class)"></div>
-  <SvgIcon
+  <div
     v-else-if="!props.src || !isReady"
-    :class="cn('card', $attrs.class)"
-    :name="props.icon || 'Music'"
-    :size="props.iconSize || 20"
-  />
+    :class="cn('card flex items-center justify-center', $attrs.class)"
+  >
+    <SvgIcon class="pointer-events-none" :name="props.icon || 'Music'" :size="props.iconSize" />
+  </div>
+
   <img
     v-else
     :class="cn('card', $attrs.class)"
     :src="props.src"
     alt=""
     decoding="async"
+    loading="lazy"
     :draggable="false"
   />
 </template>

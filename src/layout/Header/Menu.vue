@@ -5,10 +5,10 @@ import { vOnClickOutside } from '@vueuse/components';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import ActionButton from '@/components/ActionButton.vue';
 import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useUpdaterStore } from '@/stores/updater';
 import { useUserStore } from '@/stores/user';
 import { MenuAction } from '@/utils/params';
@@ -17,6 +17,11 @@ const router = useRouter();
 
 const userStore = useUserStore();
 const updaterStore = useUpdaterStore();
+
+const mainWindow = getCurrentWindow();
+
+const menuVisible = ref(false);
+const updateModalVisible = ref(false);
 
 const menuOptions = computed<Array<SelectOption<MenuAction>>>(() => [
   { label: '恢复默认窗口', value: MenuAction.Restore, prefixIcon: 'Restart' },
@@ -31,16 +36,15 @@ const menuOptions = computed<Array<SelectOption<MenuAction>>>(() => [
   { label: '退出播放器', value: MenuAction.Exit, prefixIcon: 'Exit' },
 ]);
 
-const menuVisible = ref(false);
-const updateModalVisible = ref(false);
-
 const handleSelect = (action: MenuAction) => {
+  menuVisible.value = false;
+
   switch (action) {
     case MenuAction.Restore:
-      const mainWindow = getCurrentWindow();
       mainWindow.unmaximize();
       mainWindow.setFullscreen(false);
-      mainWindow.setSize(new LogicalSize(1152, 768));
+      // size 硬编码在 tauri.conf.json
+      mainWindow.setSize(new LogicalSize(1080, 720));
       mainWindow.center();
       break;
     case MenuAction.Update:
@@ -54,11 +58,9 @@ const handleSelect = (action: MenuAction) => {
       userStore.logout();
       break;
     case MenuAction.Exit:
-      getCurrentWindow().close();
+      mainWindow.close();
       break;
   }
-
-  menuVisible.value = false;
 };
 
 const handleCheck = async () => {
@@ -67,11 +69,11 @@ const handleCheck = async () => {
   if (updaterStore.updateInfo?.hasUpdate) updateModalVisible.value = true;
 };
 
-const handleUpdateConfirm = () => {
+const handleUpdateConfirm = async () => {
   updateModalVisible.value = false;
-  router.push('/setting');
 
-  updaterStore.download();
+  await router.push('/setting');
+  await updaterStore.download();
 };
 
 const handleUpdateCancel = () => {
@@ -81,7 +83,13 @@ const handleUpdateCancel = () => {
 
 <template>
   <div class="relative" v-on-click-outside="() => (menuVisible = false)">
-    <SvgIcon class="action-icon" name="Menu" size="20" @click="menuVisible = !menuVisible" />
+    <ActionButton
+      class="size-8"
+      mode="text"
+      prefix-icon="Menu"
+      icon-size="18"
+      @click="menuVisible = !menuVisible"
+    />
 
     <SelectModal
       class="absolute left-1/2 top-full -translate-x-1/2"
@@ -112,7 +120,9 @@ const handleUpdateCancel = () => {
       <pre
         v-if="updaterStore.updateInfo?.body"
         class="max-h-60 overflow-auto whitespace-pre-wrap text-sm text-minor"
-        >{{ updaterStore.updateInfo.body }}</pre>
+      >
+        {{ updaterStore.updateInfo.body }}
+      </pre>
     </div>
   </Modal>
 </template>

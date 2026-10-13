@@ -59,12 +59,16 @@ onMounted(async () => {
 
 <template>
   <div class="relative" v-on-click-outside="() => (modeVisible = false)">
-    <div
-      class="flex cursor-pointer items-center justify-center gap-1 text-minor"
-      @click="modeVisible = !modeVisible"
-    >
-      <div class="whitespace-nowrap font-bold">{{ modeSelection?.label || '未知模式' }}</div>
-      <SvgIcon class="transition-transform" :class="modeVisible ? 'rotate-180' : ''" name="Down" />
+    <div class="flex cursor-pointer items-center gap-1" @click="modeVisible = !modeVisible">
+      <div class="whitespace-nowrap font-bold">
+        {{ modeSelection?.label || '未知模式' }}
+      </div>
+      <SvgIcon
+        class="transition-transform"
+        :class="modeVisible ? 'rotate-180' : ''"
+        name="Down"
+        size="16"
+      />
     </div>
 
     <SelectModal

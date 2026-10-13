@@ -56,14 +56,13 @@ const handleDesktopLyric = async () => {
     });
   } else {
     lyricBridge.stop();
-    visible.value = false;
   }
 };
 </script>
 
 <template>
   <div
-    class="action-icon text-center font-bold leading-8"
+    class="action-icon size-8 text-center font-bold leading-8"
     :class="visible ? 'text-info' : ''"
     title="桌面歌词"
     :data-disabled="!musicStore.music"

@@ -21,14 +21,15 @@ const settingStore = useSettingStore();
 
 const lyricRef = useTemplateRef('lyricRef');
 
-const FORWARD_DURATION = 100; // 歌词提前滚动时间 (ms)
 let wheelTimer: ReturnType<typeof setTimeout> | null = null; // 滚轮定时器
 
 const lyricPadding = ref(0); // 歌词容器内边距
-const isWheelling = ref(false); // 鼠标滚轮是否正在滚动
+const isWheeling = ref(false); // 鼠标滚轮是否正在滚动
 
 // 当前歌词的偏移量
 const lyricOffset = computed(() => lyricStore.offsetMap[lyricStore.lyric.id] || 0);
+// 歌词偏移后的实际播放进度 (s)
+const adjustedProgress = computed(() => musicStore.playProgress + lyricOffset.value);
 const fontSize = computed(
   () => lyricStore.fontSize + (settingStore.isFullscreen || settingStore.isMaximized ? 4 : 0),
 );
@@ -46,7 +47,7 @@ const lineHeight = computed(() => {
 const currentIndex = computed(() => {
   if (!lyricStore.lyric.id) return -1;
 
-  const pg = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION;
+  const pg = adjustedProgress.value * 1000 + 100;
   return lyricStore.lyric.lines.findIndex((line, index, list) => {
     const start = line.offset;
     const end = list[index + 1]?.offset || Infinity;
@@ -70,44 +71,47 @@ const setLyricPadding = async () => {
 
 // 获取单词进度百分比
 const getWordProgress = (offset: number, duration: number) =>
-  Math.max(
-    0,
-    Math.min(1, ((musicStore.playProgress + lyricOffset.value) * 1000 - offset) / duration),
-  ) * 100;
+  Math.max(0, Math.min(1, (adjustedProgress.value * 1000 - offset) / duration)) * 100;
 
 // 滚动到当前行
 const scrollToLine = () => {
-  if (musicStore.isDragging || isWheelling.value) return;
+  if (musicStore.isDragging || isWheeling.value) return;
 
-  lyricRef.value
-    ?.querySelector(`#lyric-line-${currentIndex.value}`)
-    ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const line = lyricRef.value?.querySelector<HTMLElement>(`#lyric-line-${currentIndex.value}`);
+  if (!line || !lyricRef.value) return;
+
+  lyricRef.value.scrollTo({
+    top: line.offsetTop - lyricPadding.value,
+    behavior: 'smooth',
+  });
 };
 
 // 点击歌词行跳转
 const handleLineClick = async (offset: number) => {
-  isWheelling.value = false;
-  clearWhellTimer();
+  isWheeling.value = false;
+  clearWheelTimer();
 
   musicStore.startChangeProgress();
   await musicStore.stopChangeProgress(offset / 1000);
 
-  await nextTick(scrollToLine);
+  await nextTick();
+
+  scrollToLine();
 };
 
 const setWheelTimer = () => {
-  isWheelling.value = true;
+  isWheeling.value = true;
 
   if (wheelTimer !== null) clearTimeout(wheelTimer);
   wheelTimer = setTimeout(() => {
-    isWheelling.value = false;
+    isWheeling.value = false;
     wheelTimer = null;
 
     scrollToLine();
   }, 2000);
 };
 
-const clearWhellTimer = () => {
+const clearWheelTimer = () => {
   if (wheelTimer === null) return;
 
   clearTimeout(wheelTimer);
@@ -119,25 +123,27 @@ watch(
   (isDragging) => !isDragging && scrollToLine(),
 );
 
-watch([currentIndex, () => lyricStore.transMode, () => lyricStore.fontSize], scrollToLine, {
-  flush: 'post',
-});
+watch(currentIndex, scrollToLine, { flush: 'post' });
+
+// 字体大小 / 翻译模式改变会导致行高变化，需重算内边距保持首行居中
+watch(() => lineHeight.value, setLyricPadding);
 
 useEventListener('resize', setLyricPadding);
 
 onMounted(setLyricPadding);
-onUnmounted(clearWhellTimer);
+onUnmounted(clearWheelTimer);
 </script>
 
 <template>
   <div
     ref="lyricRef"
-    class="hide-scrollbar relative overflow-y-scroll"
+    class="lyric-fade hide-scrollbar relative overflow-y-scroll"
     :style="{
       paddingBlock: `${lyricPadding}px`,
       fontFamily: lyricStore.fontFamily,
       '--line-padding': `${linePadding}px`,
       '--word-font-size': `${fontSize}px`,
+      '--fade-size': `${fontSize * 4}px`,
       '--trans-font-size': `${fontSize - 4}px`,
       '--word-height': `${wordHeight}px`,
       '--trans-height': `${lyricStore.fontSize}px`,
@@ -177,31 +183,34 @@ onUnmounted(clearWhellTimer);
         :class="lyricStore.textAlign"
         @click="handleLineClick(line.offset)"
       >
-        <!-- 歌词文本 -->
-        <div v-if="currentIndex === lineIndex">
-          <template v-if="lyricStore.lyric.fmt === LyricFormat.Krc">
+        <template v-if="lyricStore.lyric.fmt === LyricFormat.Krc">
+          <template v-if="currentIndex === lineIndex">
             <span
               v-for="(word, wordIndex) in line.words"
               :key="wordIndex"
-              class="music-lyric"
+              class="lyric"
               :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }"
             >
               {{ word.text }}
             </span>
           </template>
 
-          <template v-if="lyricStore.lyric.fmt === LyricFormat.Lrc">
-            <span v-for="(word, wordIndex) in line.words" :key="wordIndex" class="text-foreground">
+          <template v-else>
+            <span v-for="(word, wordIndex) in line.words" :key="wordIndex" class="text-minor">
               {{ word.text }}
             </span>
           </template>
-        </div>
+        </template>
 
-        <div v-else>
-          <span v-for="(word, wordIndex) in line.words" :key="wordIndex" class="text-minor">
+        <template v-if="lyricStore.lyric.fmt === LyricFormat.Lrc">
+          <span
+            v-for="(word, wordIndex) in line.words"
+            :key="wordIndex"
+            :class="currentIndex === lineIndex ? 'text-foreground' : 'text-minor'"
+          >
             {{ word.text }}
           </span>
-        </div>
+        </template>
 
         <!-- 翻译文本 -->
         <div
@@ -224,3 +233,34 @@ onUnmounted(clearWhellTimer);
     </template>
   </div>
 </template>
+
+<style scoped>
+.lyric-fade {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-size),
+    #000 calc(100% - var(--fade-size)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-size),
+    #000 calc(100% - var(--fade-size)),
+    transparent 100%
+  );
+}
+
+.lyric {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-lyric) 0%,
+    var(--color-lyric) var(--word-progress),
+    var(--color-accent) var(--word-progress),
+    var(--color-accent) 100%
+  );
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+</style>

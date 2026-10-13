@@ -28,7 +28,7 @@ const listType = inject<ListType>('listType', ListType.Show);
 
 const listStore = useListStore();
 
-const tableColumns = [
+const tableColumns: TableColumn[] = [
   { key: 'index', slot: true, width: '2.5rem', padding: 0 },
   { key: 'info', slot: true, width: 'auto' },
   { key: 'action', slot: true, width: '2.5rem', padding: 0 },
@@ -169,14 +169,14 @@ watch(
             class="flex size-full flex-col items-center justify-center text-minor"
           >
             <SvgIcon name="Empty" size="56" />
-            <div class="text-xl font-bold">列表为空</div>
+            <div class="text-xl font-bold">垂磬之室</div>
           </div>
 
           <template v-else>
             <li
               v-for="(path, index) in scanPaths"
               :key="index"
-              class="group/path card-hover flex items-center justify-between gap-2 rounded-lg leading-10"
+              class="group/path card-hover flex items-center justify-between gap-3 rounded-lg leading-10"
             >
               <div class="w-10 truncate text-center text-minor">
                 {{ index + 1 }}
@@ -184,9 +184,10 @@ watch(
 
               <div class="w-0 flex-1 truncate">{{ path }}</div>
 
-              <SvgIcon
-                class="action-icon w-10 hover:text-error"
-                name="Close"
+              <ActionButton
+                class="w-10 hover:text-error"
+                mode="text"
+                prefix-icon="Close"
                 @click="removePath(index)"
               />
             </li>
@@ -196,9 +197,9 @@ watch(
         <!-- 扫描规则 -->
         <div class="mt-3">
           <div class="font-bold">扫描规则:</div>
-          <div class="mt-2 flex gap-2">
+          <div class="mt-2 flex gap-3">
             <div class="shrink-0">文件格式:</div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-3">
               <label class="flex items-center gap-1">
                 <input
                   type="checkbox"
@@ -250,9 +251,10 @@ watch(
           </template>
 
           <template #action="row">
-            <SvgIcon
-              class="action-icon hover:text-error"
-              name="Close"
+            <ActionButton
+              class="w-10 hover:text-error"
+              mode="text"
+              prefix-icon="Close"
               @click="removeMusic(row.index)"
             />
           </template>

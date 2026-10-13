@@ -2,8 +2,8 @@
 import { vOnClickOutside } from '@vueuse/components';
 import { computed, ref } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import SelectModal from '@/components/SelectModal.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useMusicStore } from '@/stores/music';
 import { PlayingMode } from '@/utils/params';
 
@@ -31,10 +31,11 @@ const modeSelect = (mode: PlayingMode) => {
 
 <template>
   <div class="relative" v-on-click-outside="() => (modeVisible = false)">
-    <SvgIcon
-      class="action-icon"
-      :name="modeSelection.prefixIcon || 'OrderPlay'"
-      size="18"
+    <ActionButton
+      class="size-8"
+      mode="text"
+      :prefix-icon="modeSelection.prefixIcon || 'OrderPlay'"
+      icon-size="18"
       @click="modeVisible = !modeVisible"
     />
 

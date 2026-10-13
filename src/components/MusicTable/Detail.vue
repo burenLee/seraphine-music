@@ -15,12 +15,13 @@ interface Props {
 const visible = defineModel({ required: true, default: false });
 const { path } = defineProps<Props>();
 
-const isLoading = ref(false);
 const musicDetail = ref<MusicDetail>();
 
-const cover = computed(() =>
-  musicDetail.value?.cover ? convertFileSrc(musicDetail.value.cover) : '',
-);
+const cover = computed(() => {
+  if (!musicDetail.value?.cover) return '';
+
+  return convertFileSrc(musicDetail.value.cover);
+});
 
 const handleCancel = () => {
   visible.value = false;
@@ -28,14 +29,10 @@ const handleCancel = () => {
 
 watch(visible, async (visible) => {
   if (visible) {
-    isLoading.value = true;
-
     try {
       musicDetail.value = await invoke('music_file_detail', { path });
     } catch {
       notify.error('获取文件详情失败');
-    } finally {
-      isLoading.value = false;
     }
   } else {
     musicDetail.value = undefined;
@@ -45,15 +42,13 @@ watch(visible, async (visible) => {
 
 <template>
   <Modal v-model="visible" class="w-96" title="歌曲详情" hideFooter @cancel="handleCancel">
-    <div v-if="isLoading" class="text-center font-bold leading-[8rem] text-minor">获取中...</div>
-
-    <div v-else-if="!musicDetail" class="text-center font-bold leading-[8rem]">
+    <div v-if="!musicDetail" class="px-6 pb-4 text-center font-bold leading-[8rem]">
       未获取到歌曲详情
     </div>
 
-    <div v-else class="space-y-1 px-6 pb-6">
+    <div v-else class="space-y-1 px-6 pb-4">
       <div class="flex gap-3">
-        <Image class="size-12" :src="cover" />
+        <Image class="size-12" :src="cover" icon-size="24" />
 
         <div class="min-w-0 flex-1">
           <div class="music-title cursor-copy truncate" v-copy="musicDetail.artist">

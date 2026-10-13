@@ -2,8 +2,8 @@
 import { vOnClickOutside } from '@vueuse/components';
 import { computed, inject, ref, watch } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import SelectModal from '@/components/SelectModal.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useListStore } from '@/stores/list';
 import { ListType, SortOrder, SortType } from '@/utils/params';
 
@@ -57,9 +57,10 @@ watch(
 
 <template>
   <div class="relative" v-on-click-outside="() => (sortVisible = false)">
-    <SvgIcon
-      class="action-icon card-hover rounded-lg transition-colors hover:text-foreground"
-      :name="sortSelection.prefixIcon!"
+    <ActionButton
+      class="size-8"
+      mode="text"
+      :prefix-icon="sortSelection.prefixIcon!"
       @click="sortVisible = !sortVisible"
     />
 

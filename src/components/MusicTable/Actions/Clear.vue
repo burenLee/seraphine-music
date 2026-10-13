@@ -42,6 +42,6 @@ const handleConfirm = () => {
     @confirm="handleConfirm"
   >
     <div class="px-6 font-bold">确认清空列表?</div>
-    <div class="px-6 py-2">tips: 仅删除显示</div>
+    <div class="px-6 py-3">tips: 仅删除显示</div>
   </Modal>
 </template>

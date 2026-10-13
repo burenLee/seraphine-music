@@ -12,7 +12,7 @@ import Version from './Version.vue';
 
 <template>
   <div class="main space-y-8">
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3">
       <SvgIcon name="Setting" size="20" />
       <div class="text-xl font-bold">设置</div>
     </div>

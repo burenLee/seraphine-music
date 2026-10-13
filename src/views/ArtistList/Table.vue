@@ -2,9 +2,9 @@
 import { onMounted, onUnmounted, provide, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import MusicActions from '@/components/MusicTable/MusicActions.vue';
-import MusicHeader from '@/components/MusicTable/MusicHeader.vue';
-import MusicTable from '@/components/MusicTable/MusicTable.vue';
+import MusicActions from '@/components/MusicTable/Actions.vue';
+import MusicHeader from '@/components/MusicTable/Header.vue';
+import MusicTable from '@/components/MusicTable/Table.vue';
 import { notify } from '@/components/Notification.vue';
 import { defaultInfo, useListStore } from '@/stores/list';
 import { getPrivilegeTags } from '@/utils/music';

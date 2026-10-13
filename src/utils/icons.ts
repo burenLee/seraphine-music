@@ -76,6 +76,7 @@ import Album from '~icons/solar/vinyl-record-linear';
 import VolumeOff from '~icons/solar/volume-cross-linear';
 import VolumeLoud from '~icons/solar/volume-loud-linear';
 import VolumeSmall from '~icons/solar/volume-small-linear';
+import Bars from '~icons/svg-spinners/bars-scale-middle';
 import Ring from '~icons/svg-spinners/ring-resize';
 
 export const IconMap = {
@@ -158,6 +159,7 @@ export const IconMap = {
   VolumeLoud,
   VolumeSmall,
   Ring,
+  Bars,
 } as const;
 
 export type IconName = keyof typeof IconMap;

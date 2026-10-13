@@ -79,40 +79,30 @@ const handleSelect = async (value: UserAction) => {
 <template>
   <div
     v-if="!userStore.userinfo"
-    class="animate-underline mx-2 cursor-pointer whitespace-nowrap font-bold leading-6"
+    class="animate-underline mx-2 cursor-pointer whitespace-nowrap font-bold leading-8"
     @click="modalVisible = true"
   >
     点击登录
   </div>
 
-  <div
-    v-else
-    class="relative"
-    v-on-click-outside="() => (userVisible = false)"
-    @click="userVisible = !userVisible"
-  >
-    <div class="flex cursor-pointer items-center px-2">
-      <Image
-        class="size-6 rounded-full"
-        :src="userStore.userinfo.pic"
-        icon="User"
-        :icon-size="16"
-      />
-      <div class="max-w-24 truncate pl-2 pr-1 font-bold" :title="userStore.userinfo.nickname">
+  <div v-else class="relative" v-on-click-outside="() => (userVisible = false)">
+    <div class="flex cursor-pointer items-center gap-1 px-2" @click="userVisible = !userVisible">
+      <Image class="size-8 rounded-full" :src="userStore.userinfo.pic" icon="User" />
+      <div class="max-w-24 truncate font-bold" :title="userStore.userinfo.nickname">
         {{ userStore.userinfo.nickname }}
       </div>
-      <SvgIcon class="transition-transform" :class="{ 'rotate-180': userVisible }" name="Down" />
+      <SvgIcon class="transition-transform" :class="userVisible ? 'rotate-180' : ''" name="Down" />
 
       <div
         v-if="isSvip"
-        class="absolute -bottom-1 left-5 flex size-4 scale-[70%] items-center rounded-full border border-border bg-info pl-1 text-xs font-bold text-neutral-100"
+        class="absolute bottom-0 left-7 flex size-4 scale-75 items-center justify-center rounded-full bg-info text-xs font-bold text-neutral-100"
       >
         v
       </div>
     </div>
 
     <SelectModal
-      class="pointer-events-auto absolute left-1/2 top-full -translate-x-1/2"
+      class="absolute left-1/2 top-full -translate-x-1/2"
       transition="zoom-top"
       :visible="userVisible"
       :options="userOptions"
@@ -127,10 +117,11 @@ const handleSelect = async (value: UserAction) => {
     hideFooter
     @close="modalVisible = false"
   >
-    <SvgIcon
-      class="action-icon absolute right-4 top-4 z-50 cursor-pointer"
-      name="Close"
-      size="20"
+    <ActionButton
+      class="absolute right-4 top-4 z-50"
+      mode="text"
+      prefixIcon="Close"
+      iconSize="24"
       @click="modalVisible = false"
     />
 
@@ -145,7 +136,7 @@ const handleSelect = async (value: UserAction) => {
       {{ mode === LoginMode.Code ? '账号' : '扫码' }}
     </ActionButton>
 
-    <Transition name="slide-login-left">
+    <Transition name="slide-left-login">
       <QRCode
         v-if="mode === LoginMode.Code"
         class="absolute right-0 top-0 h-full w-[26rem]"
@@ -153,7 +144,7 @@ const handleSelect = async (value: UserAction) => {
       />
     </Transition>
 
-    <Transition name="slide-login-right">
+    <Transition name="slide-right-login">
       <Form
         v-if="mode === LoginMode.Form"
         class="absolute left-0 top-0 h-full w-[26rem]"

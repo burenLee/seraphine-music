@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router';
 import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
 import { notify } from '@/components/Notification.vue';
-import ToTop from '@/components/PageActions/ToTop.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import VirtualList from '@/components/VirtualList.vue';
 import { getPic } from '@/utils/music';
@@ -186,7 +185,7 @@ onMounted(() => {
 
       <template #info="row">
         <div class="flex items-center gap-3">
-          <Image class="size-12" :src="getPic(row.cover)" />
+          <Image class="size-12" :src="getPic(row.cover)" icon-size="24" />
 
           <div class="w-0 flex-1 truncate font-bold">{{ row.name }}</div>
         </div>
@@ -204,7 +203,7 @@ onMounted(() => {
     </VirtualList>
 
     <div class="absolute bottom-4 right-4">
-      <ToTop @click="handleToTop" />
+      <ActionButton class="size-8 p-0" prefix-icon="Up" title="滚到顶部" @click="handleToTop" />
     </div>
   </div>
 </template>

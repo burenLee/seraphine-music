@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 
 import Carousel from '@/components/Carousel.vue';
+import Image from '@/components/Image.vue';
 import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import { defaultInfo, useListStore } from '@/stores/list';
@@ -158,19 +159,13 @@ onMounted(() => {
           class="group absolute right-0 top-0 size-full cursor-pointer overflow-hidden rounded-lg border bg-[var(--from-bg)]"
           @click="banner.onClick"
         >
-          <img v-if="banner.img" :src="banner.img" loading="lazy" decoding="async" alt="" />
-          <SvgIcon
-            v-else
-            class="flex size-full items-center justify-center"
-            name="Music"
-            size="32"
-          />
+          <Image class="size-full" :src="banner.img" icon-size="32" />
 
-          <SvgIcon
-            class="absolute inset-0 bg-black/30 text-neutral-50 opacity-0 transition-opacity group-hover:opacity-100"
-            name="PlayBold"
-            size="32"
-          />
+          <div
+            class="absolute inset-0 flex items-center justify-center bg-black/30 text-neutral-50 opacity-0 transition-opacity group-hover:opacity-100"
+          >
+            <SvgIcon name="PlayBold" size="32" />
+          </div>
         </div>
       </div>
     </div>

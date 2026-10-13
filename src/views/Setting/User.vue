@@ -27,13 +27,13 @@ const isSvip = computed(() => userStore.userinfo?.youthVip === YouthVip.Svip);
 
         <div
           v-if="isSvip"
-          class="absolute -bottom-1 left-3 flex size-4 scale-[70%] items-center rounded-full border border-border bg-info pl-1 text-xs font-bold"
+          class="absolute -bottom-1 left-3 flex size-4 scale-[70%] items-center rounded-full border border-border bg-info pl-1 text-xs font-bold text-background"
         >
           v
         </div>
       </div>
 
-      <label class="flex cursor-pointer items-center gap-2" :data-disabled="true">
+      <label class="flex cursor-pointer items-center gap-1" :data-disabled="true">
         <input type="checkbox" v-model="settingStore.autoLiteVipState" />
         自动领取概念版会员
       </label>

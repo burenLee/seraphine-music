@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 
+import ActionButton from '@/components/ActionButton.vue';
 import { notify } from '@/components/Notification.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
 import { useUserStore } from '@/stores/user';
@@ -79,19 +79,21 @@ const handleUnlike = async () => {
 </script>
 
 <template>
-  <SvgIcon
+  <ActionButton
     v-if="isLike"
-    class="action-icon text-error"
-    name="HeartBold"
-    size="18"
+    class="size-8 text-error"
+    mode="text"
+    prefix-icon="HeartBold"
+    icon-size="18"
     :disabled="disabled"
     @click="handleUnlike"
   />
-  <SvgIcon
+  <ActionButton
     v-else
-    class="action-icon"
-    name="Heart"
-    size="18"
+    class="size-8"
+    mode="text"
+    prefix-icon="Heart"
+    icon-size="18"
     :disabled="disabled || !musicStore.music?.hash"
     @click="handleLike"
   />

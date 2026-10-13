@@ -4,9 +4,18 @@ import { computed } from 'vue';
 import { cn } from '@/utils/tools';
 
 interface Props {
-  loadingProgress?: number; // 加载进度
-  max?: number; // 最大值
-  step?: number; // 步进
+  /** 加载进度 */
+  loadingProgress?: number;
+  /**
+   * 最大值
+   * @default 0
+   */
+  max?: number;
+  /**
+   * 步进
+   * @default 1
+   */
+  step?: number;
   /**
    * 显示方向
    * @param horizontal 水平

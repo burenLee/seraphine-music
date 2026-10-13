@@ -55,7 +55,11 @@ describe('N1 选歌↔歌词↔播放↔会员 联动', () => {
     });
     listStore.setList(ListType.Play, makeMusicList([song], { id: 'play' }));
 
-    const official = makeLyricCandidate({ id: 'c-n1', product_from: '官方推荐歌词', contenttype: 1 });
+    const official = makeLyricCandidate({
+      id: 'c-n1',
+      product_from: '官方推荐歌词',
+      contenttype: 1,
+    });
     mockInvoke({
       api_song_url: { status: 1, backupUrl: ['https://cdn.example.com/n1.mp3'] },
       api_lyric_search: { status: 200, candidates: [official] },

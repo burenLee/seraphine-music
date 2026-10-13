@@ -1,13 +1,17 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 
-import SvgIcon from '@/components/SvgIcon.vue';
+import ActionButton from '@/components/ActionButton.vue';
+import Image from '@/components/Image.vue';
 import SystemActions from '@/components/SystemActions.vue';
 import { useContextMenuStore } from '@/stores/context-menu';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
 import { useSettingStore } from '@/stores/setting';
-import { LyricPageMode } from '@/utils/params';
+import { useCover } from '@/utils/hooks';
+import { LyricPageMode, PicSize } from '@/utils/params';
+
+import Playbar from '../Playbar/Playbar.vue';
 
 import AlignBtn from './Actions/AlignBtn.vue';
 import ColorBtn from './Actions/ColorBtn.vue';
@@ -19,13 +23,14 @@ import BgMode from './BgMode.vue';
 import FullScreen from './FullScreen.vue';
 import LyricScrollList from './LyricScrollList.vue';
 import LyricSearchModal from './LyricSearchModal.vue';
-import SquareCover from './SquareCover.vue';
 import VinylRecord from './VinylRecord.vue';
 
 const settingStore = useSettingStore();
 const lyricStore = useLyricStore();
 const musicStore = useMusicStore();
 const contextMenuStore = useContextMenuStore();
+
+const cover = useCover(PicSize.Lg);
 
 const lyricSearchVisible = ref(false);
 
@@ -65,75 +70,74 @@ const handleContextMenu = (e: MouseEvent) => {
 </script>
 
 <template>
-  <Transition name="slide-page-top">
+  <Transition name="slide-top-page">
     <div
       v-if="lyricStore.pageVisible"
-      class="fixed bottom-[var(--playbar-height)] left-0 right-0 top-0 z-10 flex flex-col bg-background"
+      class="fixed inset-0 z-10 flex flex-col overflow-hidden bg-background"
     >
-      <!-- <Transition name="fade">
-        <SingerPhoto v-if="lyricPageMode === LyricPageMode.Photo" />
-      </Transition> -->
+      <!-- 封面模糊背景 -->
+      <template v-if="cover">
+        <img
+          class="absolute left-0 top-0 w-full object-cover blur-3xl"
+          :src="cover"
+          alt=""
+          draggable="false"
+        />
+        <div class="absolute inset-0 bg-background opacity-50" />
+      </template>
 
       <div
         :data-tauri-drag-region="!settingStore.isFullscreen"
-        class="flex h-14 w-full justify-between px-6 pt-6"
+        class="relative flex h-[var(--header-height)] items-center gap-1 px-5 pt-4"
       >
-        <!-- 左侧 -->
-        <div class="flex items-center gap-1">
-          <SvgIcon
-            v-if="!settingStore.isFullscreen"
-            class="action-icon"
-            name="Down"
-            size="24"
+        <template v-if="!settingStore.isFullscreen">
+          <ActionButton
+            class="mr-auto size-8"
+            mode="text"
+            prefix-icon="Down"
+            icon-size="24"
             title="收起"
             @click="lyricStore.togglePageVisible"
           />
-        </div>
 
-        <!-- 右侧 -->
-        <div class="flex items-center gap-1">
-          <template v-if="!settingStore.isFullscreen">
-            <BgMode />
-            <FullScreen />
-            <div class="mx-1 h-4 w-px bg-minor" />
-            <SystemActions />
-          </template>
+          <BgMode />
+          <FullScreen />
+          <SystemActions />
+        </template>
 
-          <FullScreen v-else />
-        </div>
+        <FullScreen v-else class="ml-auto" />
       </div>
 
-      <div class="flex h-0 flex-1 p-8" @contextmenu.prevent="handleContextMenu">
+      <div class="relative flex h-0 flex-1 p-8" @contextmenu.prevent="handleContextMenu">
         <div class="flex w-1/2 items-center justify-center pr-4">
           <Transition name="zoom-fade" mode="out-in">
-            <SquareCover v-if="lyricStore.pageMode === LyricPageMode.Cover" />
-            <VinylRecord v-else-if="lyricStore.pageMode === LyricPageMode.Record" />
+            <Image
+              v-if="lyricStore.pageMode === LyricPageMode.Cover"
+              class="rounded-3xl"
+              :class="settingStore.isFullscreen || settingStore.isMaximized ? 'size-96' : 'size-80'"
+              :src="cover"
+              :icon-size="96"
+            />
+            <VinylRecord v-else-if="lyricStore.pageMode === LyricPageMode.Record" :src="cover" />
           </Transition>
         </div>
 
-        <div class="relative flex h-full w-1/2 gap-3 pl-4">
-          <LyricScrollList
-            class="h-full w-0 flex-1"
-            @lyric-search-show="lyricSearchVisible = true"
-          />
-          <div
-            class="pointer-events-none absolute left-0 right-10 top-0 h-32 bg-gradient-to-b from-background to-transparent"
-          ></div>
-          <div
-            class="pointer-events-none absolute bottom-0 left-0 right-10 h-32 bg-gradient-to-t from-background to-transparent"
-          ></div>
+        <div class="flex h-full w-1/2 gap-3 pl-4">
+          <LyricScrollList class="h-full flex-1" @lyric-search-show="lyricSearchVisible = true" />
 
-          <div class="flex w-8 flex-col gap-3 self-end">
-            <template v-if="!settingStore.isFullscreen">
-              <ColorBtn />
-              <FontFamilyBtn />
-              <AlignBtn />
-              <FontSizeBtn />
-              <OffsetBtn />
-              <TransBtn />
-            </template>
+          <div v-if="!settingStore.isFullscreen" class="flex w-8 flex-col gap-3 self-end">
+            <ColorBtn />
+            <FontFamilyBtn />
+            <AlignBtn />
+            <FontSizeBtn />
+            <OffsetBtn />
+            <TransBtn />
           </div>
         </div>
+      </div>
+
+      <div class="h-[var(--playbar-height)]">
+        <Playbar v-if="!settingStore.isFullscreen" />
       </div>
     </div>
   </Transition>
