@@ -1,6 +1,6 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
+import { CloseMode } from '@/constants';
 import { useSettingStore } from '@/stores/setting';
-import { CloseStatus } from '@/utils/params';
 
 const settingStore = useSettingStore();
 </script>
@@ -14,8 +14,8 @@ const settingStore = useSettingStore();
         <input
           type="radio"
           name="closeAction"
-          :checked="settingStore.closeStatus === CloseStatus.Hide"
-          @change="settingStore.setCloseStatus(CloseStatus.Hide)"
+          :checked="settingStore.closeMode === CloseMode.Hide"
+          @change="settingStore.setCloseMode(CloseMode.Hide)"
         />
         最小化到托盘
       </label>
@@ -24,8 +24,8 @@ const settingStore = useSettingStore();
         <input
           type="radio"
           name="closeAction"
-          :checked="settingStore.closeStatus === CloseStatus.Exit"
-          @change="settingStore.setCloseStatus(CloseStatus.Exit)"
+          :checked="settingStore.closeMode === CloseMode.Exit"
+          @change="settingStore.setCloseMode(CloseMode.Exit)"
         />
         退出程序
       </label>

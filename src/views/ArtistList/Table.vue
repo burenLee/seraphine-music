@@ -1,14 +1,13 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, provide, ref, watch } from 'vue';
+import { onUnmounted, provide, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import MusicActions from '@/components/MusicTable/Actions.vue';
 import MusicHeader from '@/components/MusicTable/Header.vue';
 import MusicTable from '@/components/MusicTable/Table.vue';
-import { notify } from '@/components/Notification.vue';
-import { defaultInfo, useListStore } from '@/stores/list';
+import { InvokeApiStatus, ListType, PageSize } from '@/constants';
+import { defaultListInfo, useListStore } from '@/stores/list';
 import { getPrivilegeTags } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PageSize } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const listType = ListType.Show;
@@ -28,61 +27,53 @@ const page = ref(1);
 const handleLoad = async (id: string) => {
   const reqId = ++requestId;
 
-  // 切换歌手时重置分页状态
-  page.value = 1;
-  isFinished.value = false;
-  isFinishing.value = false;
-
   listStore.isHeaderLoading = true;
   listStore.isTableLoading = true;
 
+  // 切换歌手时重置分页状态
+  isFinishing.value = false;
+  isFinished.value = false;
+  page.value = 1;
+
   try {
     const artist_detail = await invoke('api_artist_detail', { id });
-    if (isUnmounted || reqId !== requestId) return;
+    if (isUnmounted || reqId !== requestId || artist_detail.status !== InvokeApiStatus.Success)
+      return;
 
-    if (artist_detail.status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌手信息失败');
-    } else {
-      const info: ListInfo = {
-        ...defaultInfo,
-        id: artist_detail.data.author_id,
-        cover: artist_detail.data.sizable_avatar,
-        title: artist_detail.data.author_name,
-        count: artist_detail.data.song_count,
-      };
-      listStore.setListInfo(listType, info);
-      listStore.isHeaderLoading = false;
+    const info: ListInfo = {
+      ...defaultListInfo,
+      id: artist_detail.data.author_id,
+      cover: artist_detail.data.sizable_avatar,
+      title: artist_detail.data.author_name,
+      count: artist_detail.data.song_count,
+    };
+    listStore.setListInfo(listType, info);
+    listStore.isHeaderLoading = false;
 
-      const list: MusicInfo[] = [];
-      const artist_audios = await invoke('api_artist_audios', { id, pageSize: PageSize.More });
-      if (isUnmounted || reqId !== requestId) return;
+    const list: MusicInfo[] = [];
 
-      if (artist_audios.status !== ApiInvokeStatus.Success) {
-        notify.error('获取歌手歌曲失败');
-      } else {
-        artist_audios.data.forEach((song, index) => {
-          if (!song.album_audio_id) return;
+    const artist_audios = await invoke('api_artist_audios', { id, pageSize: PageSize.More });
+    if (isUnmounted || reqId !== requestId || artist_audios.status !== InvokeApiStatus.Success)
+      return;
 
-          list.push({
-            id: song.album_audio_id,
-            path: null,
-            hash: song.hash,
-            cover: song.trans_param.union_cover,
-            title: song.audio_name,
-            artist: song.author_name,
-            album: song.album_name,
-            duration: song.timelength / 1000,
-            sort: index,
-            privilegeTags: getPrivilegeTags(song.privilege, song.pay_type),
-          });
-        });
+    artist_audios.data.forEach((song, index) => {
+      if (!song.album_audio_id) return;
 
-        listStore.setListRaw(listType, list);
-      }
-    }
-  } catch {
-    if (isUnmounted || reqId !== requestId) return;
-    notify.error('获取歌手歌曲失败');
+      list.push({
+        id: song.album_audio_id,
+        path: null,
+        hash: song.hash,
+        cover: song.trans_param.union_cover,
+        title: song.audio_name,
+        artist: song.author_name,
+        album: song.album_name,
+        duration: song.timelength / 1000,
+        sort: index,
+        privilegeTags: getPrivilegeTags(song.privilege, song.pay_type),
+      });
+    });
+
+    listStore.setListRaw(listType, list);
   } finally {
     if (!isUnmounted && reqId === requestId) {
       listStore.isHeaderLoading = false;
@@ -103,37 +94,30 @@ const handleInfinite = async () => {
       page: ++page.value,
       pageSize: PageSize.More,
     });
-    if (isUnmounted || reqId !== requestId) return;
+    if (isUnmounted || reqId !== requestId || status !== InvokeApiStatus.Success) return;
 
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌手歌曲失败');
-    } else {
-      const list: MusicInfo[] = [];
-      const start = page.value * PageSize.More;
+    const list: MusicInfo[] = [];
+    const start = page.value * PageSize.More;
 
-      data.forEach((song, index) => {
-        if (!song.album_audio_id) return;
+    data.forEach((song, index) => {
+      if (!song.album_audio_id) return;
 
-        list.push({
-          id: song.album_audio_id,
-          path: null,
-          hash: song.hash,
-          cover: song.trans_param.union_cover,
-          title: song.audio_name,
-          artist: song.author_name,
-          album: song.album_name,
-          duration: song.timelength / 1000,
-          sort: start + index,
-          privilegeTags: getPrivilegeTags(song.privilege, song.pay_type),
-        });
+      list.push({
+        id: song.album_audio_id,
+        path: null,
+        hash: song.hash,
+        cover: song.trans_param.union_cover,
+        title: song.audio_name,
+        artist: song.author_name,
+        album: song.album_name,
+        duration: song.timelength / 1000,
+        sort: start + index,
+        privilegeTags: getPrivilegeTags(song.privilege, song.pay_type),
       });
+    });
 
-      listStore.addListRaw(listType, list);
-      if (data.length < PageSize.More) isFinished.value = true;
-    }
-  } catch {
-    if (isUnmounted || reqId !== requestId) return;
-    notify.error('获取歌手歌曲失败');
+    listStore.addListRaw(listType, list);
+    if (data.length < PageSize.More) isFinished.value = true;
   } finally {
     if (!isUnmounted && reqId === requestId) {
       isFinishing.value = false;

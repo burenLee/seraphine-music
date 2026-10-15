@@ -20,9 +20,9 @@ describe('VirtualList 虚拟列表', () => {
     HTMLElement.prototype.scrollTo = vi.fn() as never;
   });
 
-  it('空列表显示「列表为空」', () => {
+  it('空列表显示空态文案「垂磬之室」', () => {
     const wrapper = mount(VirtualList, { props: { list: [], columns } });
-    expect(wrapper.text()).toContain('列表为空');
+    expect(wrapper.text()).toContain('垂磬之室');
   });
 
   it('loading 时渲染骨架屏', () => {

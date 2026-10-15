@@ -7,13 +7,13 @@ import Image from '@/components/Image.vue';
 import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
+import { InvokeApiStatus, ListType, PageSize, PlaylistType } from '@/constants';
 import { useContextMenuStore } from '@/stores/context-menu';
-import { defaultInfo, useListStore } from '@/stores/list';
+import { defaultListInfo, useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
-import { useRefreshStore } from '@/stores/refresh';
+import { useStateStore } from '@/stores/state.ts';
 import { useUserStore } from '@/stores/user';
 import { getOrigin, getPic, getPrivilegeTags } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PageSize, PlaylistType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 import Add from './Add.vue';
@@ -24,61 +24,75 @@ const router = useRouter();
 const userStore = useUserStore();
 const listStore = useListStore();
 const musicStore = useMusicStore();
-const refreshStore = useRefreshStore();
+const stateStore = useStateStore();
 const contextMenuStore = useContextMenuStore();
 
 const slideOptions: Array<SelectOption<PlaylistType>> = [
-  { label: '自建歌单', value: PlaylistType.User },
-  { label: '收藏歌单', value: PlaylistType.Collection },
+  { label: '自建歌单', value: PlaylistType.Own },
+  { label: '收藏歌单', value: PlaylistType.Favorite },
 ];
 
 const slideSelection = ref(slideOptions[0]);
-const userPlaylist = ref<ApiPlaylist[]>([]);
-const contextMenuPlaylist = ref<ApiPlaylist>();
+const userPlaylist = ref<PlaylistInfo[]>([]);
+const favoritePlaylist = ref<PlaylistInfo[]>([]);
+const contextMenuPlaylist = ref<PlaylistInfo>();
 const delModalVisible = ref(false);
 
 // 歌单切换效果
 const transition = computed(() =>
-  slideSelection.value.value === PlaylistType.User ? 'slide-right' : 'slide-left',
+  slideSelection.value.value === PlaylistType.Own ? 'slide-right' : 'slide-left',
 );
 
 const getUserPlaylist = async () => {
-  try {
-    const { status, data } = await invoke('api_playlist_user', { pageSize: PageSize.Max });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('无法获取歌单歌曲');
-      return;
+  const { status, data } = await invoke('api_playlist_user', { pageSize: PageSize.Max });
+  if (status !== InvokeApiStatus.Success) return;
+
+  const list = data.info.map((playlist) => {
+    if (playlist.is_def === 1) {
+      // 默认收藏
+      playlist.sort = 0;
+    } else if (playlist.is_def === 2) {
+      // 我喜欢
+      playlist.sort = 1;
+
+      // 初始化 `我喜欢` 列表属性
+      listStore.setLikeListInfo({
+        ...defaultListInfo,
+        id: playlist.list_create_listid,
+        title: playlist.name,
+        count: playlist.count,
+        gid: playlist.list_create_gid,
+        sort: 0,
+      });
+    } else {
+      // 默认0, +2确保 `默认收藏`/`我喜欢` 在顶部
+      playlist.sort += 2;
     }
 
-    userPlaylist.value = data.info.map((playlist) => {
-      if (playlist.is_def === 1) {
-        // 默认收藏
-        playlist.sort = 0;
-      } else if (playlist.is_def === 2) {
-        // 我喜欢
-        playlist.sort = 1;
+    return {
+      id: playlist.list_create_listid,
+      cover: playlist.pic,
+      title: playlist.name,
+      artist: playlist.list_create_username,
+      count: playlist.count,
+      playCount: 0,
+      tags: playlist.musiclib_tags.map((tag) => tag.tag_name),
+      gid: playlist.list_create_gid,
+      is_pri: playlist.is_pri,
+      is_def: playlist.is_def,
+      sort: playlist.sort,
 
-        // 初始化 我喜欢 列表, info 数据供getLikePlaylist使用
-        listStore.setLikeListInfo({
-          ...defaultInfo,
-          id: playlist.list_create_listid,
-          title: playlist.name,
-          count: playlist.count,
-          gid: playlist.list_create_gid,
-        });
-      } else {
-        // 默认0, +2确保 默认收藏/我喜欢 在顶部
-        playlist.sort += 2;
-      }
+      type: playlist.type,
+    };
+  });
 
-      return playlist;
-    });
+  userPlaylist.value = list.filter((playlist) => playlist.type === PlaylistType.Own);
+  favoritePlaylist.value = list.filter((playlist) => playlist.type === PlaylistType.Favorite);
 
-    userPlaylist.value.sort((a, b) => a.sort - b.sort);
-    userStore.setUserPlaylist(userPlaylist.value);
-  } catch {
-    notify.error('无法获取歌单歌曲');
-  }
+  userPlaylist.value.sort((a, b) => a.sort - b.sort);
+  favoritePlaylist.value.sort((a, b) => a.sort - b.sort);
+
+  userStore.setUserPlaylist(userPlaylist.value);
 };
 
 const clearUserPlaylist = () => {
@@ -89,106 +103,101 @@ const getLikePlaylist = async () => {
   const gid = listStore.like.info.gid;
   if (!gid) return;
 
-  try {
-    let page = 1;
-    let total = 0;
-    const list: MusicInfo[] = [];
+  let page = 1;
+  let total = 0;
+  const list: MusicInfo[] = [];
 
-    while (total < listStore.like.info.count) {
-      const playlist_tracks_all = await invoke('api_playlist_tracks_all', {
-        gid,
-        page: page++,
-        pageSize: PageSize.Max,
+  while (total < listStore.like.info.count) {
+    const playlist_tracks_all = await invoke('api_playlist_tracks_all', {
+      gid,
+      page: page++,
+      pageSize: PageSize.Max,
+    });
+    if (playlist_tracks_all.status !== InvokeApiStatus.Success) break;
+
+    total += playlist_tracks_all.data.count;
+
+    playlist_tracks_all.data.songs.forEach((song) => {
+      if (song.shield !== undefined) return;
+
+      const [artist, title] = song.name.split(' - ');
+
+      list.push({
+        id: song.mixsongid,
+        path: null,
+        hash: song.hash,
+        cover: song.trans_param.union_cover,
+        title: title,
+        artist: artist,
+        album: song.albuminfo.name,
+        duration: song.timelen / 1000,
+        sort: song.sort,
+        privilegeTags: getPrivilegeTags(song.privilege, song.download[0].pay_type),
+        fileId: song.fileid,
       });
-      if (playlist_tracks_all.status !== ApiInvokeStatus.Success) break;
+    });
+  }
 
-      total += playlist_tracks_all.data.count;
-
-      playlist_tracks_all.data.songs.forEach((song) => {
-        if (song.shield !== undefined) return;
-
-        const [artist, title] = song.name.split(' - ');
-
-        list.push({
-          id: song.mixsongid,
-          path: null,
-          hash: song.hash,
-          cover: song.trans_param.union_cover,
-          title: title,
-          artist: artist,
-          album: song.albuminfo.name,
-          duration: song.timelen / 1000,
-          sort: song.sort,
-          privilegeTags: getPrivilegeTags(song.privilege, song.download[0].pay_type),
-          fileId: song.fileid,
-        });
-      });
-    }
-
-    listStore.setLikeListRaw(list);
-  } catch {}
+  listStore.setLikeListRaw(list);
 };
 
 const clearLikePlaylist = () => {
   listStore.clearLikeList();
 };
 
-const handlePlay = async (playlist: ApiPlaylist) => {
-  if (playlist.list_create_listid === listStore.play.info.id) {
+const handlePlay = async (playlist: PlaylistInfo) => {
+  if (playlist.id === listStore.play.info.id) {
     musicStore.play();
     return;
   }
 
-  try {
-    const info: ListInfo = {
-      ...defaultInfo,
-      id: playlist.list_create_listid,
-      cover: playlist.pic,
-      title: playlist.name,
-      artist: playlist.list_create_username,
-      tags: playlist.musiclib_tags.map((tag) => tag.tag_name),
-      count: playlist.count,
-      gid: playlist.list_create_gid,
-    };
-    const list: MusicInfo[] = [];
+  const info: ListInfo = {
+    id: playlist.id,
+    cover: playlist.cover,
+    title: playlist.title,
+    artist: playlist.artist,
+    tags: playlist.tags,
+    count: playlist.count,
+    playCount: playlist.playCount,
+  };
+  const list: MusicInfo[] = [];
 
-    let page = 1;
-    let total = 0;
+  let page = 1;
+  let total = 0;
 
-    while (total < playlist.count) {
-      const { status, data } = await invoke('api_playlist_tracks_all', {
-        gid: playlist.list_create_gid,
-        page: page++,
-        pageSize: PageSize.Max,
+  while (total < playlist.count) {
+    const { status, data } = await invoke('api_playlist_tracks_all', {
+      gid: playlist.gid,
+      page: page++,
+      pageSize: PageSize.Max,
+    });
+    if (status !== InvokeApiStatus.Success) break;
+
+    total += data.count;
+
+    data.songs.forEach((song) => {
+      if (song.shield !== undefined) return;
+
+      const [artist, title] = song.name.split(' - ');
+
+      list.push({
+        id: song.mixsongid,
+        path: null,
+        hash: song.hash,
+        title: title,
+        artist: artist,
+        album: song.albuminfo.name,
+        cover: song.trans_param.union_cover,
+        duration: song.timelen / 1000,
+        sort: song.sort,
+        privilegeTags: getPrivilegeTags(song.privilege, song.download[0].pay_type),
+        fileId: song.fileid,
       });
-      if (status !== ApiInvokeStatus.Success) break;
+    });
+  }
 
-      total += data.count;
-
-      data.songs.forEach((song) => {
-        if (song.shield !== undefined) return;
-
-        const [artist, title] = song.name.split(' - ');
-
-        list.push({
-          id: song.mixsongid,
-          path: null,
-          hash: song.hash,
-          title: title,
-          artist: artist,
-          album: song.albuminfo.name,
-          cover: song.trans_param.union_cover,
-          duration: song.timelen / 1000,
-          sort: song.sort,
-          privilegeTags: getPrivilegeTags(song.privilege, song.download[0].pay_type),
-          fileId: song.fileid,
-        });
-      });
-    }
-
-    listStore.setList(ListType.Play, { info, list });
-    musicStore.setMusic(list[0], { origin: getOrigin(list[0]) });
-  } catch {}
+  listStore.setList(ListType.Play, { info, list });
+  musicStore.setMusic(list[0], { origin: getOrigin(list[0]) });
 };
 
 const handleShare = () => {
@@ -203,15 +212,15 @@ const handleRename = () => {
   // TODO: 重命名
 };
 
-const showRemoveModal = (playlist: ApiPlaylist) => {
+const showRemoveModal = (playlist: PlaylistInfo) => {
   contextMenuPlaylist.value = playlist;
   delModalVisible.value = true;
 };
 
-const handleContextMenu = (e: MouseEvent, playlist: ApiPlaylist) => {
+const handleContextMenu = (e: MouseEvent, playlist: PlaylistInfo) => {
   contextMenuStore.show({
-    x: e.clientX,
-    y: e.clientY,
+    top: e.clientY,
+    left: e.clientX,
     options: [
       { label: '播放', prefixIcon: 'Play', onClick: () => handlePlay(playlist) },
       { label: '分享', prefixIcon: 'Share', disabled: true, onClick: () => handleShare() },
@@ -234,41 +243,38 @@ const handleContextMenu = (e: MouseEvent, playlist: ApiPlaylist) => {
   });
 };
 
-const handlePlaylistClick = async ({ list_create_gid }: ApiPlaylist) => {
-  if (route.params.gid === list_create_gid) return;
+const handlePlaylistClick = async (playlist: PlaylistInfo) => {
+  if (route.params.gid === playlist.gid) return;
 
   // 如果当前路由为歌单,则replace,否则push
   if (route.name === 'UserPlaylistTable') {
-    router.replace(`/user-playlist-table/${list_create_gid}`);
-    refreshStore.refresh();
+    router.replace(`/user-playlist-table/${playlist.gid}`);
+    stateStore.refresh();
   } else {
-    router.push(`/user-playlist-table/${list_create_gid}`);
+    router.push(`/user-playlist-table/${playlist.gid}`);
   }
 };
 
 const handleDelConfirm = async () => {
   if (!contextMenuPlaylist.value) {
-    notify.error('请选择要删除的歌单');
+    notify.warning('请选择要删除的歌单');
     return;
   }
 
   try {
-    const { list_create_listid, list_create_gid } = contextMenuPlaylist.value;
-
-    const { status } = await invoke('api_playlist_del', { listid: list_create_listid });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.success('删除歌单失败');
+    const { status } = await invoke('api_playlist_del', { listid: +contextMenuPlaylist.value.id });
+    if (status !== InvokeApiStatus.Success) {
+      notify.error('删除歌单失败');
       return;
     }
 
-    notify.success('删除歌单成功');
-    handleDelCancel();
     getUserPlaylist();
+    handleDelCancel();
 
     // 如果删除的歌单为当前页面则返回上一级路由
-    if (list_create_gid === route.params.gid) router.back();
+    if (route.params.gid === contextMenuPlaylist.value.gid) router.back();
   } catch {
-    notify.success('删除歌单失败');
+    notify.error('删除歌单失败');
   }
 };
 
@@ -308,52 +314,51 @@ watch(
     <!-- 歌单列表 -->
     <Transition :name="transition" mode="out-in">
       <div
-        v-if="slideSelection.value === PlaylistType.User"
-        class="h-0 flex-1 overflow-y-auto px-4 py-2"
+        v-if="slideSelection.value === PlaylistType.Own"
+        class="h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2"
       >
         <div
-          v-for="playlist in userPlaylist.filter((list) => list.type === PlaylistType.User)"
-          :key="playlist.list_create_gid"
+          v-for="playlist in userPlaylist"
+          :key="playlist.gid"
           class="flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2"
-          :class="route.params.gid === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
+          :class="route.params.gid === playlist.gid ? 'card-actived' : 'card-hover'"
           @click="handlePlaylistClick(playlist)"
-          @contextmenu.prevent="handleContextMenu($event, playlist)"
+          @contextmenu="handleContextMenu($event, playlist)"
         >
-          <Image class="size-7" :src="getPic(playlist.pic)" />
-          <div class="w-0 flex-1 truncate font-bold">{{ playlist.name }}</div>
+          <Image class="size-7" :src="getPic(playlist.cover)" />
+          <div class="w-0 flex-1 truncate font-bold">{{ playlist.title }}</div>
         </div>
       </div>
 
       <div
-        v-else-if="slideSelection.value === PlaylistType.Collection"
-        class="h-0 flex-1 overflow-y-auto px-4 py-2"
+        v-else-if="slideSelection.value === PlaylistType.Favorite"
+        class="h-0 flex-1 overflow-y-auto px-4 pb-4 pt-2"
       >
         <div
-          v-for="playlist in userPlaylist.filter((list) => list.type === PlaylistType.Collection)"
-          :key="playlist.list_create_gid"
+          v-for="playlist in favoritePlaylist"
+          :key="playlist.gid"
           class="flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2"
-          :class="route.params.gid === playlist.list_create_gid ? 'card-actived' : 'card-hover'"
+          :class="route.params.gid === playlist.gid ? 'card-actived' : 'card-hover'"
           @click="handlePlaylistClick(playlist)"
-          @contextmenu.prevent="handleContextMenu($event, playlist)"
+          @contextmenu="handleContextMenu($event, playlist)"
         >
-          <Image class="size-7" :src="getPic(playlist.pic)" />
-
-          <div class="w-0 flex-1 truncate font-bold">{{ playlist.name }}</div>
+          <Image class="size-7" :src="getPic(playlist.cover)" />
+          <div class="w-0 flex-1 truncate font-bold">{{ playlist.title }}</div>
         </div>
       </div>
     </Transition>
 
     <!-- 确认删除弹窗 -->
     <Modal
+      :visible="delModalVisible"
       class="w-80"
-      v-model="delModalVisible"
       title="删除歌单"
       @cancel="handleDelCancel"
       @confirm="handleDelConfirm"
     >
       <div class="px-6">
         确认删除歌单
-        <span class="font-bold">{{ contextMenuPlaylist?.name }}</span>
+        <span v-if="contextMenuPlaylist" class="font-bold">{{ contextMenuPlaylist?.title }}</span>
         ?
       </div>
     </Modal>

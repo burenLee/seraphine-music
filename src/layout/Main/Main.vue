@@ -2,9 +2,10 @@
 import { useTemplateRef } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import { useRefreshStore } from '@/stores/refresh';
+import { useStateStore } from '@/stores/state';
 
-const refreshStore = useRefreshStore();
+const stateStore = useStateStore();
+
 const containerRef = useTemplateRef('containerRef');
 
 const handleToTop = () => {
@@ -16,7 +17,7 @@ const handleToTop = () => {
   <main ref="containerRef" class="mt-2 overflow-y-auto overflow-x-hidden">
     <RouterView v-slot="{ Component, route }">
       <Transition :name="route.meta.transition || 'slide-left'" mode="out-in">
-        <component :is="Component" :key="refreshStore.key" />
+        <component :is="Component" :key="stateStore.refreshId" />
       </Transition>
 
       <ActionButton

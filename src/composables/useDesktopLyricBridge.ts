@@ -4,28 +4,26 @@ import { PhysicalPosition, getCurrentWindow } from '@tauri-apps/api/window';
 import { watchThrottled } from '@vueuse/core';
 import { watch } from 'vue';
 
+import { DesktopLyricEmit, Interval, WindowEvent, WindowTarget } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
-import { DesktopLyricEmit, Interval, WindowEvent, WindowTarget } from '@/utils/params';
+import { useStateStore } from '@/stores/state';
 
 export function useDesktopLyricBridge() {
+  const stateStore = useStateStore();
   const musicStore = useMusicStore();
   const lyricStore = useLyricStore();
-  const settingStore = useSettingStore();
 
   const stopFns: (() => void)[] = [];
 
   const syncAudio = () => {
-    const data: DesktopLyricAudio = {
-      isLoading: musicStore.isLoading,
-      isPlaying: musicStore.isPlaying,
-      music: musicStore.music,
-    };
-
     emitTo(WindowTarget.DesktopLyric, WindowEvent.DesktopLyric, {
       type: DesktopLyricEmit.Audio,
-      data,
+      data: {
+        isLoading: musicStore.isLoading,
+        isPlaying: musicStore.isPlaying,
+        music: musicStore.music,
+      },
     });
   };
 
@@ -37,11 +35,9 @@ export function useDesktopLyricBridge() {
   };
 
   const syncFonts = () => {
-    if (settingStore.availableFonts.length === 0) settingStore.getAvailableFonts();
-
     emitTo(WindowTarget.DesktopLyric, WindowEvent.DesktopLyric, {
       type: DesktopLyricEmit.Fonts,
-      data: settingStore.availableFonts,
+      data: stateStore.availableFonts,
     });
   };
 
@@ -59,10 +55,11 @@ export function useDesktopLyricBridge() {
       syncAudio,
     );
     const unwatchLyric = watch(() => lyricStore.lyric, syncLyric);
-    const unwatchFonts = watch(() => settingStore.availableFonts, syncFonts);
+    const unwatchFonts = watch(() => stateStore.availableFonts, syncFonts);
     const unwatchProgress = watchThrottled(() => musicStore.playProgress, syncProgress, {
       throttle: Interval.Medium,
     });
+
     const unlistenAction = await listen<{ type: DesktopLyricEmit; data: unknown }>(
       WindowEvent.DesktopLyric,
       async (e) => {
@@ -72,6 +69,10 @@ export function useDesktopLyricBridge() {
             syncLyric();
             syncFonts();
             syncProgress();
+            break;
+          case DesktopLyricEmit.Pos:
+            const { x, y } = e.payload.data as PhysicalPosition;
+            stateStore.setdesktopLyricPosition({ x, y });
             break;
           case DesktopLyricEmit.Main:
             getCurrentWindow().show();
@@ -90,10 +91,6 @@ export function useDesktopLyricBridge() {
             break;
           case DesktopLyricEmit.Close:
             stop();
-            break;
-          case DesktopLyricEmit.Pos:
-            const { x, y } = e.payload.data as PhysicalPosition;
-            settingStore.setdesktopLyricPosition({ x, y });
             break;
         }
       },

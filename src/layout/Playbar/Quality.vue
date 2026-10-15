@@ -3,8 +3,8 @@ import { vOnClickOutside } from '@vueuse/components';
 import { computed, ref } from 'vue';
 
 import SelectModal from '@/components/SelectModal.vue';
+import { PlayingOrigin, PlayingQuality } from '@/constants';
 import { useMusicStore } from '@/stores/music';
-import { PlayingOrigin, PlayingQuality } from '@/utils/params';
 
 const musicStore = useMusicStore();
 

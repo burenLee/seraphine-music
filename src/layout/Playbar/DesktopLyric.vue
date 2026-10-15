@@ -5,16 +5,16 @@ import { ref } from 'vue';
 
 import { notify } from '@/components/Notification.vue';
 import { useDesktopLyricBridge } from '@/composables/useDesktopLyricBridge';
+import { WindowTarget, DesktopLyricSize } from '@/constants';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
-import { WindowTarget, desktopLyricSize } from '@/utils/params';
+import { useStateStore } from '@/stores/state';
 
-const mainWindow = getCurrentWindow();
-
+const stateStore = useStateStore();
 const musicStore = useMusicStore();
-const settingStore = useSettingStore();
 
 const lyricBridge = useDesktopLyricBridge();
+
+const mainWindow = getCurrentWindow();
 
 const visible = ref(false);
 
@@ -24,8 +24,8 @@ const handleDesktopLyric = async () => {
   if (!lyricWindow) {
     const scaleFactor = await mainWindow.scaleFactor();
 
-    const { width, height } = desktopLyricSize;
-    const { x, y } = settingStore.desktopLyricPosition;
+    const { width, height } = DesktopLyricSize;
+    const { x, y } = stateStore.desktopLyricPosition;
     const logicalX = x / scaleFactor || Math.round((window.screen.availWidth - width) / 2);
     const logicalY = y / scaleFactor || Math.round(window.screen.availHeight - height);
 

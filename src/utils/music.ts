@@ -1,8 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-import { notify } from '@/components/Notification.vue';
-
-import { LyricTransMode, PicSize, PlayingOrigin, PlayingQuality } from './params';
+import { LyricTransMode, PicSize, PlayingOrigin, PlayingQuality } from '@/constants';
 
 /**
  * 针对 酷狗 的图片获取其指定尺寸的 URL
@@ -42,7 +40,7 @@ export function getPrivilegeTags(privilege: number, payType: number) {
 }
 
 /** 获取音频来源 */
-export function getOrigin(music: MusicInfo) {
+export function getOrigin(music: PlayingMusicInfo | MusicInfo) {
   return music.hash ? PlayingOrigin.Online : PlayingOrigin.Local;
 }
 
@@ -83,7 +81,7 @@ export function parseKrcLyric(content: string) {
   for (const line of content.split('\n')) {
     const languageMatch = line.match(/\[language:([^\]]*)\]/); // 匹配 [language:xx]
     if (languageMatch) {
-      // 处理翻译歌词
+      // 非法翻译内容静默忽略, 不中断解析
       try {
         const lyricLanguageList: LyricLanguageList = JSON.parse(atob(languageMatch[1]));
 
@@ -99,9 +97,7 @@ export function parseKrcLyric(content: string) {
               break;
           }
         });
-      } catch {
-        notify.error('解析 KRC 翻译歌词失败');
-      }
+      } catch {}
     }
 
     // 处理原文歌词
@@ -154,7 +150,7 @@ export function parseLrcLyric(content: string) {
   for (const line of content.split('\n')) {
     const languageMatch = line.match(/\[language:([^\]]*)\]/); // 匹配 [language:xx]
     if (languageMatch) {
-      // 处理翻译歌词
+      // 非法翻译内容静默忽略, 不中断解析
       try {
         const lyricLanguageList: LyricLanguageList = JSON.parse(atob(languageMatch[1]));
 
@@ -170,9 +166,7 @@ export function parseLrcLyric(content: string) {
               break;
           }
         });
-      } catch {
-        notify.error('解析 LRC 翻译歌词失败');
-      }
+      } catch {}
     }
 
     const match = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/);

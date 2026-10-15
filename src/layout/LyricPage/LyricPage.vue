@@ -3,15 +3,18 @@ import { ref } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
-import SystemActions from '@/components/SystemActions.vue';
+import Close from '@/components/SystemActions/Close.vue';
+import Maximize from '@/components/SystemActions/Maximize.vue';
+import Minimize from '@/components/SystemActions/Minimize.vue';
+import MiniPlayer from '@/components/SystemActions/MiniPlayer.vue';
+import Theme from '@/components/SystemActions/Theme.vue';
+import { usePlayingCover } from '@/composables/usePlayingCover.ts';
+import { LyricPageMode, PicSize } from '@/constants';
+import Playbar from '@/layout/Playbar/Playbar.vue';
 import { useContextMenuStore } from '@/stores/context-menu';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
-import { useCover } from '@/utils/hooks';
-import { LyricPageMode, PicSize } from '@/utils/params';
-
-import Playbar from '../Playbar/Playbar.vue';
+import { useStateStore } from '@/stores/state.ts';
 
 import AlignBtn from './Actions/AlignBtn.vue';
 import ColorBtn from './Actions/ColorBtn.vue';
@@ -25,19 +28,19 @@ import LyricScrollList from './LyricScrollList.vue';
 import LyricSearchModal from './LyricSearchModal.vue';
 import VinylRecord from './VinylRecord.vue';
 
-const settingStore = useSettingStore();
+const stateStore = useStateStore();
 const lyricStore = useLyricStore();
 const musicStore = useMusicStore();
 const contextMenuStore = useContextMenuStore();
 
-const cover = useCover(PicSize.Lg);
+const cover = usePlayingCover(PicSize.Lg);
 
 const lyricSearchVisible = ref(false);
 
 const handleContextMenu = (e: MouseEvent) => {
   contextMenuStore.show({
-    x: e.clientX,
-    y: e.clientY,
+    top: e.clientY,
+    left: e.clientX,
     options: [
       {
         label: '背景模式',
@@ -76,21 +79,22 @@ const handleContextMenu = (e: MouseEvent) => {
       class="fixed inset-0 z-10 flex flex-col overflow-hidden bg-background"
     >
       <!-- 封面模糊背景 -->
-      <template v-if="cover">
+      <!-- 以 1/4 尺寸光栅化 + scale(5) 放大，等价于全屏 blur-3xl(64px)，但模糊中间层显存降低约 4 倍 -->
+      <div v-if="cover" class="absolute inset-0 overflow-hidden">
         <img
-          class="absolute left-0 top-0 w-full object-cover blur-3xl"
+          class="absolute left-1/2 top-1/2 h-1/4 w-1/4 -translate-x-1/2 -translate-y-1/2 scale-[5] object-cover blur-md"
           :src="cover"
           alt=""
           draggable="false"
         />
         <div class="absolute inset-0 bg-background opacity-50" />
-      </template>
+      </div>
 
       <div
-        :data-tauri-drag-region="!settingStore.isFullscreen"
+        :data-tauri-drag-region="!stateStore.isFullscreen"
         class="relative flex h-[var(--header-height)] items-center gap-1 px-5 pt-4"
       >
-        <template v-if="!settingStore.isFullscreen">
+        <template v-if="!stateStore.isFullscreen">
           <ActionButton
             class="mr-auto size-8"
             mode="text"
@@ -102,19 +106,26 @@ const handleContextMenu = (e: MouseEvent) => {
 
           <BgMode />
           <FullScreen />
-          <SystemActions />
+
+          <div class="mx-1 h-4 w-px bg-minor" />
+
+          <Theme />
+          <MiniPlayer />
+          <Minimize />
+          <Maximize />
+          <Close />
         </template>
 
         <FullScreen v-else class="ml-auto" />
       </div>
 
-      <div class="relative flex h-0 flex-1 p-8" @contextmenu.prevent="handleContextMenu">
+      <div class="relative flex h-0 flex-1 p-8" @contextmenu="handleContextMenu">
         <div class="flex w-1/2 items-center justify-center pr-4">
           <Transition name="zoom-fade" mode="out-in">
             <Image
               v-if="lyricStore.pageMode === LyricPageMode.Cover"
               class="rounded-3xl"
-              :class="settingStore.isFullscreen || settingStore.isMaximized ? 'size-96' : 'size-80'"
+              :class="stateStore.isFullscreen || stateStore.isMaximized ? 'size-96' : 'size-72'"
               :src="cover"
               :icon-size="96"
             />
@@ -125,7 +136,7 @@ const handleContextMenu = (e: MouseEvent) => {
         <div class="flex h-full w-1/2 gap-3 pl-4">
           <LyricScrollList class="h-full flex-1" @lyric-search-show="lyricSearchVisible = true" />
 
-          <div v-if="!settingStore.isFullscreen" class="flex w-8 flex-col gap-3 self-end">
+          <div v-if="!stateStore.isFullscreen" class="flex w-8 flex-col gap-3 self-end">
             <ColorBtn />
             <FontFamilyBtn />
             <AlignBtn />
@@ -137,7 +148,7 @@ const handleContextMenu = (e: MouseEvent) => {
       </div>
 
       <div class="h-[var(--playbar-height)]">
-        <Playbar v-if="!settingStore.isFullscreen" />
+        <Playbar v-if="!stateStore.isFullscreen" />
       </div>
     </div>
   </Transition>

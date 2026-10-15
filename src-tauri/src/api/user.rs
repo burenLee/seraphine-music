@@ -25,7 +25,7 @@ pub async fn api_user_detail() -> ApiResult<HashMap<String, Value>> {
     .map(|v| v.to_uppercase())
     .map_err(|e| {
       log_err!(e, "[api_user_detail] pk加密失败");
-      "无法获取用户详情".to_string()
+      "获取用户详情失败".to_string()
     })?;
 
   let params = json!({ "plat": 1 });

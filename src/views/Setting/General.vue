@@ -5,9 +5,11 @@ import { computed, onMounted, ref } from 'vue';
 
 import SelectModal from '@/components/SelectModal.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { AutoStartMode } from '@/constants';
 import { useSettingStore } from '@/stores/setting';
-import { AutoStartMode } from '@/utils/params';
+import { useStateStore } from '@/stores/state';
 
+const stateStore = useStateStore();
 const settingStore = useSettingStore();
 
 const autoStartOptions: Array<SelectOption<AutoStartMode>> = [
@@ -19,11 +21,11 @@ const fontFamilyVisible = ref(false);
 const autoStartModeVisible = ref(false);
 
 const fontFamilyOptions = computed<Array<SelectOption<FontValue>>>(() =>
-  settingStore.availableFonts.map(([label, value]: [string, FontValue]) => ({ label, value })),
+  stateStore.availableFonts.map(([label, value]: [string, FontValue]) => ({ label, value })),
 );
 const fontFamilySelection = computed<SelectOption<FontValue> | undefined>(
   () =>
-    fontFamilyOptions.value.find((item) => item.value === settingStore.fontFamily) ||
+    fontFamilyOptions.value.find((item) => item.value === stateStore.fontFamily) ||
     fontFamilyOptions.value[0],
 );
 const autoStartModeSelection = computed(
@@ -32,20 +34,10 @@ const autoStartModeSelection = computed(
     autoStartOptions[0],
 );
 
-const getAvailableFonts = () => {
-  if (settingStore.availableFonts.length) return;
-
-  settingStore.getAvailableFonts();
-};
-
-const handleFontSelect = (font: FontValue) => {
-  settingStore.setFontFamily(font);
+const handleFontFamilySelect = (font: FontValue) => {
   fontFamilyVisible.value = false;
-};
 
-const toggleAutoStartState = async () => {
-  const autoStartState = await isEnabled();
-  settingStore.toggleAutoStartState(autoStartState);
+  stateStore.setFontFamily(font);
 };
 
 const handleAutoStartChange = async (e: Event) => {
@@ -55,12 +47,11 @@ const handleAutoStartChange = async (e: Event) => {
     await disable();
   }
 
-  toggleAutoStartState();
+  settingStore.toggleAutoStart(await isEnabled());
 };
 
-onMounted(() => {
-  getAvailableFonts();
-  toggleAutoStartState();
+onMounted(async () => {
+  settingStore.toggleAutoStart(await isEnabled());
 });
 </script>
 
@@ -71,7 +62,7 @@ onMounted(() => {
     <div class="space-y-3">
       <div class="relative text-sm" v-on-click-outside="() => (fontFamilyVisible = false)">
         <div
-          class="flex cursor-pointer items-center gap-1"
+          class="inline-flex cursor-pointer items-center gap-1"
           @click="fontFamilyVisible = !fontFamilyVisible"
         >
           <div class="whitespace-nowrap font-bold">
@@ -84,23 +75,31 @@ onMounted(() => {
           />
         </div>
 
-        <SelectModal
-          class="absolute -left-4 top-full h-64"
-          transition="zoom-top"
-          :visible="fontFamilyVisible"
-          :options="fontFamilyOptions"
-          :selection="fontFamilySelection"
-          @select="handleFontSelect"
-        />
+        <Transition name="zoom-top">
+          <ul
+            v-if="fontFamilyVisible"
+            class="card absolute -left-4 top-full z-10 h-64 overflow-y-auto bg-background p-1.5 shadow-lg shadow-shadow"
+          >
+            <li
+              v-for="(option, index) in fontFamilyOptions"
+              :key="index"
+              class="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2 transition-colors"
+              :class="fontFamilySelection?.value === option.value ? 'card-actived' : 'card-hover'"
+              :style="{ fontFamily: option.value }"
+              :data-disabled="option.disabled"
+              @click="handleFontFamilySelect(option.value)"
+            >
+              <div class="whitespace-nowrap px-1">{{ option.label }}</div>
+            </li>
+
+            <div v-if="!fontFamilyOptions.length" class="whitespace-nowrap p-4">暂无数据</div>
+          </ul>
+        </Transition>
       </div>
 
       <div class="flex items-center gap-3">
         <label class="flex cursor-pointer items-center gap-1">
-          <input
-            type="checkbox"
-            v-model="settingStore.autoStartState"
-            @change="handleAutoStartChange"
-          />
+          <input type="checkbox" v-model="settingStore.autoStart" @change="handleAutoStartChange" />
           开机启动
         </label>
 

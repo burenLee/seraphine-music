@@ -23,7 +23,7 @@ _Avoid_: 迷你模式、小窗
 _Avoid_: 桌面歌词窗口、悬浮歌词
 
 **Shared Layer（共享基础层）**:
-三窗口共用的基础代码集合，位于 `src/components/`、`src/utils/`、`src/types/`、`src/styles/`。
+三窗口共用的基础代码集合，位于 `src/components/`、`src/constants/`、`src/utils/`、`src/types/`、`src/styles/`。
 _Avoid_: 公共层、common 层
 
 **Bridge（桥接）**:

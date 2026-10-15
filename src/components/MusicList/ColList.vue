@@ -3,8 +3,8 @@ import { useThrottleFn, useWindowSize } from '@vueuse/core';
 import { computed, ref, useTemplateRef } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import { useObserver } from '@/utils/hooks';
-import { BreakPoint, ColCount, Interval } from '@/utils/params';
+import { useObserver } from '@/composables/useObserver';
+import { BreakPoint, ColCount, Interval } from '@/constants';
 
 import Card from './Card.vue';
 
@@ -41,6 +41,8 @@ const cols = computed(() => {
   else return ColCount.SM;
 });
 const visibleList = computed(() => data.list.slice(0, cols.value));
+// 每列展示的条目, 提升为 computed 避免模板内每次渲染新建切片数组
+const columnList = computed(() => visibleList.value.map((list) => list.list.slice(0, rows)));
 
 const handleRefresh = useThrottleFn(() => emits('refresh'), Interval.Sec, true);
 
@@ -145,11 +147,11 @@ const { unobserve } = useObserver(listRef, (entry) => {
         <div class="truncate text-center text-base font-bold">{{ list.info.title }}</div>
 
         <Card
-          v-for="(item, childIndex) in list.list.slice(0, rows)"
+          v-for="(item, childIndex) in columnList[index]"
           :key="childIndex"
           :data="item"
           :info="list.info"
-          :list="list.list.slice(0, rows)"
+          :list="columnList[index]"
         />
       </div>
     </div>

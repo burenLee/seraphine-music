@@ -9,8 +9,6 @@
   src: url('@/assets/fonts/poetry.woff') format('truetype');
 }
 
-/* TODO: 下版本迁移至v4 */
-
 :root {
   --color-background: rgb(240, 242, 246); /** 背景 */
   --color-foreground: rgb(30, 32, 36); /** 前景 */
@@ -19,9 +17,9 @@
 
   --color-card: rgba(30, 32, 36, 0.025);
   --color-border: rgba(30, 32, 36, 0.1);
-  --color-shadow: rgba(0, 0, 0, 0.25);
   --color-hover: rgba(30, 32, 36, 0.05);
   --color-actived: rgba(30, 32, 36, 0.75);
+  --color-shadow: rgba(0, 0, 0, 0.25);
 
   --color-info: #0284c7; /** Sky-600 */
   --color-info-bg: #f0f9ff; /** Sky-50 */
@@ -41,9 +39,9 @@
 
   --color-card: rgba(240, 242, 246, 0.025);
   --color-border: rgba(240, 242, 246, 0.1);
-  --color-shadow: rgba(0, 0, 0, 0.75);
   --color-hover: rgba(240, 242, 246, 0.05);
   --color-actived: rgba(240, 242, 246, 0.75);
+  --color-shadow: rgba(0, 0, 0, 0.75);
 
   --color-info: #0369a1; /** Sky-500 */
   --color-info-bg: #d0d7dc; /** Sky-50改 */

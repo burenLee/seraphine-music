@@ -3,7 +3,6 @@ import { computed } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import ProgressRange from '@/components/ProgressRange.vue';
-import SvgIcon from '@/components/SvgIcon.vue';
 import { useMusicStore } from '@/stores/music';
 import { IconName } from '@/utils/icons';
 

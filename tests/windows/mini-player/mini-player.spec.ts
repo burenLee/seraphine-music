@@ -2,7 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MiniPlayerEmit, PlayingOrigin, WindowEvent, WindowTarget } from '@/utils/params';
+import { MiniPlayerEmit, PlayingOrigin, WindowEvent, WindowTarget } from '@/constants';
 import MiniPlayer from '@/windows/mini-player/MiniPlayer.vue';
 
 import { createTestPinia, makeListMusic, makePlayingMusic } from '../../helpers/factories';

@@ -2,11 +2,11 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 import { notify } from '@/components/Notification.vue';
-import { ListType, SortOrder, SortType } from '@/utils/params';
+import { ListType, SortOrder, SortType } from '@/constants';
 
 import { useMusicStore } from './music';
 
-export const defaultInfo: ListInfo = {
+export const defaultListInfo: ListInfo = {
   id: '',
   cover: '',
   title: '',
@@ -21,15 +21,18 @@ export const useListStore = defineStore(
   () => {
     // 本地列表
     const local = ref<MusicList>({
-      info: { ...defaultInfo, id: 'local', title: '本地歌曲' },
+      info: { ...defaultListInfo, id: 'local', title: '本地歌曲' },
       list: [],
     });
     // 展示列表
-    const show = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
+    const show = ref<MusicList>({ info: { ...defaultListInfo }, list: [] });
     // 播放列表
-    const play = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
-    // 喜欢列表
-    const like = ref<MusicList<Map<number, ID>>>({ info: { ...defaultInfo }, list: new Map() });
+    const play = ref<MusicList>({ info: { ...defaultListInfo }, list: [] });
+    // 我喜欢列表, 每个歌单的同一首歌曲的fileid不同的, 所以保存我喜欢歌单的fileid
+    const like = ref<{ info: PlaylistInfo; list: Map<number, ID> }>({
+      info: { ...defaultListInfo, gid: '', sort: 0 },
+      list: new Map(),
+    });
 
     const isHeaderLoading = ref(true); // 页头加载中
     const isTableLoading = ref(true); // 表格加载中
@@ -40,18 +43,18 @@ export const useListStore = defineStore(
     const searchList = ref<MusicInfo[]>(); // 查询结果, undefined代表不在查询中, []代表查询结果为空
     const sortMap = ref<Record<ID, SortInfo>>({}); // 排序列表
 
+    const musicStore = useMusicStore();
+
     // 列表映射
-    const LIST_MAP = {
+    const ListMap = {
       [ListType.Local]: local,
       [ListType.Show]: show,
       [ListType.Play]: play,
     } as const;
 
-    const musicStore = useMusicStore();
-
     /** 设置列表 */
     const setList = (type: ListType, newMusicList: MusicList) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       musicList.value = newMusicList;
       sort(type);
@@ -59,7 +62,7 @@ export const useListStore = defineStore(
 
     /** 设置列表属性 */
     const setListInfo = (type: ListType, newInfo: ListInfo) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       musicList.value.info = newInfo;
     };
@@ -67,7 +70,7 @@ export const useListStore = defineStore(
     /** 设置列表项 */
     const setListRaw = (type: ListType, newList: MusicInfo[]) => {
       if (newList.length === 0) return;
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       musicList.value.list = newList;
       sort(type);
@@ -79,7 +82,8 @@ export const useListStore = defineStore(
      */
     const addList = (type: ListType, newList: MusicInfo[]) => {
       if (newList.length === 0) return 0;
-      const musicList = LIST_MAP[type];
+
+      const musicList = ListMap[type];
 
       const oldIds = new Set(musicList.value.list.map((music) => music.id));
       const filterList = newList.filter((newMusic) => !oldIds.has(newMusic.id));
@@ -97,7 +101,8 @@ export const useListStore = defineStore(
      */
     const addListRaw = (type: ListType, newList: MusicInfo[]) => {
       if (newList.length === 0) return;
-      const musicList = LIST_MAP[type];
+
+      const musicList = ListMap[type];
 
       musicList.value.list.push(...newList);
       sort(type);
@@ -105,7 +110,7 @@ export const useListStore = defineStore(
 
     /** 移除列表项 */
     // const removeList = (type: ListType, id: ID) => {
-    //   const musicList = LIST_MAP[type];
+    //   const musicList = ListMap[type];
 
     //   const index = musicList.value.list.findIndex((music) => music.id === id);
     //   if (index === -1) return;
@@ -116,7 +121,7 @@ export const useListStore = defineStore(
 
     /** 移除列表项 */
     const removeList = (type: ListType, ids: ID[]) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       // 如果播放列表删除当前的是播放歌曲,则清除播放
       if (type === ListType.Play && ids.some((id) => id === musicStore.music?.id))
@@ -132,7 +137,7 @@ export const useListStore = defineStore(
 
     /** 清空列表项 */
     const clearList = (type: ListType) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       // 如果播放列表删除当前的是播放歌曲,则清除播放
       if (
@@ -149,7 +154,7 @@ export const useListStore = defineStore(
 
     /** 重置列表 */
     const resetList = (type: ListType) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       // 如果播放列表删除当前的是播放歌曲,则清除播放
       if (
@@ -159,13 +164,13 @@ export const useListStore = defineStore(
         musicStore.setMusic(undefined);
 
       musicList.value.list.length = 0;
-      musicList.value.info = { ...defaultInfo };
+      musicList.value.info = { ...defaultListInfo };
 
       resetChecked();
     };
 
     /** 设置喜欢列表属性 */
-    const setLikeListInfo = (newInfo: ListInfo) => {
+    const setLikeListInfo = (newInfo: PlaylistInfo) => {
       like.value.info = newInfo;
     };
 
@@ -180,8 +185,8 @@ export const useListStore = defineStore(
     };
 
     /** 移除喜欢列表项 */
-    const removeLikeList = (newList: MusicInfo[]) => {
-      newList.forEach((item) => like.value.list.delete(+item.id));
+    const removeLikeList = (Ids: ID[]) => {
+      Ids.forEach((id) => like.value.list.delete(+id));
     };
 
     /** 清空喜欢列表项 */
@@ -193,7 +198,7 @@ export const useListStore = defineStore(
     /** 重置喜欢列表 */
     const resetLikeList = () => {
       like.value.list.clear();
-      like.value.info = { ...defaultInfo };
+      like.value.info = { ...defaultListInfo, gid: '', sort: 0 };
     };
 
     /** 下一首播放 */
@@ -250,7 +255,8 @@ export const useListStore = defineStore(
     /** 移除框选的列表项 */
     const removeListChecked = (type: ListType) => {
       if (!isChecking.value || checkedList.value.length === 0) return;
-      const musicList = LIST_MAP[type];
+
+      const musicList = ListMap[type];
 
       const filterList = musicList.value.list.filter(
         (music) => !checkedList.value.includes(music.id),
@@ -264,7 +270,7 @@ export const useListStore = defineStore(
 
     /** 列表搜索 */
     const search = (type: ListType, searchQuery: string) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
       const query = searchQuery.trim();
 
       if (query) {
@@ -303,7 +309,7 @@ export const useListStore = defineStore(
 
     /** 列表排序 */
     const sort = (type: ListType) => {
-      const musicList = LIST_MAP[type];
+      const musicList = ListMap[type];
 
       let sortInfo = sortMap.value[musicList.value.info.id];
       // 如果不存在就赋默认值

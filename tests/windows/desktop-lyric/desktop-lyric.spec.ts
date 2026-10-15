@@ -2,8 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import SelectModal from '@/components/SelectModal.vue';
-import { DesktopLyricEmit, LyricFormat, WindowEvent, WindowTarget } from '@/utils/params';
+import { DesktopLyricEmit, LyricFormat, WindowEvent, WindowTarget } from '@/constants';
 import DesktopLyric from '@/windows/desktop-lyric/DesktopLyric.vue';
 
 import {
@@ -74,7 +73,7 @@ describe('DesktopLyric 桌面歌词窗口', () => {
     expect(wrapper.text()).toContain('第一句');
   });
 
-  it('Fonts 事件将字体项映射为 SelectModal 选项', async () => {
+  it('Fonts 事件将字体项映射为字体下拉选项', async () => {
     setupWindow();
     const wrapper = mountComponent();
 
@@ -87,10 +86,14 @@ describe('DesktopLyric 桌面歌词窗口', () => {
     });
     await flushAsync();
 
-    expect(wrapper.findComponent(SelectModal).props('options')).toEqual([
-      { label: '系统默认', value: 'system-ui' },
-      { label: '衬线', value: 'serif' },
-    ]);
+    // 打开字体下拉
+    const fontBtn = wrapper.findAll('div.action-icon').find((d) => d.text() === '字');
+    expect(fontBtn).toBeTruthy();
+    await fontBtn!.trigger('click');
+    await flushAsync();
+
+    const options = wrapper.findAll('li').map((li) => li.text());
+    expect(options).toEqual(['系统默认', '衬线']);
   });
 
   it('点击播放/暂停按钮发送 Play / Pause 事件', async () => {

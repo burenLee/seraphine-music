@@ -2,9 +2,9 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { defineComponent, shallowRef } from 'vue';
 
-import { useObserver } from '@/utils/hooks';
+import { useObserver } from '@/composables/useObserver';
 
-// 与 utils/hooks.ts 内部的 IntersectionObserverCallback 签名一致（单 entry，非 DOM 标准签名）
+// 与 composables/useObserver.ts 导出的 IntersectionObserverCallback 签名一致（单 entry，非 DOM 标准签名）
 type ObserverCallback = (entry: IntersectionObserverEntry, observer: IntersectionObserver) => void;
 
 /** 挂载一个使用 useObserver 的测试组件 */

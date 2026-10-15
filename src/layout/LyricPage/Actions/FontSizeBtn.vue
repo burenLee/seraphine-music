@@ -1,7 +1,7 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import ActionButton from '@/components/ActionButton.vue';
+import { LyricFontSize } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
-import { LyricFontSize } from '@/utils/params';
 
 const lyricStore = useLyricStore();
 </script>

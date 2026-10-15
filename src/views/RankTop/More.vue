@@ -3,11 +3,10 @@ import { onMounted, onUnmounted, provide, ref, useTemplateRef } from 'vue';
 
 import MusicActions from '@/components/MusicTable/Actions.vue';
 import MusicTable from '@/components/MusicTable/Table.vue';
-import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
-import { defaultInfo, useListStore } from '@/stores/list';
+import { InvokeApiStatus, ListType, PageSize } from '@/constants';
+import { defaultListInfo, useListStore } from '@/stores/list';
 import { getPrivilegeTags } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PageSize } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const listType = ListType.Show;
@@ -21,20 +20,16 @@ const slideOptions = ref<SlideOption[]>([]);
 const slideSelection = ref<SlideOption>();
 
 const getSlideOptions = async () => {
-  try {
-    const { status, data } = await invoke('api_rank_top');
-    if (status !== ApiInvokeStatus.Success) return;
+  const { status, data } = await invoke('api_rank_top');
+  if (status !== InvokeApiStatus.Success) return;
 
-    slideOptions.value = data.list.map((item) => ({
-      label: item.rankname,
-      value: item.rankid,
-      imgurl: item.imgurl,
-      intro: item.intro,
-    }));
-    slideSelection.value = slideOptions.value[0];
-  } catch {
-    notify.error('获取排行榜歌曲标签失败');
-  }
+  slideOptions.value = data.list.map((item) => ({
+    label: item.rankname,
+    value: item.rankid,
+    imgurl: item.imgurl,
+    intro: item.intro,
+  }));
+  slideSelection.value = slideOptions.value[0];
 };
 
 const changeSlideSelection = (option: SlideOption) => {
@@ -55,37 +50,30 @@ const handleLoad = async () => {
       rankId: slideSelection.value.value,
       pageSize: PageSize.Max,
     });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取排行榜歌曲失败');
-    } else {
-      const info: ListInfo = {
-        ...defaultInfo,
-        id: slideSelection.value.value,
-        cover: slideSelection.value.imgurl,
-        title: slideSelection.value.label,
-        tags: slideSelection.value.intro.split('\r\n'),
-        count: data.songlist.length,
-      };
-      const list: MusicInfo[] = data.songlist.map((song) => ({
-        id: song.album_audio_id,
-        path: null,
-        hash: song.audio_info.hash_128,
-        cover: song.trans_param.union_cover,
-        title: song.songname,
-        artist: song.author_name,
-        album: song.album_info.album_name,
-        duration: song.audio_info.duration_128 / 1000,
-        sort: song.business.original_index,
-        privilegeTags: getPrivilegeTags(
-          song.privilege_download.privilege,
-          song.deprecated.pay_type,
-        ),
-      }));
+    if (status !== InvokeApiStatus.Success) return;
 
-      listStore.setList(listType, { info, list });
-    }
-  } catch {
-    notify.error('获取排行榜歌曲失败');
+    const info: ListInfo = {
+      ...defaultListInfo,
+      id: slideSelection.value.value,
+      cover: slideSelection.value.imgurl,
+      title: slideSelection.value.label,
+      tags: slideSelection.value.intro.split('\r\n'),
+      count: data.songlist.length,
+    };
+    const list: MusicInfo[] = data.songlist.map((song) => ({
+      id: song.album_audio_id,
+      path: null,
+      hash: song.audio_info.hash_128,
+      cover: song.trans_param.union_cover,
+      title: song.songname,
+      artist: song.author_name,
+      album: song.album_info.album_name,
+      duration: song.audio_info.duration_128 / 1000,
+      sort: song.business.original_index,
+      privilegeTags: getPrivilegeTags(song.privilege_download.privilege, song.deprecated.pay_type),
+    }));
+
+    listStore.setList(listType, { info, list });
   } finally {
     listStore.isTableLoading = false;
   }

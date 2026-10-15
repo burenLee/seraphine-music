@@ -60,7 +60,7 @@ pub fn music_file_detail(path: &str) -> Result<MusicDetail, String> {
     let file_stem = file_path
       .file_stem()
       .map(|n| n.to_string_lossy())
-      .ok_or("无法获取文件名称")?;
+      .ok_or("获取文件名称失败")?;
 
     music_info.title = tag.title().unwrap_or(file_stem.clone()).into_owned();
     music_info.artist = tag.artist().map(|a| a.into_owned());

@@ -1,7 +1,7 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import ActionButton from '@/components/ActionButton.vue';
+import { ShortcutKey } from '@/constants';
 import { useSettingStore } from '@/stores/setting';
-import { ShortcutKey } from '@/utils/params';
 
 const settingStore = useSettingStore();
 
@@ -24,7 +24,7 @@ const handleReset = async () => {
   await settingStore.unregisterAllGlobalShortcut();
   settingStore.resetShortcutMap();
 
-  if (settingStore.globalShortcutState) {
+  if (settingStore.globalShortcut) {
     settingStore.registerAllGlobalShortcut();
   }
 };
@@ -79,8 +79,8 @@ const handleClick = () => {
       <label class="flex w-fit cursor-pointer items-center gap-1">
         <input
           type="checkbox"
-          :checked="settingStore.mediaShortcutState"
-          @change="settingStore.toggleMediaShortcutState"
+          :checked="settingStore.mediaShortcut"
+          @change="settingStore.toggleMediaShortcut"
         />
         启用媒体快捷键
       </label>
@@ -88,8 +88,8 @@ const handleClick = () => {
       <label class="flex w-fit cursor-pointer items-center gap-1">
         <input
           type="checkbox"
-          :checked="settingStore.globalShortcutState"
-          @change="settingStore.toggleGlobalShortcutState"
+          :checked="settingStore.globalShortcut"
+          @change="settingStore.toggleGlobalShortcut"
         />
         启用全局快捷键
 
@@ -98,7 +98,7 @@ const handleClick = () => {
         </ActionButton>
       </label>
 
-      <div class="flex flex-1 gap-6" :data-disabled="!settingStore.globalShortcutState">
+      <div class="flex flex-1 gap-6" :data-disabled="!settingStore.globalShortcut">
         <div class="flex-1 space-y-3" v-for="(shortcut, index) in shortcutGroups" :key="index">
           <div v-for="item in shortcut" :key="item.key" class="flex items-center gap-3">
             <div class="w-20">{{ item.label }}</div>

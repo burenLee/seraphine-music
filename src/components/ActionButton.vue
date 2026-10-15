@@ -1,14 +1,10 @@
 ﻿<script lang="ts">
 const ActionBtnTheme: Record<BtnTheme, string> = {
-  default:
-    'border-border bg-card text-foreground hover:bg-hover disabled:text-minor disabled:border-card',
-  info: 'border-info bg-info-bg text-info hover:bg-info hover:text-neutral-50 disabled:text-minor disabled:border-info-bg',
-  success:
-    'border-success bg-success-bg text-success hover:bg-success hover:text-neutral-50 disabled:text-minor disabled:border-success-bg',
-  warning:
-    'border-warning bg-warning-bg text-warning hover:bg-warning hover:text-neutral-50 disabled:text-minor disabled:border-warning-bg',
-  error:
-    'border-error bg-error-bg text-error hover:bg-error hover:text-neutral-50 disabled:text-minor disabled:border-error-bg',
+  default: 'border-border bg-card hover:bg-hover',
+  info: 'border-info bg-info-bg text-info hover:bg-info hover:text-neutral-50 ',
+  success: 'border-success bg-success-bg text-success hover:bg-success hover:text-neutral-50 ',
+  warning: 'border-warning bg-warning-bg text-warning hover:bg-warning hover:text-neutral-50 ',
+  error: 'border-error bg-error-bg text-error hover:bg-error hover:text-neutral-50 ',
 } as const;
 
 const ActionBtnSize: Record<BtnSize, string> = {
@@ -55,7 +51,7 @@ const emits = defineEmits<Emits>();
   <button
     :class="
       cn(
-        'flex items-center justify-center rounded-lg border text-xs transition-all active:scale-90 disabled:pointer-events-none',
+        'flex items-center justify-center rounded-lg border text-xs transition-all active:scale-90 disabled:pointer-events-none disabled:opacity-50',
         ActionBtnTheme[theme],
         ActionBtnSize[size],
         mode === 'text' &&

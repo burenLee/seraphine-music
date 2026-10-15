@@ -4,8 +4,8 @@ import { onUnmounted, ref, watch } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import SlideBar from '@/components/SlideBar.vue';
+import { InvokeApiStatus, Interval, QrcodeStatus, QrcodeType } from '@/constants';
 import { useUserStore } from '@/stores/user';
-import { ApiInvokeStatus, Interval, QrcodeStatus, QrcodeType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 interface Emits {
@@ -60,16 +60,14 @@ const loadKgQrcode = async () => {
 
   try {
     const login_qr_key = await invoke('api_login_qr_key');
-    if (login_qr_key.status !== ApiInvokeStatus.Success) {
+    if (login_qr_key.status !== InvokeApiStatus.Success) {
       qrcodeStatus.value = QrcodeStatus.Fail;
-      qrcodeLoading.value = false;
       return;
     }
 
     const login_qr_create = await invoke('api_login_qr_create', { key: login_qr_key.data.qrcode });
     if (!login_qr_create) {
       qrcodeStatus.value = QrcodeStatus.Fail;
-      qrcodeLoading.value = false;
       return;
     }
 
@@ -99,7 +97,7 @@ const checkKgStatus = async () => {
 
     try {
       const { status, data } = await invoke('api_login_qr_check', { key: qrcodeKey });
-      if (status !== ApiInvokeStatus.Success) {
+      if (status !== InvokeApiStatus.Success) {
         qrcodeStatus.value = QrcodeStatus.Fail;
         cleatTimer();
         return;
@@ -138,7 +136,7 @@ const checkKgStatus = async () => {
   pollTimeout = setTimeout(() => {
     qrcodeStatus.value = QrcodeStatus.Timeout;
     cleatTimer();
-  }, Interval.Sec * 60);
+  }, Interval.Min);
 };
 
 // 获取 wx 二维码
@@ -196,7 +194,7 @@ const checkWxStatus = async () => {
           cleatTimer();
 
           const { status, data } = await invoke('api_login_openplat', { code: wx_code });
-          if (status !== ApiInvokeStatus.Success) {
+          if (status !== InvokeApiStatus.Success) {
             qrcodeStatus.value = QrcodeStatus.Fail;
           } else {
             userStore.login(data);
@@ -221,7 +219,7 @@ const checkWxStatus = async () => {
   pollTimeout = setTimeout(() => {
     qrcodeStatus.value = QrcodeStatus.Timeout;
     cleatTimer();
-  }, Interval.Sec * 60);
+  }, Interval.Min);
 };
 
 // 清理定时器

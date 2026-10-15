@@ -4,11 +4,10 @@ import { useRouter } from 'vue-router';
 
 import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
-import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import VirtualList from '@/components/VirtualList.vue';
+import { InvokeApiStatus, PageSize } from '@/constants';
 import { getPic } from '@/utils/music';
-import { ApiInvokeStatus, PageSize } from '@/utils/params';
 import { formatCount, invoke } from '@/utils/tools';
 
 const router = useRouter();
@@ -27,27 +26,20 @@ const isLoading = ref(true);
 const isFinishing = ref(false);
 const isFinished = ref(false);
 const page = ref(1);
-const playlistList = ref<ListInfo[]>([]);
+const playlistList = ref<PlaylistInfo[]>([]);
 
 const getSlideOptions = async () => {
-  try {
-    const { status, data } = await invoke('api_playlist_tags');
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌单标签列表失败');
-      return;
-    }
+  const { status, data } = await invoke('api_playlist_tags');
+  if (status !== InvokeApiStatus.Success) return;
 
-    slideOptions.value = data.map((item) => ({
-      label: item.tag_name,
-      value: item.tag_id,
-      children: item.son.slice(0, 10).map((son) => ({ label: son.tag_name, value: son.tag_id })),
-    }));
+  slideOptions.value = data.map((item) => ({
+    label: item.tag_name,
+    value: item.tag_id,
+    children: item.son.slice(0, 10).map((son) => ({ label: son.tag_name, value: son.tag_id })),
+  }));
 
-    firstSelection.value = slideOptions.value[0];
-    secondSelection.value = firstSelection.value.children?.[0];
-  } catch {
-    notify.error('获取歌单标签列表失败');
-  }
+  firstSelection.value = slideOptions.value[0];
+  secondSelection.value = firstSelection.value.children?.[0];
 };
 
 const changeSlideSelection = (option: SlideOption, type: 'first' | 'second') => {
@@ -81,29 +73,26 @@ const handleLoad = async () => {
       page: page.value,
       pageSize: PageSize.More,
     });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌单歌曲失败');
-    } else {
-      playlistList.value = data.special_list.map((playlist) => ({
-        id: playlist.specialid,
-        cover: playlist.flexible_cover,
-        title: playlist.specialname,
-        artist: playlist.nickname,
-        count: 0,
-        playCount: playlist.play_count,
-        tags: playlist.abtags?.map((tag) => tag.name),
-        gid: playlist.global_collection_id,
-      }));
-    }
-  } catch {
-    notify.error('获取歌单歌曲失败');
+    if (status !== InvokeApiStatus.Success) return;
+
+    playlistList.value = data.special_list.map((playlist, index) => ({
+      id: playlist.specialid,
+      cover: playlist.flexible_cover,
+      title: playlist.specialname,
+      artist: playlist.nickname,
+      count: 0,
+      playCount: playlist.play_count,
+      tags: playlist.abtags?.map((tag) => tag.name),
+      gid: playlist.global_collection_id,
+      sort: index,
+    }));
   } finally {
     isLoading.value = false;
   }
 };
 
 const handleInfinite = async () => {
-  if (isFinishing.value || isFinished.value || !secondSelection.value) return;
+  if (!secondSelection.value || isFinishing.value || isFinished.value) return;
 
   isFinishing.value = true;
 
@@ -113,33 +102,28 @@ const handleInfinite = async () => {
       page: ++page.value,
       pageSize: PageSize.More,
     });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌单歌曲失败');
-    } else {
-      const list = data.special_list.map((playlist) => ({
-        id: playlist.specialid,
-        cover: playlist.flexible_cover,
-        title: playlist.specialname,
-        artist: playlist.nickname,
-        count: 0,
-        playCount: playlist.play_count,
-        tags: playlist.abtags?.map((tag) => tag.name),
-        gid: playlist.global_collection_id,
-      }));
+    if (status !== InvokeApiStatus.Success) return;
 
-      playlistList.value.push(...list);
-      if (data.special_list.length < PageSize.More) isFinished.value = true;
-    }
-  } catch {
-    notify.error('获取歌单歌曲失败');
+    const list = data.special_list.map((playlist, index) => ({
+      id: playlist.specialid,
+      cover: playlist.flexible_cover,
+      title: playlist.specialname,
+      artist: playlist.nickname,
+      count: 0,
+      playCount: playlist.play_count,
+      tags: playlist.abtags?.map((tag) => tag.name),
+      gid: playlist.global_collection_id,
+      sort: index,
+    }));
+
+    playlistList.value.push(...list);
+    if (data.special_list.length < PageSize.More) isFinished.value = true;
   } finally {
     isFinishing.value = false;
   }
 };
 
-const handleLineClick = (row: ListInfo) => {
-  if (!row.gid) return;
-
+const handleLineClick = (row: PlaylistInfo) => {
   router.push(`/top-playlist-table/${row.gid}`);
 };
 
@@ -188,9 +172,7 @@ onMounted(async () => {
       @infinite="handleInfinite"
       @lineClick="handleLineClick"
     >
-      <template #index="row">
-        {{ row.index + 1 }}
-      </template>
+      <template #index="row">{{ row.index + 1 }}</template>
 
       <template #info="row">
         <div class="flex items-center gap-3">
@@ -198,7 +180,7 @@ onMounted(async () => {
 
           <div class="w-0 flex-1 overflow-hidden">
             <div class="music-title flex items-center gap-3">
-              <div class="min-w-0 truncate">{{ row.title }}</div>
+              <div class="w-0truncate">{{ row.title }}</div>
               <div class="flex flex-1 gap-3">
                 <div
                   class="card rounded border-info px-1 text-xs font-bold leading-4 text-info"
@@ -214,7 +196,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <template #playCount="row"> {{ formatCount(row.playCount) }}</template>
+      <template #playCount="row">{{ formatCount(row.playCount) }}</template>
     </VirtualList>
 
     <div class="absolute bottom-4 right-4">

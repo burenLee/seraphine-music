@@ -7,9 +7,9 @@ import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import VirtualList from '@/components/VirtualList.vue';
+import { ListType, ScanStatus } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { getFullName } from '@/utils/music';
-import { ListType, ScanStatus } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 interface Props {
@@ -134,11 +134,7 @@ const handleReset = () => {
 const handleCancel = async () => {
   // 如果正在扫描中,取消扫描
   if (scanStatus.value === ScanStatus.Loading) {
-    try {
-      await invoke('music_scan_cancel');
-    } catch {
-      notify.warning('无法取消扫描');
-    }
+    await invoke('music_scan_cancel');
   }
 
   handleReset();
@@ -153,8 +149,8 @@ watch(
 
 <template>
   <Modal
+    :visible="visible"
     class="w-[40rem]"
-    v-model="visible"
     title="扫描歌曲"
     confirmLabel="添加"
     @cancel="handleCancel"

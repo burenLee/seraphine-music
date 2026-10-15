@@ -7,8 +7,8 @@ import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { AddPlaylistType, InvokeApiStatus } from '@/constants';
 import { useUserStore } from '@/stores/user';
-import { AddPlaylistType, ApiInvokeStatus } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 interface Emits {
@@ -24,7 +24,7 @@ const addModalVisible = ref(false);
 const addForm = ref({ name: '', isPri: 0 });
 
 const addOptions = computed<Array<SelectOption<AddPlaylistType>>>(() => [
-  { label: '新建歌单', value: AddPlaylistType.Add, prefixIcon: 'Add' },
+  { label: '新建歌单', value: AddPlaylistType.Create, prefixIcon: 'Add' },
   { label: '导入歌单', value: AddPlaylistType.Import, prefixIcon: 'Link', disabled: true },
 ]);
 
@@ -32,7 +32,7 @@ const handleAddSelect = (type: AddPlaylistType) => {
   addSelectVisible.value = false;
 
   switch (type) {
-    case AddPlaylistType.Add:
+    case AddPlaylistType.Create:
       addModalVisible.value = true;
       break;
     case AddPlaylistType.Import:
@@ -55,12 +55,11 @@ const handleAddConfirm = async () => {
       ...addForm.value,
       userid: userStore.userinfo.userid,
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('创建歌单失败');
       return;
     }
 
-    notify.success('创建歌单成功');
     handleAddCancel();
     emits('refresh');
   } catch {
@@ -97,8 +96,8 @@ const handleAddCancel = () => {
   </div>
 
   <Modal
+    :visible="addModalVisible"
     class="w-80"
-    v-model="addModalVisible"
     title="新建歌单"
     confirmLabel="新建"
     @cancel="handleAddCancel"

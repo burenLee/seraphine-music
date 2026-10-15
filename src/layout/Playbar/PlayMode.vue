@@ -4,12 +4,12 @@ import { computed, ref } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import SelectModal from '@/components/SelectModal.vue';
+import { PlayingMode } from '@/constants';
 import { useMusicStore } from '@/stores/music';
-import { PlayingMode } from '@/utils/params';
 
 const musicStore = useMusicStore();
 
-const modeOptions: SelectOption[] = [
+const modeOptions: Array<SelectOption<PlayingMode>> = [
   { label: '顺序播放', value: PlayingMode.OrderPlay, prefixIcon: 'OrderPlay' },
   { label: '单曲播放', value: PlayingMode.SinglePlay, prefixIcon: 'SinglePlay' },
   { label: '列表循环', value: PlayingMode.OrderLoop, prefixIcon: 'RepeatAll' },

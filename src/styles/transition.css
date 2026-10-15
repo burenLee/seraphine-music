@@ -46,6 +46,15 @@
   @apply translate-x-56 opacity-0;
 }
 
+.fade-enter-active,
+.fade-leave-active {
+  @apply transition-all ease-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  @apply opacity-0;
+}
+
 .zoom-fade-enter-active,
 .zoom-fade-leave-active,
 .zoom-top-enter-active,
@@ -90,7 +99,7 @@
 .notification-move,
 .notification-enter-active,
 .notification-leave-active {
-  @apply origin-right transition-all duration-300 ease-out;
+  @apply origin-right transition-all ease-out;
 }
 .notification-leave-active {
   @apply absolute;
@@ -104,7 +113,7 @@
 .modal-leave-active,
 .modal-enter-active .modal-container,
 .modal-leave-active .modal-container {
-  @apply transition-all duration-300 ease-out;
+  @apply transition-all ease-out;
 }
 .modal-enter-from,
 .modal-leave-to {

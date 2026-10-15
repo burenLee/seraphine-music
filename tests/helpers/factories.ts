@@ -1,11 +1,11 @@
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
 
-import { LyricFormat, LyricTransMode, SortOrder, SortType, YouthVip } from '@/utils/params';
+import { LyricFormat, LyricTransMode, SortOrder, SortType, YouthVip } from '@/constants';
 
 /**
  * 类型安全的测试夹具工厂。
- * 所有字段均以 `src/types/global.d.ts` 与 `src/utils/params.ts` 为准，禁止臆造字段。
+ * 所有字段均以 `src/types/global.d.ts` 与 `src/constants/` 为准，禁止臆造字段。
  */
 
 /** 创建带持久化插件的测试用 Pinia 实例并激活（persist 走 localStorage，每个测试前已由 setup 清空） */
@@ -152,6 +152,22 @@ export const makePlaylist = (overrides: Partial<ApiPlaylist> = {}): ApiPlaylist 
     musiclib_tags: [],
     is_pri: 0,
     type: 0,
+    ...overrides,
+  };
+};
+
+export const makePlaylistInfo = (overrides: Partial<PlaylistInfo> = {}): PlaylistInfo => {
+  const id = nextId();
+  return {
+    id,
+    cover: '',
+    title: `Playlist Info ${id}`,
+    artist: 'tester',
+    count: 0,
+    playCount: 0,
+    tags: [],
+    gid: `gid-${id}`,
+    sort: 0,
     ...overrides,
   };
 };

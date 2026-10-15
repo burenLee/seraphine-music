@@ -5,39 +5,39 @@ import { computed, onMounted, ref } from 'vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
-import { useSettingStore } from '@/stores/setting';
-import { Mode } from '@/utils/params';
+import { Mode } from '@/constants';
+import { useStateStore } from '@/stores/state';
 import { invoke } from '@/utils/tools';
 
-const settingStore = useSettingStore();
+const stateStore = useStateStore();
 
 const modeVisible = ref(false);
 const modeOptions = ref<SelectOption[]>([]);
 
 const modeSelection = computed<SelectOption | undefined>(
   () =>
-    modeOptions.value.find((option) => option.value === settingStore.mode) || modeOptions.value[0],
+    modeOptions.value.find((option) => option.value === stateStore.mode) || modeOptions.value[0],
 );
 
 const getModeList = async () => {
   try {
     modeOptions.value = await invoke('app_mode_all');
   } catch {
-    notify.error('无法获取播放器模式列表');
+    notify.error('获取播放器模式列表失败');
   }
 };
 
 const getMode = async () => {
   try {
     const mode = await invoke('app_mode_get');
-    settingStore.setMode(mode);
+    stateStore.setMode(mode);
   } catch {
-    notify.error('无法获取播放器模式');
+    notify.error('获取播放器模式失败');
   }
 };
 
 const modeSelect = async (mode: Mode) => {
-  if (mode === settingStore.mode) return;
+  if (mode === stateStore.mode) return;
 
   modeVisible.value = false;
 
@@ -47,7 +47,7 @@ const modeSelect = async (mode: Mode) => {
     // TODO: 改变mode需要一个重置全局变量的方法
     // reload()
   } catch {
-    notify.error('无法设置播放器模式');
+    notify.error('设置播放器模式失败');
   }
 };
 

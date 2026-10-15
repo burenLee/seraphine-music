@@ -5,8 +5,8 @@ import { ref } from 'vue';
 import ActionButton from '@/components/ActionButton.vue';
 import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
+import { InvokeApiStatus } from '@/constants';
 import { useUserStore } from '@/stores/user';
-import { ApiInvokeStatus } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 interface Emits {
@@ -49,15 +49,15 @@ const getCode = async () => {
 
   try {
     const { status } = await invoke('api_login_captcha', { mobile: phoneForm.value.mobile });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('无法获取验证码');
+    if (status !== InvokeApiStatus.Success) {
+      notify.error('获取验证码失败');
       codeLoading.value = false;
     } else {
       notify.success('验证码已发送');
       start();
     }
   } catch {
-    notify.error('无法获取验证码');
+    notify.error('获取验证码失败');
     codeLoading.value = false;
   }
 };
@@ -74,7 +74,7 @@ const handleConfirm = async () => {
 
   try {
     const { status, data } = await invoke('api_login_cellphone', phoneForm.value);
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('登录失败');
       return;
     }

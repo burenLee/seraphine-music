@@ -370,7 +370,7 @@ pub async fn music_player_load_url(url: String, hash: String) -> Result<(), Stri
     .log_command("music_player_load_url", "请求音频资源失败")?;
   let file_size = response.content_length().unwrap_or_default();
   if file_size == 0 {
-    return Err("无法获取音频长度".to_string());
+    return Err("获取音频长度失败".to_string());
   }
 
   // 重置所有状态

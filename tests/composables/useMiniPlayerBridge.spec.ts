@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 
 import { useMiniPlayerBridge } from '@/composables/useMiniPlayerBridge';
+import { ListType, MiniPlayerEmit, WindowEvent, WindowTarget } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
-import { ListType, MiniPlayerEmit, WindowEvent, WindowTarget } from '@/utils/params';
+import { useStateStore } from '@/stores/state';
 
 import { createTestPinia, makeListMusic, makeMusicList } from '../helpers/factories';
 import { emitToMock, flushAsync, listenMock, triggerListen } from '../helpers/mocks';
@@ -74,8 +74,8 @@ describe('useMiniPlayerBridge 迷你播放器事件桥接', () => {
 
   it('Pos 事件保存迷你播放器坐标', async () => {
     const bridge = useMiniPlayerBridge();
-    const settingStore = useSettingStore();
-    const setMiniPlayerPosition = vi.spyOn(settingStore, 'setMiniPlayerPosition');
+    const stateStore = useStateStore();
+    const setMiniPlayerPosition = vi.spyOn(stateStore, 'setMiniPlayerPosition');
     await bridge.start();
 
     triggerListen(WindowEvent.MiniPlayer, { type: MiniPlayerEmit.Pos, data: { x: 10, y: 20 } });

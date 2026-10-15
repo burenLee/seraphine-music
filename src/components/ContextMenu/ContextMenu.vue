@@ -1,102 +1,105 @@
+<script lang="ts">
+/** 容器内边距 */
+const ContainerPadding = 6;
+/** 容器宽度 */
+const ContainerWidth = 176;
+/** 分割线高度 */
+const DividerHeight = 12;
+/** 行高度 */
+const RowHeight = 32;
+/** 行宽度 */
+const RowWidth = ContainerWidth - ContainerPadding * 2;
+</script>
+
 <script lang="ts" setup>
 import { useWindowSize } from '@vueuse/core';
 import { computed, ref } from 'vue';
 
 import SvgIcon from '@/components/SvgIcon.vue';
-import {
-  CONTAINER_PADDING,
-  CONTAINER_WIDTH,
-  DIVIDER_LINE_HEIGHT,
-  DIVIDER_MARGIN,
-  ROW_HEIGHT,
-  ROW_WIDTH,
-  calcContainerHeight,
-} from '@/stores/context-menu';
+import { useContextMenuStore } from '@/stores/context-menu';
 
 interface Props {
   options: ContextMenuOption[];
-  /** 本层容器在视口中的位置（用于子菜单边界计算与递归传参） */
-  containerPosition: { top: number; left: number };
+  /** 本层容器在视口中的预计位置 */
+  position: { top: number; left: number };
+  /** 层级 */
+  level: number;
 }
 
-interface Emits {
-  select: [option: ContextMenuOption];
-}
+const { options, position, level } = defineProps<Props>();
 
-const { options = [], containerPosition = { top: 0, left: 0 } } = defineProps<Props>();
-const emit = defineEmits<Emits>();
+const contextMenuStore = useContextMenuStore();
 
 const { width: windowWidth, height: windowHeight } = useWindowSize();
 
 const activedIndex = ref(-1);
-const activedTop = ref(0);
 
-const childrenPosition = computed(() => {
-  const childOptions = options[activedIndex.value]?.children;
-  if (!childOptions?.length) return { top: 0, left: ROW_WIDTH - 2 };
+// 实际显示的位置
+const showPosition = computed(() => {
+  if (!options.length) return { top: 0, left: 0 };
 
-  const containerHeight = calcContainerHeight(childOptions);
+  const containerHeight = calcHeight(options.length - 1);
 
   const top =
-    activedTop.value + containerHeight <= windowHeight.value
-      ? -CONTAINER_PADDING
-      : -(containerHeight - (windowHeight.value - activedTop.value));
+    position.top + containerHeight <= windowHeight.value
+      ? position.top
+      : windowHeight.value - containerHeight;
   const left =
-    containerPosition.left + CONTAINER_WIDTH * 2 <= windowWidth.value
-      ? ROW_WIDTH - 2
-      : -CONTAINER_WIDTH;
+    position.left + ContainerWidth <= windowWidth.value
+      ? position.left
+      : position.left - ContainerWidth * level;
 
   return { top, left };
 });
 
-/** 子菜单在视口中的位置 = 本层位置 + 相对偏移，传给递归子层用于边界计算 */
-const childContainerPosition = computed(() => ({
-  top: containerPosition.top + childrenPosition.value.top,
-  left: containerPosition.left + childrenPosition.value.left,
-}));
+/**
+ * 计算给定索引的菜单高度
+ * @param index - 索引
+ */
+const calcHeight = (index: number) => {
+  if (index < 0) return 0;
 
-const handleChildrenShow = (e: MouseEvent, index: number) => {
-  // 用 currentTarget 而非 target：li 自身有 relative，
-  // 子元素的 offsetTop 相对 li 而非容器，会算偏
-  activedTop.value = containerPosition.top + (e.currentTarget as HTMLElement).offsetTop;
-  activedIndex.value = index;
+  return (
+    options
+      .slice(0, index + 1)
+      .reduce((h, option) => h + (option.divider ? DividerHeight : RowHeight), 0) +
+    ContainerPadding * 2
+  );
 };
 
 const handleClick = (option: ContextMenuOption) => {
-  if (!option.onClick) return;
+  contextMenuStore.hide();
 
-  emit('select', option);
   activedIndex.value = -1;
-};
-
-// 透传子层冒泡上来的 select 事件
-const handleSelect = (option: ContextMenuOption) => {
-  emit('select', option);
+  option.onClick?.();
 };
 </script>
 
 <template>
   <ul
-    class="rounded-lg border border-border bg-background shadow-lg shadow-shadow"
-    :style="{ padding: `${CONTAINER_PADDING}px`, width: `${CONTAINER_WIDTH}px` }"
-    @contextmenu.stop.prevent
+    class="card pointer-events-auto fixed z-10 bg-background shadow-lg shadow-shadow"
+    :style="{
+      padding: `${ContainerPadding}px`,
+      width: `${ContainerWidth}px`,
+      top: `${showPosition.top}px`,
+      left: `${showPosition.left}px`,
+      '--divider-height': `${DividerHeight}px`,
+      '--row-height': `${RowHeight}px`,
+      '--row-width': `${RowWidth}px`,
+    }"
   >
     <template v-for="(option, index) in options" :key="index">
-      <li
-        v-if="option.divider"
-        class="w-full bg-border"
-        :style="{ height: `${DIVIDER_LINE_HEIGHT}px`, marginBlock: `${DIVIDER_MARGIN}px` }"
-      ></li>
+      <li v-if="option.divider" class="flex h-[var(--divider-height)] items-center">
+        <div class="h-px w-full bg-border"></div>
+      </li>
 
       <li
         v-else
-        class="card-hover relative flex cursor-pointer items-center gap-1 rounded-lg px-2 transition-colors"
-        :style="{ height: `${ROW_HEIGHT}px` }"
+        class="card-hover relative flex h-[var(--row-height)] w-[var(--row-width)] cursor-pointer items-center gap-1 rounded-lg px-2"
         :data-disabled="option.disabled"
-        :data-label="option.label"
         @click="handleClick(option)"
-        @mouseenter="handleChildrenShow($event, index)"
-        @mouseleave="activedIndex = -1"
+        @mouseenter="activedIndex = index"
+        @mouseleave="activedIndex = index"
       >
         <div class="size-4">
           <slot name="prefix-icon">
@@ -108,19 +111,18 @@ const handleSelect = (option: ContextMenuOption) => {
 
         <slot name="suffix-icon">
           <SvgIcon v-if="option.suffixIcon" :name="option.suffixIcon" size="16" />
+          <SvgIcon v-else-if="option.children?.length" name="Right" size="16" />
         </slot>
 
-        <Transition name="zoom-fade">
+        <Transition name="fade">
           <ContextMenu
             v-if="option.children?.length && activedIndex === index"
-            class="absolute"
-            :style="{
-              top: `${childrenPosition.top}px`,
-              left: `${childrenPosition.left}px`,
-            }"
             :options="option.children"
-            :container-position="childContainerPosition"
-            @select="handleSelect"
+            :position="{
+              top: showPosition.top + calcHeight(activedIndex - 1) - ContainerPadding * 2,
+              left: showPosition.left + ContainerWidth,
+            }"
+            :level="level + 1"
           />
         </Transition>
       </li>

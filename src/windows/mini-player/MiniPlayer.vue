@@ -10,7 +10,6 @@ import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import VirtualList from '@/components/VirtualList.vue';
-import { getFullName, getPic } from '@/utils/music';
 import {
   Interval,
   MiniPlayerEmit,
@@ -18,8 +17,9 @@ import {
   PlayingOrigin,
   WindowEvent,
   WindowTarget,
-  miniPlayerSize,
-} from '@/utils/params';
+  MiniPlayerSize,
+} from '@/constants';
+import { getFullName, getOrigin, getPic } from '@/utils/music';
 
 // 同步主题
 useColorMode();
@@ -35,18 +35,17 @@ const audio = ref<MiniPlayerAudio>({
   isPlaying: false,
   isLoading: false,
   music: undefined,
-  origin: PlayingOrigin.Local,
 });
-
 const lyric = ref('');
 const playlist = ref<MusicInfo[]>([]);
 const playlistVisible = ref(false);
 
-// 封面基于主窗口同步过来的 audio 状态计算，避免在迷你播放器中实例化主窗口 store
 const cover = computed(() => {
   if (!audio.value.music?.cover) return '';
 
-  return audio.value.origin === PlayingOrigin.Local
+  console.log(getOrigin(audio.value.music));
+
+  return getOrigin(audio.value.music) === PlayingOrigin.Local
     ? convertFileSrc(audio.value.music.cover)
     : getPic(audio.value.music.cover, PicSize.Md);
 });
@@ -65,8 +64,8 @@ const showPlaylist = () => {
 
   miniWindow.setSize(
     new LogicalSize(
-      miniPlayerSize.width,
-      playlistVisible.value ? miniPlayerSize.width : miniPlayerSize.height,
+      MiniPlayerSize.width,
+      playlistVisible.value ? MiniPlayerSize.width : MiniPlayerSize.height,
     ),
   );
 };
@@ -185,11 +184,7 @@ listen<{ type: MiniPlayerEmit; data: unknown }>(WindowEvent.MiniPlayer, (e) => {
             {{ getFullName(row) }}
           </div>
 
-          <div
-            class="hidden items-center pl-2 group-hover/line:flex"
-            @dblclick.stop
-            @contextmenu.stop
-          >
+          <div class="hidden items-center pl-2 group-hover/line:flex" @dblclick.stop>
             <ActionButton
               class="size-8"
               mode="text"

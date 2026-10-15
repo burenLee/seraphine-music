@@ -1,4 +1,3 @@
-import { IconName } from '@/utils/icons';
 import {
   DefaultSystemFonts,
   LyricBaseColor,
@@ -10,9 +9,9 @@ import {
   SearchType,
   SortOrder,
   SortType,
-  SystemTheme,
   YouthVip,
-} from '@/utils/params';
+} from '@/constants';
+import { IconName } from '@/utils/icons';
 
 // id一般设置为ID, 保证宽进严出
 
@@ -136,16 +135,17 @@ declare global {
     /** 歌手信息 */
     artistInfo?: ArtistInfo;
     /** 歌单信息 */
-    playlistInfo?: ListInfo;
+    playlistInfo?: PlaylistInfo;
   }
 
   /** 音频信息 */
   interface MusicInfo extends PlayingMusicInfo {
-    album: string | null;
     sort: number;
     tags?: string[];
+
     /** 权限标签 */
     privilegeTags?: string[];
+
     /** 用于用户歌单的删除 */
     fileId?: ID;
   }
@@ -160,12 +160,18 @@ declare global {
     url: string;
   }
 
+  /** 歌单信息 */
+  interface PlaylistInfo extends ListInfo {
+    gid: string;
+    /** 是否为私密歌单 */
+    is_pri?: number;
+    /** 是否为默认歌单 */
+    is_def?: number;
+    sort: number;
+  }
+
   /** 列表信息 */
   interface ListInfo {
-    /**
-     * 列表id
-     * @description 歌单使用 `listid`
-     */
     id: ID;
     cover: string;
     title: string;
@@ -173,9 +179,6 @@ declare global {
     count: number;
     playCount: number;
     tags?: string[];
-
-    /** 歌单的gid */
-    gid?: string;
   }
 
   interface MusicList<T = MusicInfo[]> {
@@ -289,17 +292,6 @@ declare global {
     isPlaying: boolean;
     isLoading: boolean;
     music: PlayingMusicInfo | undefined;
-    origin: PlayingOrigin;
-  }
-
-  /** 迷你播放器歌词载荷 */
-  interface MiniPlayerLyric {
-    text: string;
-  }
-
-  /** 迷你播放器播放列表载荷 */
-  interface MiniPlayerPlaylist {
-    list: MusicInfo[];
   }
 
   /** 桌面歌词音频状态载荷 */
@@ -428,7 +420,7 @@ declare global {
     };
     api_lyric_search: {
       args: { keyword: string; hash: string | null; album_audio_id?: string; man?: 'yse' | 'no' };
-      return: { status: u32; candidates: ApiLyricCandidate[] };
+      return: { status: number; candidates: ApiLyricCandidate[] };
     };
     api_lyric_get: {
       args: {

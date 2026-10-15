@@ -29,11 +29,7 @@ const handleCancel = () => {
 
 watch(visible, async (visible) => {
   if (visible) {
-    try {
-      musicDetail.value = await invoke('music_file_detail', { path });
-    } catch {
-      notify.error('获取文件详情失败');
-    }
+    musicDetail.value = await invoke('music_file_detail', { path });
   } else {
     musicDetail.value = undefined;
   }
@@ -41,7 +37,7 @@ watch(visible, async (visible) => {
 </script>
 
 <template>
-  <Modal v-model="visible" class="w-96" title="歌曲详情" hideFooter @cancel="handleCancel">
+  <Modal :visible="visible" class="w-96" title="歌曲详情" hideFooter @cancel="handleCancel">
     <div v-if="!musicDetail" class="px-6 pb-4 text-center font-bold leading-[8rem]">
       未获取到歌曲详情
     </div>
@@ -50,7 +46,7 @@ watch(visible, async (visible) => {
       <div class="flex gap-3">
         <Image class="size-12" :src="cover" icon-size="24" />
 
-        <div class="min-w-0 flex-1">
+        <div class="w-0 flex-1">
           <div class="music-title cursor-copy truncate" v-copy="musicDetail.artist">
             {{ musicDetail.title }}
           </div>

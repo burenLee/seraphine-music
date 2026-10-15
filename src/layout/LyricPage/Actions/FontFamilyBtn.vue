@@ -4,10 +4,10 @@ import { computed, ref } from 'vue';
 
 import SelectModal from '@/components/SelectModal.vue';
 import { useLyricStore } from '@/stores/lyric';
-import { useSettingStore } from '@/stores/setting';
+import { useStateStore } from '@/stores/state';
 
+const stateStore = useStateStore();
 const lyricStore = useLyricStore();
-const settingStore = useSettingStore();
 
 const fontFamilyVisible = ref(false);
 const fontFamilyOptions = ref<Array<SelectOption<FontValue>>>([]);
@@ -20,9 +20,7 @@ const fontFamilySelection = computed(
 
 const handleFontFamilyClick = () => {
   fontFamilyVisible.value = !fontFamilyVisible.value;
-
-  if (settingStore.availableFonts.length === 0) settingStore.getAvailableFonts();
-  fontFamilyOptions.value = settingStore.availableFonts.map(
+  fontFamilyOptions.value = stateStore.availableFonts.map(
     ([label, value]: [string, FontValue]) => ({ label, value }),
   );
 };
@@ -43,13 +41,25 @@ const handleFontFamilySelect = (font: FontValue) => {
       A
     </div>
 
-    <SelectModal
-      class="absolute right-full top-0 mr-2 h-64 overflow-y-auto"
-      :visible="fontFamilyVisible"
-      :options="fontFamilyOptions"
-      :selection="fontFamilySelection"
-      @select="handleFontFamilySelect"
-    >
-    </SelectModal>
+    <Transition name="zoom-fade">
+      <ul
+        v-if="fontFamilyVisible"
+        class="card absolute right-full top-0 z-10 mr-2 h-64 overflow-y-auto bg-background p-1.5 shadow-lg shadow-shadow"
+      >
+        <li
+          v-for="(option, index) in fontFamilyOptions"
+          :key="index"
+          class="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2 transition-colors"
+          :class="fontFamilySelection?.value === option.value ? 'card-actived' : 'card-hover'"
+          :style="{ fontFamily: option.value }"
+          :data-disabled="option.disabled"
+          @click="handleFontFamilySelect(option.value)"
+        >
+          <div class="whitespace-nowrap px-1">{{ option.label }}</div>
+        </li>
+
+        <div v-if="!fontFamilyOptions.length" class="whitespace-nowrap p-4">暂无数据</div>
+      </ul>
+    </Transition>
   </div>
 </template>

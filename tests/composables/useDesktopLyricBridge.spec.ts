@@ -3,9 +3,9 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDesktopLyricBridge } from '@/composables/useDesktopLyricBridge';
+import { DesktopLyricEmit, WindowEvent, WindowTarget } from '@/constants';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
-import { DesktopLyricEmit, WindowEvent, WindowTarget } from '@/utils/params';
+import { useStateStore } from '@/stores/state';
 
 import { createTestPinia } from '../helpers/factories';
 import { emitToMock, flushAsync, listenMock, triggerListen } from '../helpers/mocks';
@@ -74,8 +74,8 @@ describe('useDesktopLyricBridge 桌面歌词事件桥接', () => {
 
   it('Pos 事件保存桌面歌词坐标', async () => {
     const bridge = useDesktopLyricBridge();
-    const settingStore = useSettingStore();
-    const setPosition = vi.spyOn(settingStore, 'setdesktopLyricPosition');
+    const stateStore = useStateStore();
+    const setPosition = vi.spyOn(stateStore, 'setdesktopLyricPosition');
     await bridge.start();
 
     triggerListen(WindowEvent.DesktopLyric, { type: DesktopLyricEmit.Pos, data: { x: 5, y: 6 } });

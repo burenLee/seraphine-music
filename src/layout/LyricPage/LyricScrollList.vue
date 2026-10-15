@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 import { useEventListener } from '@vueuse/core';
-import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
+import { LyricFormat, LyricTransMode } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
-import { LyricFormat, LyricTransMode } from '@/utils/params';
+import { useStateStore } from '@/stores/state';
 import { formatDuration } from '@/utils/tools';
 
 interface Emits {
@@ -15,9 +15,9 @@ interface Emits {
 
 const emits = defineEmits<Emits>();
 
+const stateStore = useStateStore();
 const lyricStore = useLyricStore();
 const musicStore = useMusicStore();
-const settingStore = useSettingStore();
 
 const lyricRef = useTemplateRef('lyricRef');
 
@@ -26,34 +26,43 @@ let wheelTimer: ReturnType<typeof setTimeout> | null = null; // 滚轮定时器
 const lyricPadding = ref(0); // 歌词容器内边距
 const isWheeling = ref(false); // 鼠标滚轮是否正在滚动
 
-// 当前歌词的偏移量
-const lyricOffset = computed(() => lyricStore.offsetMap[lyricStore.lyric.id] || 0);
-// 歌词偏移后的实际播放进度 (s)
-const adjustedProgress = computed(() => musicStore.playProgress + lyricOffset.value);
+// 字体大小(动态计算)
 const fontSize = computed(
-  () => lyricStore.fontSize + (settingStore.isFullscreen || settingStore.isMaximized ? 4 : 0),
+  () => lyricStore.fontSize + (stateStore.isFullscreen || stateStore.isMaximized ? 4 : 0),
 );
-const wordHeight = computed(() => fontSize.value + 4);
-const linePadding = computed(() => fontSize.value / 2);
 // 行高（根据翻译显示模式动态计算）
 const lineHeight = computed(() => {
-  const baseHeight = wordHeight.value + linePadding.value * 2;
+  const baseHeight = fontSize.value * 2 + 4;
+
   return lyricStore.transMode === LyricTransMode.Off
     ? baseHeight
     : baseHeight + lyricStore.fontSize;
 });
-
+// 歌词偏移后的实际播放进度 (ms)
+const playProgress = computed(
+  () => (musicStore.playProgress + (lyricStore.offsetMap[lyricStore.lyric.id] || 0)) * 1000,
+);
 // 当前高亮歌词行索引
 const currentIndex = computed(() => {
-  if (!lyricStore.lyric.id) return -1;
+  const { id, lines } = lyricStore.lyric;
+  if (!id || !lines.length) return -1;
 
-  const pg = adjustedProgress.value * 1000 + 100;
-  return lyricStore.lyric.lines.findIndex((line, index, list) => {
-    const start = line.offset;
-    const end = list[index + 1]?.offset || Infinity;
+  const progress = playProgress.value + 100;
 
-    return pg >= start && pg < end;
-  });
+  let index = -1;
+  let low = 0;
+  let high = lines.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >>> 1;
+    if (lines[mid].offset <= progress) {
+      index = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return index;
 });
 
 // 设置歌词容器内边距（使首行歌词居中）
@@ -71,7 +80,7 @@ const setLyricPadding = async () => {
 
 // 获取单词进度百分比
 const getWordProgress = (offset: number, duration: number) =>
-  Math.max(0, Math.min(1, (adjustedProgress.value * 1000 - offset) / duration)) * 100;
+  Math.max(0, Math.min(1, (playProgress.value - offset) / duration)) * 100;
 
 // 滚动到当前行
 const scrollToLine = () => {
@@ -80,10 +89,7 @@ const scrollToLine = () => {
   const line = lyricRef.value?.querySelector<HTMLElement>(`#lyric-line-${currentIndex.value}`);
   if (!line || !lyricRef.value) return;
 
-  lyricRef.value.scrollTo({
-    top: line.offsetTop - lyricPadding.value,
-    behavior: 'smooth',
-  });
+  lyricRef.value.scrollTo({ top: line.offsetTop - lyricPadding.value, behavior: 'smooth' });
 };
 
 // 点击歌词行跳转
@@ -95,7 +101,6 @@ const handleLineClick = async (offset: number) => {
   await musicStore.stopChangeProgress(offset / 1000);
 
   await nextTick();
-
   scrollToLine();
 };
 
@@ -122,15 +127,12 @@ watch(
   () => musicStore.isDragging,
   (isDragging) => !isDragging && scrollToLine(),
 );
-
 watch(currentIndex, scrollToLine, { flush: 'post' });
 
 // 字体大小 / 翻译模式改变会导致行高变化，需重算内边距保持首行居中
-watch(() => lineHeight.value, setLyricPadding);
-
+watch(() => lineHeight.value, setLyricPadding, { immediate: true });
 useEventListener('resize', setLyricPadding);
 
-onMounted(setLyricPadding);
 onUnmounted(clearWheelTimer);
 </script>
 
@@ -139,13 +141,13 @@ onUnmounted(clearWheelTimer);
     ref="lyricRef"
     class="lyric-fade hide-scrollbar relative overflow-y-scroll"
     :style="{
-      paddingBlock: `${lyricPadding}px`,
       fontFamily: lyricStore.fontFamily,
-      '--line-padding': `${linePadding}px`,
+      paddingBlock: `${lyricPadding}px`,
+      '--line-padding': `${fontSize / 2}px`,
       '--word-font-size': `${fontSize}px`,
       '--fade-size': `${fontSize * 4}px`,
       '--trans-font-size': `${fontSize - 4}px`,
-      '--word-height': `${wordHeight}px`,
+      '--word-height': `${fontSize + 4}px`,
       '--trans-height': `${lyricStore.fontSize}px`,
       '--color-lyric': lyricStore.textColor,
     }"

@@ -97,7 +97,7 @@ pub async fn api_lyric_get(
     .log_command("api_lyric_get", "请求失败")?;
 
   if resp.status != 200 {
-    return Err("无法获取歌词".to_string());
+    return Err("获取歌词失败".to_string());
   }
 
   let decoded_content = match decode.unwrap_or(true) {

@@ -4,8 +4,8 @@ import { watchThrottled } from '@vueuse/core';
 import { inject, ref, useTemplateRef } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
+import { Interval, ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
-import { Interval, ListType } from '@/utils/params';
 
 const listType = inject<ListType>('listType', ListType.Show);
 

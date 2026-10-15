@@ -10,7 +10,7 @@ declare global {
     interface State {
       counter: number;
       subscribers: Subscriber[];
-      subscribe: (subscriber: Subscriber) => void;
+      subscribe: (subscriber: Subscriber) => () => void;
       publish: (info: Info) => void;
       create: (type: Type) => (info: string | Info) => void;
     }

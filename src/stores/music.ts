@@ -4,14 +4,8 @@ import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 
 import { notify } from '@/components/Notification.vue';
+import { InvokeApiStatus, Interval, PlayingMode, PlayingOrigin, PlayingQuality } from '@/constants';
 import { getFullName, getOrigin, setAppTitle } from '@/utils/music';
-import {
-  ApiInvokeStatus,
-  Interval,
-  PlayingMode,
-  PlayingOrigin,
-  PlayingQuality,
-} from '@/utils/params';
 import { genRandomNum, invoke } from '@/utils/tools';
 
 import { useListStore } from './list';
@@ -36,7 +30,7 @@ export const useMusicStore = defineStore(
     const downloadProgress = ref(0); // 下载进度 (%)
     const retryCount = ref(0); // 重试次数
 
-    const MAX_RETRY_COUNT = 3; // 最大重试次数
+    const MaxRetryCount = 3; // 最大重试次数
 
     let tryNextTimer: ReturnType<typeof setTimeout> | undefined = undefined;
     let waitDownloadTimer: ReturnType<typeof setTimeout> | undefined = undefined;
@@ -46,7 +40,6 @@ export const useMusicStore = defineStore(
     const listStore = useListStore();
     const { load: loadLyric } = useLyricStore();
 
-    // 水合完成时恢复播放状态
     watch(
       isHydrated,
       async () => {
@@ -57,8 +50,8 @@ export const useMusicStore = defineStore(
         await monitorPlay();
         await monitorDownload();
 
-        if (volume.value !== 100) await setVolume(volume.value);
         if (music.value !== undefined) await load(music.value, origin.value);
+        if (volume.value !== 100) await setVolume(volume.value);
         if (playProgress.value !== 0) await seek(playProgress.value);
       },
       { once: true },
@@ -78,11 +71,9 @@ export const useMusicStore = defineStore(
       const { origin = PlayingOrigin.Local, loop = false, autoPlay = true } = options || {};
       if (newMusic.id === music.value?.id && !loop) return;
 
-      try {
-        await stop();
-        await load(newMusic, origin);
-        if (autoPlay) await play();
-      } catch {}
+      await stop();
+      await load(newMusic, origin);
+      if (autoPlay) await play();
     };
 
     /** 设置音量 */
@@ -91,18 +82,25 @@ export const useMusicStore = defineStore(
 
       try {
         await invoke('music_player_set_volume', { volume: newVolume });
-        volume.value = newVolume;
-        if (newVolume > 0) lastVolumn.value = newVolume;
       } catch {
         notify.error('无法设置音量');
+        return;
       }
+
+      volume.value = newVolume;
+
+      if (newVolume > 0) lastVolumn.value = newVolume;
     };
 
     /** 设置播放模式 */
-    const setMode = (newMode: PlayingMode) => (mode.value = newMode);
+    const setMode = (newMode: PlayingMode) => {
+      mode.value = newMode;
+    };
 
     /** 设置播放音质 */
-    const setQuality = (newQuality: PlayingQuality) => (quality.value = newQuality);
+    const setQuality = (newQuality: PlayingQuality) => {
+      quality.value = newQuality;
+    };
 
     /** 加载音频 */
     const load = async (newMusic: PlayingMusicInfo, newOrigin: PlayingOrigin) => {
@@ -127,7 +125,7 @@ export const useMusicStore = defineStore(
               hash: music.value.hash,
               quality: quality.value,
             });
-            if (status !== ApiInvokeStatus.Success || !backupUrl?.length) throw new Error();
+            if (status !== InvokeApiStatus.Success || !backupUrl?.length) throw new Error();
 
             music.value.path = backupUrl[0];
             await invoke('music_player_load_url', {
@@ -141,8 +139,6 @@ export const useMusicStore = defineStore(
         isLoaded.value = true;
         retryCount.value = 0;
       } catch {
-        notify.warning(`无法播放：《${newMusic.title}》，自动切换下一首...`);
-
         // 开启重试
         startTryNext();
       } finally {
@@ -185,31 +181,23 @@ export const useMusicStore = defineStore(
       stopTryNext();
       stopWaitDownload();
 
-      try {
-        await invoke('music_player_stop');
-        isPlaying.value = false;
-        playProgress.value = 0;
-        downloadProgress.value = 0;
+      await invoke('music_player_stop');
+      isPlaying.value = false;
+      playProgress.value = 0;
+      downloadProgress.value = 0;
 
-        setAppTitle('Seraphine');
-        syncMetadata();
-      } catch {
-        notify.error('无法停止音频');
-      }
+      setAppTitle('Seraphine');
+      syncMetadata();
     };
 
     /** 跳转 */
     const seek = async (pos: number) => {
-      try {
-        await invoke('music_player_seek', { pos });
-      } catch {
-        notify.error('无法跳转');
-      }
+      await invoke('music_player_seek', { pos });
     };
 
     /** 向媒体控件同步数据 */
-    const syncMetadata = () => {
-      invoke('music_media_sync_metadata', {
+    const syncMetadata = async () => {
+      await invoke('music_media_sync_metadata', {
         cover: music.value?.cover || undefined,
         title: music.value?.title || undefined,
         artist: music.value?.artist || undefined,
@@ -297,10 +285,12 @@ export const useMusicStore = defineStore(
 
     /** 尝试加载下一首 */
     const startTryNext = () => {
-      if (tryNextTimer !== undefined) clearTimeout(tryNextTimer);
+      if (!music.value) return;
+      notify.warning(`无法播放：《${music.value.title}》，自动切换下一首...`);
 
+      if (tryNextTimer !== undefined) clearTimeout(tryNextTimer);
       tryNextTimer = setTimeout(() => {
-        if (++retryCount.value >= MAX_RETRY_COUNT) {
+        if (++retryCount.value >= MaxRetryCount) {
           notify.error('重试次数过多, 停止重试');
           retryCount.value = 0;
           return;
@@ -379,64 +369,54 @@ export const useMusicStore = defineStore(
     };
 
     const monitorDevice = async () => {
-      try {
-        await listen('music:reload_device', async () => {
-          const lastProgress = playProgress.value;
-          await setMusic(music.value, {
-            origin: origin.value,
-            loop: true,
-            autoPlay: isPlaying.value,
-          });
-          await seek(lastProgress);
+      await listen('music:reload_device', async () => {
+        const lastProgress = playProgress.value;
+        await setMusic(music.value, {
+          origin: origin.value,
+          loop: true,
+          autoPlay: isPlaying.value,
         });
-      } catch {}
+        await seek(lastProgress);
+      });
     };
 
     /** 监听下载进度 */
     const monitorDownload = async () => {
       if (downloadChannel !== undefined) return;
 
-      try {
-        downloadChannel = new Channel<number>();
-        downloadChannel.onmessage = (pg) => {
-          if (!music.value) return;
+      downloadChannel = new Channel<number>();
+      downloadChannel.onmessage = (pg) => {
+        if (!music.value) return;
 
-          downloadProgress.value = pg;
-        };
+        downloadProgress.value = pg;
+      };
 
-        await invoke('music_player_monitor_download', { channel: downloadChannel });
-      } catch {
-        notify.error('无法获取下载进度');
-      }
+      await invoke('music_player_monitor_download', { channel: downloadChannel });
     };
 
     /** 监听播放进度 */
     const monitorPlay = async () => {
       if (playChannel !== undefined) return;
 
-      try {
-        let lastProgress = 0; // 用于检测是否越过阈值（防止重复触发）
+      let lastProgress = 0; // 用于检测是否越过阈值（防止重复触发）
 
-        playChannel = new Channel<number>();
-        playChannel.onmessage = (pg) => {
-          if (!music.value || !isPlaying.value || isLoading.value) {
-            lastProgress = pg;
-            return;
-          }
-
-          // 仅在从未到达阈值的位置“跨越”到阈值或更后的位置时触发一次
-          if (pg + 0.3 >= music.value.duration && lastProgress + 0.3 < music.value.duration) {
-            playAutoNext();
-          }
-
-          playProgress.value = pg;
+      playChannel = new Channel<number>();
+      playChannel.onmessage = (pg) => {
+        if (!music.value || !isPlaying.value || isLoading.value) {
           lastProgress = pg;
-        };
+          return;
+        }
 
-        await invoke('music_player_monitor_play', { channel: playChannel });
-      } catch {
-        notify.error('无法获取播放进度');
-      }
+        // 仅在从未到达阈值的位置“跨越”到阈值或更后的位置时触发一次
+        if (pg + 0.3 >= music.value.duration && lastProgress + 0.3 < music.value.duration) {
+          playAutoNext();
+        }
+
+        playProgress.value = pg;
+        lastProgress = pg;
+      };
+
+      await invoke('music_player_monitor_play', { channel: playChannel });
     };
 
     return {

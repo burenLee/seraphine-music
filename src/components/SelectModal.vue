@@ -23,7 +23,10 @@ const emits = defineEmits<IEmits>();
 
 <template>
   <Transition :name="transition">
-    <ul v-if="visible" class="card z-10 overflow-hidden bg-background p-1 shadow-lg shadow-shadow">
+    <ul
+      v-if="visible"
+      class="card z-10 overflow-y-auto overflow-x-hidden bg-background p-1.5 shadow-lg shadow-shadow"
+    >
       <li
         v-for="(option, index) in options"
         :key="index"

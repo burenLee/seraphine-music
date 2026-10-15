@@ -1,15 +1,16 @@
 <script lang="ts" setup>
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import Image from '@/components/Image.vue';
 import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { InvokeApiStatus, ListType } from '@/constants';
 import { useContextMenuStore } from '@/stores/context-menu';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
+import { useStateStore } from '@/stores/state';
 import { useUserStore } from '@/stores/user';
 import { getOrigin, getPic } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PlaylistType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 interface Props {
@@ -20,8 +21,10 @@ interface Props {
 
 const { data, info, list } = defineProps<Props>();
 
+const route = useRoute();
 const router = useRouter();
 
+const stateStore = useStateStore();
 const musicStore = useMusicStore();
 const listStore = useListStore();
 const userStore = useUserStore();
@@ -31,12 +34,8 @@ const handleClick = () => {
   if (data.musicInfo) {
     handlePlay();
   } else if (data.artistInfo) {
-    if (!data.artistInfo.id) return;
-
     router.push(`/artist-list-table/${data.artistInfo.id}`);
   } else if (data.playlistInfo) {
-    if (!data.playlistInfo.gid) return;
-
     router.push(`/top-playlist-table/${data.playlistInfo.gid}`);
   }
 };
@@ -44,11 +43,11 @@ const handleClick = () => {
 const handlePlay = () => {
   if (!data.musicInfo) return;
 
+  musicStore.setMusic(data.musicInfo, { origin: getOrigin(data.musicInfo) });
+
   const playList: MusicInfo[] = [];
   list.forEach((item) => item.musicInfo && playList.push(item.musicInfo));
-
   listStore.setList(ListType.Play, { info, list: playList });
-  musicStore.setMusic(data.musicInfo, { origin: getOrigin(data.musicInfo) });
 };
 
 const handlePlayNext = () => {
@@ -61,23 +60,22 @@ const handleDownload = () => {
   // TODO: 下载
 };
 
-const adUserPlaylist = async (playlist: ApiPlaylist) => {
-  if (!data.musicInfo) return;
-
+const addUserPlaylist = async (music: MusicInfo, playlist: PlaylistInfo) => {
   try {
-    const { status, data: playlist_tracks_add } = await invoke('api_playlist_tracks_add', {
-      listId: playlist.list_create_listid,
-      musicList: [{ name: data.musicInfo.title, hash: data.musicInfo.hash }],
+    const { status, data } = await invoke('api_playlist_tracks_add', {
+      listId: +playlist.id,
+      musicList: [{ name: music.title, hash: music.hash }],
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('添加失败');
       return;
     }
 
     notify.success('添加成功');
-    // 如果是添加到我喜欢,同步列表
-    if (playlist.is_def === 2) {
-      const musicList: MusicInfo[] = playlist_tracks_add.info.map((song) => {
+
+    // 如果是我喜欢, 同步喜欢列表
+    if (playlist.id === listStore.like.info.id) {
+      const likeList: MusicInfo[] = data.info.map((song) => {
         const [artist, title] = song.name.split(' - ');
 
         return {
@@ -93,7 +91,12 @@ const adUserPlaylist = async (playlist: ApiPlaylist) => {
           fileId: song.fileid,
         };
       });
-      listStore.addLikeList(musicList);
+
+      listStore.addLikeList(likeList);
+    }
+
+    if (route.name === 'UserPlaylistTable' && route.params.gid === playlist.gid) {
+      stateStore.refresh();
     }
   } catch {
     notify.error('添加失败');
@@ -104,8 +107,8 @@ const handleContextMenu = (e: MouseEvent) => {
   if (!data.musicInfo) return;
 
   contextMenuStore.show({
-    x: e.clientX,
-    y: e.clientY,
+    top: e.clientY,
+    left: e.clientX,
     options: [
       { label: '播放', prefixIcon: 'Play', onClick: handlePlay },
       { label: '下一首播放', prefixIcon: 'Playlist', onClick: handlePlayNext },
@@ -113,14 +116,11 @@ const handleContextMenu = (e: MouseEvent) => {
       {
         label: '添加到',
         prefixIcon: 'Add',
-        suffixIcon: 'Right',
         disabled: !userStore.userinfo,
-        children: userStore.userPlaylist
-          .filter((playlist) => playlist.type === PlaylistType.User)
-          .map((playlist) => ({
-            label: playlist.name,
-            onClick: () => adUserPlaylist(playlist),
-          })),
+        children: userStore.userPlaylist.map((playlist) => ({
+          label: playlist.title,
+          onClick: () => addUserPlaylist(data.musicInfo!, playlist),
+        })),
       },
       { label: '下载', prefixIcon: 'Download', disabled: true, onClick: handleDownload },
     ],
@@ -132,7 +132,7 @@ const handleContextMenu = (e: MouseEvent) => {
   <div
     class="card-hover group/card relative flex h-16 cursor-pointer items-center gap-3 rounded-lg px-2 transition-colors"
     @click="handleClick"
-    @contextmenu.prevent="handleContextMenu"
+    @contextmenu="handleContextMenu"
   >
     <Image class="size-12" :src="getPic(data.cover)" icon-size="24" />
 

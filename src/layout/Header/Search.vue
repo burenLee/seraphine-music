@@ -6,9 +6,9 @@ import { useRouter } from 'vue-router';
 
 import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { InvokeApiStatus, Interval, SearchType } from '@/constants';
 import { useUserStore } from '@/stores/user';
 import { getFullName } from '@/utils/music';
-import { ApiInvokeStatus, Interval, SearchType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const userStore = useUserStore();
@@ -33,7 +33,7 @@ const handleSearch = async (searchQuery: string) => {
 
     try {
       const { status, data } = await invoke('api_search_complex', { keywords: query, pageSize: 5 });
-      if (status !== ApiInvokeStatus.Success) {
+      if (status !== InvokeApiStatus.Success) {
         notify.error('搜索失败');
       } else {
         searchVisible.value = true;

@@ -10,12 +10,11 @@ describe('SvgIcon 图标组件', () => {
     expect(wrapper.findComponent(IconMap.Play).exists()).toBe(true);
   });
 
-  it('默认尺寸为 16, 且装饰性图标对辅助技术隐藏', () => {
+  it('默认尺寸为 18', () => {
     const wrapper = mount(SvgIcon, { props: { name: 'Play' } });
     const svg = wrapper.find('svg');
-    expect(svg.attributes('width')).toBe('16');
-    expect(svg.attributes('height')).toBe('16');
-    expect(svg.attributes('aria-hidden')).toBe('true');
+    expect(svg.attributes('width')).toBe('18');
+    expect(svg.attributes('height')).toBe('18');
   });
 
   it('自定义尺寸与 disabled 状态', () => {

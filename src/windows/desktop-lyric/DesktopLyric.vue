@@ -6,11 +6,9 @@ import { useThrottleFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import SelectModal from '@/components/SelectModal.vue';
-import { getFullName } from '@/utils/music';
 import {
   DesktopLyricEmit,
-  FORWARD_DURATION,
+  ForwardDuration,
   Interval,
   LyricFontSize,
   LyricFormat,
@@ -18,8 +16,9 @@ import {
   PresetsColors,
   WindowEvent,
   WindowTarget,
-  desktopLyricSize,
-} from '@/utils/params';
+  DesktopLyricSize,
+} from '@/constants';
+import { getFullName } from '@/utils/music';
 
 import { useDesktopLyricStore } from './stores/desktop-lyric';
 
@@ -27,7 +26,7 @@ const lyricWindow = getCurrentWindow();
 
 const desktopLyricStore = useDesktopLyricStore();
 
-const ContentHeight = desktopLyricSize.height - 32; // 歌词部分的高度, 32 = 操作栏高度(2rem)
+const ContentHeight = DesktopLyricSize.height - 32; // 歌词部分的高度, 32 = 操作栏高度(2rem)
 
 const isHovering = ref(false);
 const audio = ref<DesktopLyricAudio>({ isLoading: false, isPlaying: false, music: undefined });
@@ -40,20 +39,21 @@ const fontFamilyVisible = ref(false);
 const fontFamilyOptions = ref<Array<SelectOption<FontValue>>>([]);
 const isLocked = ref(false);
 
-// 当前歌词的偏移量
-const offset = computed(() => (lyric.value ? desktopLyricStore.offsetMap[lyric.value.id] || 0 : 0));
 const fontFamilySelection = computed<SelectOption<FontValue> | undefined>(
   () =>
     fontFamilyOptions.value.find((item) => item.value === desktopLyricStore.fontFamily) ||
     fontFamilyOptions.value[0],
 );
-
+// 歌词偏移后的实际播放进度 (s)
+const playProgress = computed(
+  () => (progress.value + (desktopLyricStore.offsetMap[lyric.value?.id || 0] || 0)) * 1000,
+);
 // 当前高亮歌词行索引
 const activedIndex = computed(() => {
   if (!lyric.value) return -1;
 
   const lines = lyric.value.lines;
-  const pg = (progress.value + offset.value) * 1000 + FORWARD_DURATION;
+  const pg = playProgress.value + ForwardDuration;
   for (let i = 0; i < lines.length; i++) {
     if (pg < lines[i].offset || pg > (lines[i + 1]?.offset || Infinity)) continue;
 
@@ -61,20 +61,6 @@ const activedIndex = computed(() => {
   }
 
   return -1;
-});
-
-watch(activedIndex, (index) => {
-  if (index === currentIndex.value) {
-    // 情况1：当前播放的 = 上行展示索引
-    nextIndex.value = index + 1;
-  } else if (index === nextIndex.value) {
-    // 情况2：当前播放的 = 下行展示索引
-    currentIndex.value = index + 1;
-  } else {
-    // 情况3：拖动进度条，跳跃很远，直接重置
-    currentIndex.value = index;
-    nextIndex.value = index + 1;
-  }
 });
 
 const lyricLine = computed(() => {
@@ -86,6 +72,16 @@ const lyricLine = computed(() => {
   };
 });
 
+const handleMouseenter = () => {
+  isHovering.value = true;
+};
+
+const handleMouseleave = () => {
+  if (colorVisible.value || fontFamilyVisible.value) return;
+
+  isHovering.value = false;
+};
+
 const handleFontFamilySelect = (font: FontValue) => {
   desktopLyricStore.setFontFamily(font);
   fontFamilyVisible.value = false;
@@ -96,8 +92,8 @@ const handleTransClick = (mode: LyricTransMode) => {
 };
 
 // 获取单词进度百分比
-const getWordProgress = (word: LyricWord) =>
-  `${Math.max(0, Math.min(1, ((progress.value + offset.value) * 1000 - word.offset) / word.duration)) * 100}%`;
+const getWordProgress = (offset: number, duration: number) =>
+  Math.max(0, Math.min(1, (playProgress.value - offset) / duration)) * 100;
 
 const handleSend = (type: DesktopLyricEmit, data?: any) => {
   emitTo(WindowTarget.Main, WindowEvent.DesktopLyric, { type, data });
@@ -141,6 +137,20 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
       break;
   }
 });
+
+watch(activedIndex, (index) => {
+  if (index === currentIndex.value) {
+    // 情况1：当前播放的 = 上行展示索引
+    nextIndex.value = index + 1;
+  } else if (index === nextIndex.value) {
+    // 情况2：当前播放的 = 下行展示索引
+    currentIndex.value = index + 1;
+  } else {
+    // 情况3：拖动进度条，跳跃很远，直接重置
+    currentIndex.value = index;
+    nextIndex.value = index + 1;
+  }
+});
 </script>
 
 <template>
@@ -151,8 +161,8 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
       '--height': `${ContentHeight}px`,
       '--line-height': `${ContentHeight / 2}px`,
     }"
-    @mouseenter="isHovering = true"
-    @mouseleave="isHovering = true"
+    @mouseenter="handleMouseenter"
+    @mouseleave="handleMouseleave"
   >
     <!-- 工具栏 -->
     <div
@@ -174,6 +184,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         class="size-8 text-neutral-100 hover:text-neutral-100/50"
         mode="text"
         prefix-icon="Previous"
+        title="上一首"
         @click="handleSend(DesktopLyricEmit.Prev)"
       />
       <ActionButton
@@ -181,6 +192,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         class="size-8 text-neutral-100 hover:text-neutral-100/50"
         mode="text"
         :prefix-icon="audio.isPlaying ? 'Pause' : 'Play'"
+        :title="audio.isPlaying ? '暂停' : '播放'"
         @click="handleSend(audio.isPlaying ? DesktopLyricEmit.Pause : DesktopLyricEmit.Play)"
       />
       <ActionButton
@@ -193,6 +205,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         class="size-8 text-neutral-100 hover:text-neutral-100/50"
         mode="text"
         prefix-icon="Next"
+        title="下一首"
         @click="handleSend(DesktopLyricEmit.Next)"
       />
 
@@ -202,7 +215,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         class="size-8 text-neutral-100 hover:text-neutral-100/50"
         mode="text"
         prefix-icon="ForwardLeft"
-        title="歌词进度 -0.2 秒"
+        title="歌词进度 -0.1 秒"
         @click="lyric && desktopLyricStore.setOffsetMap('sub', lyric.id)"
       />
       <ActionButton
@@ -216,7 +229,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         class="size-8 text-neutral-100 hover:text-neutral-100/50"
         mode="text"
         prefix-icon="ForwardRight"
-        title="歌词进度 +0.2 秒"
+        title="歌词进度 +0.1 秒"
         @click="lyric && desktopLyricStore.setOffsetMap('add', lyric.id)"
       />
 
@@ -259,7 +272,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
         <Transition name="zoom-top-right">
           <div
             v-if="colorVisible"
-            class="absolute right-0 top-full flex cursor-default gap-3 rounded-lg bg-neutral-300 p-2"
+            class="card absolute left-1/2 top-full z-10 flex -translate-x-1/2 cursor-default gap-3 rounded-lg border-neutral-100/10 bg-foreground p-2"
           >
             <div
               v-for="(color, index) in PresetsColors"
@@ -280,26 +293,46 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
           字
         </div>
 
-        <SelectModal
-          class="absolute right-0 top-full h-[var(--height)] overflow-y-auto bg-neutral-300"
-          transition="zoom-top-right"
-          :visible="fontFamilyVisible"
-          :options="fontFamilyOptions"
-          :selection="fontFamilySelection"
-          @select="handleFontFamilySelect"
-        />
+        <Transition name="zoom-top">
+          <ul
+            v-if="fontFamilyVisible"
+            class="card absolute left-1/2 top-full z-10 h-[var(--height)] -translate-x-1/2 cursor-default overflow-y-auto border-neutral-100/10 bg-foreground p-1.5 text-background"
+          >
+            <li
+              v-for="(option, index) in fontFamilyOptions"
+              :key="index"
+              class="flex h-8 cursor-pointer items-center gap-1 rounded-lg px-2 transition-colors"
+              :class="
+                fontFamilySelection?.value === option.value
+                  ? 'bg-neutral-400 text-foreground'
+                  : 'hover:bg-neutral-400/10'
+              "
+              :style="{ fontFamily: option.value }"
+              :data-disabled="option.disabled"
+              @click="handleFontFamilySelect(option.value)"
+            >
+              <div class="whitespace-nowrap px-1">{{ option.label }}</div>
+            </li>
+
+            <div v-if="!fontFamilyOptions.length" class="whitespace-nowrap p-4">暂无数据</div>
+          </ul>
+        </Transition>
       </div>
 
       <div
-        class="action-icon size-8 text-center leading-8 text-neutral-100 hover:text-neutral-100/50"
-        :class="desktopLyricStore.transMode === LyricTransMode.Trans ? 'text-info' : ''"
+        class="action-icon size-8 text-center leading-8 hover:text-neutral-100/50"
+        :class="
+          desktopLyricStore.transMode === LyricTransMode.Trans ? 'text-info' : 'text-neutral-100'
+        "
         @click="handleTransClick(LyricTransMode.Trans)"
       >
         译
       </div>
       <div
-        class="action-icon size-8 text-center leading-8 text-neutral-100 hover:text-neutral-100/50"
-        :class="desktopLyricStore.transMode === LyricTransMode.Roman ? 'text-info' : ''"
+        class="action-icon size-8 text-center leading-8 hover:text-neutral-100/50"
+        :class="
+          desktopLyricStore.transMode === LyricTransMode.Roman ? 'text-info' : 'text-neutral-100'
+        "
         @click="handleTransClick(LyricTransMode.Roman)"
       >
         音
@@ -316,7 +349,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
       />
 
       <ActionButton
-        class="size-8 text-neutral-100 hover:text-error hover:text-neutral-100/50"
+        class="size-8 text-neutral-100 hover:text-error"
         mode="text"
         prefix-icon="Close"
         icon-size="20"
@@ -330,7 +363,10 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
       :style="{
         fontFamily: desktopLyricStore.fontFamily,
         fontSize: `${desktopLyricStore.fontSize}px`,
-        '-webkit-text-stroke': '0.4px #000',
+        '-webkit-text-stroke': '0.8px rgba(0, 0, 0, 0.75)',
+        'paint-order': 'stroke fill',
+        filter:
+          'drop-shadow(0 1px 1px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.5))',
         '--color-lyric-base': desktopLyricStore.textBaseColor,
         '--color-lyric-accent': desktopLyricStore.textAccentColor,
       }"
@@ -350,7 +386,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
               v-for="(word, wordIndex) in lyricLine.current?.words"
               :key="wordIndex"
               class="music-lyric"
-              :style="{ '--word-progress': getWordProgress(word) }"
+              :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }"
             >
               {{ word.text }}
             </span>
@@ -361,7 +397,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
               v-for="(word, wordIndex) in lyricLine.next?.words"
               :key="wordIndex"
               class="music-lyric"
-              :style="{ '--word-progress': getWordProgress(word) }"
+              :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }"
             >
               {{ word.text }}
             </span>
@@ -393,7 +429,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
                 v-for="(word, wordIndex) in lyricLine.current?.words"
                 :key="wordIndex"
                 class="music-lyric"
-                :style="{ '--word-progress': getWordProgress(word) }"
+                :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }"
               >
                 {{ word.text }}
               </span>
@@ -412,7 +448,7 @@ listen<{ type: DesktopLyricEmit; data: unknown }>(WindowEvent.DesktopLyric, (e) 
                 v-for="(word, wordIndex) in lyricLine.next?.words"
                 :key="wordIndex"
                 class="music-lyric"
-                :style="{ '--word-progress': getWordProgress(word) }"
+                :style="{ '--word-progress': `${getWordProgress(word.offset, word.duration)}%` }"
               >
                 {{ word.text }}
               </span>

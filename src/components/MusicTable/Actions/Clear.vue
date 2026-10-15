@@ -3,8 +3,8 @@ import { computed, inject, ref } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import Modal from '@/components/Modal.vue';
+import { ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
-import { ListType } from '@/utils/params';
 
 const listType = inject<ListType>('listType', ListType.Show);
 
@@ -35,7 +35,7 @@ const handleConfirm = () => {
   </ActionButton>
 
   <Modal
-    v-model="visible"
+    :visible="visible"
     class="w-80"
     title="清空"
     @cancel="handleCancel"

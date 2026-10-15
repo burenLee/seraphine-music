@@ -14,7 +14,8 @@ describe('右键菜单', () => {
     const store = useContextMenuStore();
 
     expect(store.visible).toBe(false);
-    expect(store.position).toStrictEqual({ x: 0, y: 0 });
+    expect(store.position).toStrictEqual({ top: 0, left: 0 });
+    expect(store.teleport).toBe('body');
     expect(store.options).toStrictEqual([]);
   });
 
@@ -25,9 +26,9 @@ describe('右键菜单', () => {
       makeContextMenuOption({ label: '删除' }),
     ];
 
-    store.show({ x: 100, y: 200, options });
+    store.show({ top: 100, left: 200, options });
 
-    expect(store.position).toStrictEqual({ x: 100, y: 200 });
+    expect(store.position).toStrictEqual({ top: 100, left: 200 });
     expect(store.options).toStrictEqual(options);
     // show 先强制隐藏再于 nextTick 显示，避免重复触发时菜单不刷新
     expect(store.visible).toBe(false);
@@ -38,7 +39,7 @@ describe('右键菜单', () => {
 
   it('hide 立即隐藏', async () => {
     const store = useContextMenuStore();
-    store.show({ x: 0, y: 0, options: [] });
+    store.show({ top: 0, left: 0, options: [] });
     await nextTick();
 
     store.hide();

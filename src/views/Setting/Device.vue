@@ -2,7 +2,6 @@
 import { vOnClickOutside } from '@vueuse/components';
 import { computed, onMounted, ref } from 'vue';
 
-import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import { useMusicStore } from '@/stores/music';
@@ -22,43 +21,31 @@ const deviceSelection = computed(
 );
 
 const getDevices = async () => {
-  try {
-    const player_devices = await invoke('music_player_get_devices');
+  const player_devices = await invoke('music_player_get_devices');
 
-    deviceOptions.value = player_devices.map((item) => ({ label: item.name, value: item.id }));
-  } catch {
-    notify.error('获取所有设备失败');
-  }
+  deviceOptions.value = player_devices.map((item) => ({ label: item.name, value: item.id }));
 };
 
 const getDevice = async () => {
-  try {
-    const player_device = await invoke('music_player_get_device');
+  const player_device = await invoke('music_player_get_device');
 
-    settingStore.setDevice(player_device.id);
-  } catch {
-    notify.error('获取设备失败');
-  }
+  settingStore.setDevice(player_device.id);
 };
 
 const handleDeviceSelect = async (id: string) => {
   deviceVisible.value = false;
 
-  try {
-    const lastProgress = musicStore.playProgress;
+  const lastProgress = musicStore.playProgress;
 
-    await invoke('music_player_set_device', { id });
-    settingStore.setDevice(id);
+  await invoke('music_player_set_device', { id });
+  settingStore.setDevice(id);
 
-    await musicStore.setMusic(musicStore.music, {
-      origin: musicStore.origin,
-      loop: true,
-      autoPlay: musicStore.isPlaying,
-    });
-    await musicStore.seek(lastProgress);
-  } catch {
-    notify.error('设置设备失败');
-  }
+  await musicStore.setMusic(musicStore.music, {
+    origin: musicStore.origin,
+    loop: true,
+    autoPlay: musicStore.isPlaying,
+  });
+  await musicStore.seek(lastProgress);
 };
 
 onMounted(async () => {

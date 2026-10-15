@@ -2,17 +2,11 @@
 import { ref } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
+import { AlignTitles, LyricTextAlign } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
 import { IconName } from '@/utils/icons';
-import { LyricTextAlign } from '@/utils/params';
 
 const lyricStore = useLyricStore();
-
-const Align_Titles: Record<LyricTextAlign, string> = {
-  [LyricTextAlign.Left]: '左对齐',
-  [LyricTextAlign.Center]: '居中对齐',
-  [LyricTextAlign.Right]: '右对齐',
-};
 
 const iconName = ref<IconName>('AlignLeft');
 
@@ -42,7 +36,7 @@ const handleClick = () => {
   <ActionButton
     class="h-8 w-full px-0"
     :prefix-icon="iconName"
-    :title="Align_Titles[lyricStore.textAlign]"
+    :title="AlignTitles[lyricStore.textAlign]"
     @click="handleClick"
   />
 </template>

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useSettingStore } from '@/stores/setting';
+import { Mode, YouthVip } from '@/constants';
+import { useStateStore } from '@/stores/state';
 import { useUserStore } from '@/stores/user';
-import { Mode, YouthVip } from '@/utils/params';
 
-import { createTestPinia, makePlaylist, makeUserInfo } from '../helpers/factories';
+import { createTestPinia, makePlaylistInfo, makeUserInfo } from '../helpers/factories';
 import { flushAsync, invokeMock, mockInvoke, notifyMock } from '../helpers/mocks';
 
 // user store 依赖 useRoute/useRouter，文件级 mock vue-router
@@ -66,10 +66,10 @@ describe('login 登录（核心路径）', () => {
   });
 
   it('KgMobile 模式登录不查询概念版 VIP', async () => {
-    const settingStore = useSettingStore();
+    const stateStore = useStateStore();
     const store = useUserStore();
     await flushAsync();
-    settingStore.setMode(Mode.KgMobile);
+    stateStore.setMode(Mode.KgMobile);
     invokeMock.mockClear();
 
     await store.login(makeUserInfo());
@@ -78,11 +78,11 @@ describe('login 登录（核心路径）', () => {
     expect(invokeMock).not.toHaveBeenCalledWith('api_youth_union_vip', undefined);
   });
 
-  it('getYouthVip 无登录时直接返回 undefined', async () => {
+  it('getYouthVipState 无登录时直接返回 undefined', async () => {
     const store = useUserStore();
     await flushAsync();
 
-    expect(await store.getYouthVip()).toBeUndefined();
+    expect(await store.getYouthVipState()).toBeUndefined();
     expect(invokeMock).not.toHaveBeenCalledWith('api_youth_union_vip', undefined);
   });
 });
@@ -98,7 +98,6 @@ describe('logout 登出', () => {
     await store.logout();
 
     expect(invokeMock).toHaveBeenCalledWith('api_login_out', undefined);
-    expect(invokeMock).toHaveBeenCalledWith('api_register_dev', undefined);
     expect(store.userinfo).toBeUndefined();
   });
 
@@ -137,11 +136,134 @@ describe('logout 登出', () => {
   });
 });
 
+describe('receiveYouthVip 自动领取会员', () => {
+  it('未登录时提示且不调用后端', async () => {
+    const store = useUserStore();
+    await flushAsync();
+    invokeMock.mockClear();
+
+    await store.receiveYouthVip();
+
+    expect(invokeMock).not.toHaveBeenCalledWith('api_youth_day_vip', {});
+    expect(notifyMock.warning).toHaveBeenCalledWith('领取 酷狗概念版 会员需先登录');
+  });
+
+  it('领取成功后刷新会员等级', async () => {
+    const store = useUserStore();
+    await flushAsync();
+    mockInvoke({
+      api_youth_union_vip: { status: 0, data: { busi_vip: [], is_vip: 0 } },
+      api_youth_day_vip: { status: 1, data: {} },
+      api_youth_day_upgrade: { status: 1, data: {} },
+    });
+    await store.login(makeUserInfo());
+    invokeMock.mockClear();
+
+    await store.receiveYouthVip();
+
+    expect(invokeMock).toHaveBeenCalledWith('api_youth_day_vip', {});
+    expect(invokeMock).toHaveBeenCalledWith('api_youth_day_upgrade', undefined);
+    expect(notifyMock.success).toHaveBeenCalledWith('领取 酷狗概念版 会员成功');
+  });
+
+  it('已持有会员时提示已领取且不重复请求', async () => {
+    const store = useUserStore();
+    await flushAsync();
+    mockInvoke({
+      api_youth_union_vip: {
+        status: 1,
+        data: { busi_vip: [{ is_vip: 1, product_type: 'svip' }], is_vip: 1 },
+      },
+    });
+    await store.login(makeUserInfo());
+    invokeMock.mockClear();
+
+    await store.receiveYouthVip();
+
+    expect(invokeMock).not.toHaveBeenCalledWith('api_youth_day_vip', {});
+    expect(notifyMock.info).toHaveBeenCalledWith('已领取 酷狗概念版 会员');
+  });
+
+  it('接口状态非成功且未持有会员时提示失败', async () => {
+    const store = useUserStore();
+    await flushAsync();
+    mockInvoke({
+      api_youth_union_vip: { status: 0, data: { busi_vip: [], is_vip: 0 } },
+      api_youth_day_vip: { status: 0, data: {} },
+    });
+    await store.login(makeUserInfo());
+    invokeMock.mockClear();
+
+    await store.receiveYouthVip();
+
+    expect(notifyMock.error).toHaveBeenCalledWith('领取 酷狗概念版 会员失败');
+  });
+
+  it('升级接口失败时提示错误', async () => {
+    const store = useUserStore();
+    await flushAsync();
+    mockInvoke({
+      api_youth_union_vip: { status: 0, data: { busi_vip: [], is_vip: 0 } },
+      api_youth_day_vip: { status: 1, data: {} },
+      api_youth_day_upgrade: { status: 0, data: {} },
+    });
+    await store.login(makeUserInfo());
+    invokeMock.mockClear();
+
+    await store.receiveYouthVip();
+
+    expect(notifyMock.error).toHaveBeenCalledWith('领取 酷狗概念版 会员失败');
+  });
+
+  it('请求异常时提示错误', async () => {
+    const store = useUserStore();
+    await flushAsync();
+    mockInvoke({
+      api_youth_union_vip: { status: 0, data: { busi_vip: [], is_vip: 0 } },
+    });
+    await store.login(makeUserInfo());
+    invokeMock.mockRejectedValueOnce(new Error('network'));
+
+    await store.receiveYouthVip();
+
+    expect(notifyMock.error).toHaveBeenCalledWith('领取 酷狗概念版 会员失败');
+  });
+
+  it('开启自动领取后水合时自动领取', async () => {
+    localStorage.setItem('setting-store', JSON.stringify({ autoYouthVip: true }));
+    localStorage.setItem('user-store', JSON.stringify({ userinfo: makeUserInfo() }));
+    mockInvoke({
+      api_login_online: true,
+      api_youth_union_vip: { status: 0, data: { busi_vip: [], is_vip: 0 } },
+      api_youth_day_vip: { status: 1, data: {} },
+    });
+
+    useUserStore();
+    await flushAsync();
+
+    expect(invokeMock).toHaveBeenCalledWith('api_youth_day_vip', {});
+  });
+
+  it('未开启自动领取时水合不领取', async () => {
+    localStorage.setItem('setting-store', JSON.stringify({ autoYouthVip: false }));
+    localStorage.setItem('user-store', JSON.stringify({ userinfo: makeUserInfo() }));
+    mockInvoke({
+      api_login_online: true,
+      api_youth_union_vip: { status: 0, data: { busi_vip: [], is_vip: 0 } },
+    });
+
+    useUserStore();
+    await flushAsync();
+
+    expect(invokeMock).not.toHaveBeenCalledWith('api_youth_day_vip', {});
+  });
+});
+
 describe('setUserPlaylist', () => {
   it('替换用户歌单', async () => {
     const store = useUserStore();
     await flushAsync();
-    const playlists = [makePlaylist(), makePlaylist()];
+    const playlists = [makePlaylistInfo(), makePlaylistInfo()];
 
     store.setUserPlaylist(playlists);
 

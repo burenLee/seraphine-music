@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ListType, PlayingOrigin, YouthVip } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
 import { useUserStore } from '@/stores/user';
-import { ListType, PlayingOrigin, YouthVip } from '@/utils/params';
 
 import {
   createTestPinia,

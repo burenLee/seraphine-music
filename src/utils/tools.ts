@@ -4,12 +4,11 @@ import { ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { notify } from '@/components/Notification.vue';
-
-import { SizeUnits } from './params';
+import { SizeUnits } from '@/constants';
 
 /**
  * 封装 Tauri 的 invoke 函数
- * @description 统一参数和返回类型
+ * @description 统一参数和返回类型；`args` 为 `undefined` 的命令不传参数，其余命令必须传参
  * @param cmd 指令名称
  * @param args 要传递给指令的参数
  */
@@ -17,9 +16,11 @@ export async function invoke<C extends InvokeCmd>(cmd: C, args?: InvokeArgs<C>) 
   try {
     return await tauriInvoke<InvokeReturn<C>>(cmd, args);
   } catch (error) {
-    // 不参与 UI 处理，直接抛出错误在使用时捕获
+    // 不参与 UI 处理，直接抛出错误在使用时捕获；DEV 下打印便于排查
+    if (import.meta.env.DEV) console.error(`invoke ${cmd} failed:`, error);
+
     const msg = error instanceof Error ? error.message : String(error);
-    throw Error(msg);
+    throw new Error(msg);
   }
 }
 
@@ -100,10 +101,11 @@ export function genRandomNum(maxNum: number, srcNum: number = -1) {
 }
 
 /** 拦截浏览器快捷键 */
-export function interdictHotkeys(enabled: boolean = true) {
-  if (import.meta.env.DEV || !enabled) return;
-
+export function interdictHotkeys() {
   window.addEventListener('contextmenu', (e) => e.preventDefault(), true);
+
+  if (import.meta.env.DEV) return;
+
   window.addEventListener(
     'keydown',
     (e) => {
@@ -123,14 +125,15 @@ export function interdictHotkeys(enabled: boolean = true) {
         // Tab焦点切换
         code === 'Tab' ||
         // F功能键
-        ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'].includes(
-          code,
-        ) ||
+        /^F\d{1,2}$/.test(code) ||
         // Ctrl/Command组合浏览器快捷键
         (ctrlMeta &&
           ['KeyG', 'KeyJ', 'KeyW', 'KeyT', 'KeyP', 'KeyR', 'KeyS', 'KeyF'].includes(code)) ||
-        // Ctrl+Shift组合
-        (ctrlMeta && shiftKey && ['KeyR', 'KeyI', 'KeyJ', 'KeyC'].includes(code));
+        // Ctrl/Command+Shift组合（DevTools）
+        (ctrlMeta && shiftKey && ['KeyI', 'KeyC'].includes(code)) ||
+        // Ctrl/Command缩放
+        (ctrlMeta &&
+          ['Equal', 'Minus', 'Digit0', 'NumpadAdd', 'NumpadSubtract', 'Numpad0'].includes(code));
 
       if (needBlock) {
         e.preventDefault();

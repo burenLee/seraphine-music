@@ -36,6 +36,19 @@ describe('invoke 封装', () => {
     invokeMock.mockRejectedValueOnce('raw string error');
     await expect(invoke('music_player_play')).rejects.toThrow('raw string error');
   });
+
+  it('失败时通过 cause 保留原始错误', async () => {
+    const original = new Error('backend boom');
+    invokeMock.mockRejectedValueOnce(original);
+
+    const err: Error = await invoke('music_player_play').catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.cause).toBe(original);
+
+    invokeMock.mockRejectedValueOnce('raw string error');
+    const err2: Error = await invoke('music_player_play').catch((e) => e);
+    expect(err2.cause).toBe('raw string error');
+  });
 });
 
 describe('cn', () => {
@@ -149,7 +162,6 @@ describe('getRandomNumber', () => {
 describe('interdictHotkeys', () => {
   it('测试环境（DEV）下为 no-op，不抛错', () => {
     expect(() => interdictHotkeys()).not.toThrow();
-    expect(() => interdictHotkeys(false)).not.toThrow();
   });
 });
 

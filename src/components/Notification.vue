@@ -1,8 +1,24 @@
 <script lang="ts">
+const TypeTheme = {
+  success: 'bg-success-bg text-success border-success',
+  warning: 'bg-warning-bg text-warning border-warning',
+  info: 'bg-info-bg text-info border-info',
+  error: 'bg-error-bg text-error border-error',
+};
+
 const notifyState: Notify.State = {
   counter: 0,
   subscribers: [],
-  subscribe: (subscriber) => notifyState.subscribers.push(subscriber),
+  subscribe: (subscriber) => {
+    notifyState.subscribers.push(subscriber);
+
+    return () => {
+      const index = notifyState.subscribers.indexOf(subscriber);
+      if (index === -1) return;
+
+      notifyState.subscribers.splice(index, 1);
+    };
+  },
   publish: (data) => notifyState.subscribers.forEach((subscriber) => subscriber(data)),
   create: (type: Notify.Type) => (content: string | Notify.Options) => {
     const id = notifyState.counter++;
@@ -23,15 +39,6 @@ export const notify = {
 import { onBeforeUnmount, ref } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-
-defineOptions({ name: 'NotificationContainer' });
-
-const typeTheme = {
-  success: 'bg-success-bg text-success border-success',
-  warning: 'bg-warning-bg text-warning border-warning',
-  info: 'bg-info-bg text-info border-info',
-  error: 'bg-error-bg text-error border-error',
-};
 
 const notifications = ref<Notify.Info[]>([]);
 const timers = new Map<number, ReturnType<typeof setTimeout>>();
@@ -55,12 +62,14 @@ const addTimer = (info: Notify.Info) => {
   timers.set(info.id, timer);
 };
 
-notifyState.subscribe((data) => {
+const unsubscribe = notifyState.subscribe((data) => {
   notifications.value.push(data);
   addTimer(data);
 });
 
 onBeforeUnmount(() => {
+  unsubscribe();
+
   timers.forEach((timer) => clearTimeout(timer));
   timers.clear();
 });
@@ -73,17 +82,17 @@ onBeforeUnmount(() => {
         v-for="notification in notifications"
         :key="notification.id"
         class="pointer-events-auto mb-4 flex w-48 items-center gap-3 overflow-hidden rounded-lg border p-3 shadow-lg shadow-shadow"
-        :class="typeTheme[notification.type]"
+        :class="TypeTheme[notification.type]"
       >
-        <div class="line-clamp-3 min-w-0 flex-1 font-bold">
+        <div class="line-clamp-3 w-0 flex-1 font-bold">
           {{ notification.message }}
         </div>
 
         <ActionButton
-          class="hover:text-error"
+          class="text-neutral-900 hover:text-error"
           mode="text"
           prefix-icon="Close"
-          icon-size="24"
+          icon-size="20"
           @click="remove(notification.id)"
         />
       </li>

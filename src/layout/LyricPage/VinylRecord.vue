@@ -4,7 +4,7 @@ import { nextTick, ref, watch } from 'vue';
 import ChangZhen from '@/assets/imgs/chang_zhen.webp';
 import Image from '@/components/Image.vue';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
+import { useStateStore } from '@/stores/state';
 
 interface Props {
   src: string | undefined;
@@ -12,8 +12,8 @@ interface Props {
 
 const { src } = defineProps<Props>();
 
+const stateStore = useStateStore();
 const musicStore = useMusicStore();
-const settingStore = useSettingStore();
 
 const shouldAnimate = ref(true);
 
@@ -33,7 +33,7 @@ watch(
       class="rounded-full bg-neutral-950 p-16"
       :class="[
         shouldAnimate ? 'animate-spin-slow' : '',
-        settingStore.isFullscreen || settingStore.isMaximized ? 'size-96' : 'size-80',
+        stateStore.isFullscreen || stateStore.isMaximized ? 'size-96' : 'size-80',
       ]"
       :style="{
         boxShadow: '0 0 0.5rem black',
@@ -50,7 +50,7 @@ watch(
       class="absolute transition-transform duration-300"
       :class="[
         musicStore.isPlaying ? '-rotate-[36deg]' : '-rotate-[55deg]',
-        settingStore.isFullscreen || settingStore.isMaximized
+        stateStore.isFullscreen || stateStore.isMaximized
           ? '-top-28 left-36 w-20 origin-[50px_48px]'
           : '-top-24 left-32 w-16 origin-[42px_40px]',
       ]"

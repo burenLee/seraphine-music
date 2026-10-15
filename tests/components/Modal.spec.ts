@@ -14,12 +14,12 @@ describe('Modal 模态框', () => {
   beforeEach(() => createTestPinia());
 
   it('visible=false 时不渲染', () => {
-    mount(Modal, { props: { modelValue: false } });
+    mount(Modal, { props: { visible: false } });
     expect(mask()).toBeNull();
   });
 
   it('visible=true 时渲染标题与默认按钮', () => {
-    mount(Modal, { props: { modelValue: true, title: '标题' } });
+    mount(Modal, { props: { visible: true, title: '标题' } });
     const text = document.body.textContent ?? '';
     expect(text).toContain('标题');
     expect(text).toContain('确认');
@@ -27,21 +27,21 @@ describe('Modal 模态框', () => {
   });
 
   it('点击遮罩触发 cancel（maskClosed 默认开启）', async () => {
-    const wrapper = mount(Modal, { props: { modelValue: true } });
+    const wrapper = mount(Modal, { props: { visible: true } });
     mask()?.dispatchEvent(new MouseEvent('click'));
     await nextTick();
     expect(wrapper.emitted('cancel')).toBeTruthy();
   });
 
   it('maskClosed=false 时点击遮罩不触发 cancel', async () => {
-    const wrapper = mount(Modal, { props: { modelValue: true, maskClosed: false } });
+    const wrapper = mount(Modal, { props: { visible: true, maskClosed: false } });
     mask()?.dispatchEvent(new MouseEvent('click'));
     await nextTick();
     expect(wrapper.emitted('cancel')).toBeUndefined();
   });
 
   it('点击确认按钮触发 confirm', async () => {
-    const wrapper = mount(Modal, { props: { modelValue: true } });
+    const wrapper = mount(Modal, { props: { visible: true } });
     const btns = Array.from(document.body.querySelectorAll('button'));
     const confirm = btns.find((b) => b.textContent?.includes('确认'));
     confirm?.dispatchEvent(new MouseEvent('click'));
@@ -50,25 +50,32 @@ describe('Modal 模态框', () => {
   });
 
   it('Escape 键触发 cancel', async () => {
-    const wrapper = mount(Modal, { props: { modelValue: false } });
-    await wrapper.setProps({ modelValue: true });
+    const wrapper = mount(Modal, { props: { visible: false } });
+    await wrapper.setProps({ visible: true });
     await nextTick();
     window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape' }));
     await nextTick();
     expect(wrapper.emitted('cancel')).toBeTruthy();
   });
 
-  it('hideFooter / hideConfirm / hideCancel 控制操作区显隐', () => {
-    mount(Modal, {
-      props: { modelValue: true, hideFooter: false, hideConfirm: true, hideCancel: true },
-    });
+  it('hideFooter 隐藏操作区', () => {
+    mount(Modal, { props: { visible: true, hideFooter: true } });
     const text = document.body.textContent ?? '';
     expect(text).not.toContain('确认');
     expect(text).not.toContain('取消');
   });
 
+  it('自定义按钮文案', () => {
+    mount(Modal, {
+      props: { visible: true, confirmLabel: '保存', cancelLabel: '放弃' },
+    });
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('保存');
+    expect(text).toContain('放弃');
+  });
+
   it('hideHeader 隐藏标题栏', () => {
-    mount(Modal, { props: { modelValue: true, title: '标题', hideHeader: true } });
+    mount(Modal, { props: { visible: true, title: '标题', hideHeader: true } });
     expect(document.body.textContent ?? '').not.toContain('标题');
   });
 });

@@ -6,8 +6,8 @@ import {
 } from '@tauri-apps/plugin-global-shortcut';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AutoStartMode, CloseMode, ShortcutKey } from '@/constants';
 import { useSettingStore } from '@/stores/setting';
-import { AutoStartMode, CloseStatus, Mode, ShortcutKey } from '@/utils/params';
 
 import { createTestPinia } from '../helpers/factories';
 import { flushAsync, listenMock } from '../helpers/mocks';
@@ -27,16 +27,12 @@ describe('初始默认值', () => {
     await flushAsync();
 
     expect(store.isHydrated).toBe(true);
-    expect(store.isMaximized).toBe(false);
-    expect(store.isFullscreen).toBe(false);
-    expect(store.mode).toBe(Mode.KgLite);
-    expect(store.autoLiteVipState).toBe(false);
-    expect(store.fontFamily).toBe('system-ui');
-    expect(store.autoStartState).toBe(false);
+    expect(store.autoYouthVip).toBe(true);
+    expect(store.autoStart).toBe(false);
     expect(store.autoStartMode).toBe(AutoStartMode.Foreground);
-    expect(store.closeStatus).toBeUndefined();
-    expect(store.globalShortcutState).toBe(true);
-    expect(store.mediaShortcutState).toBe(true);
+    expect(store.closeMode).toBeUndefined();
+    expect(store.globalShortcut).toBe(true);
+    expect(store.mediaShortcut).toBe(true);
     expect(store.shortcutMap).toStrictEqual({
       playOrPause: 'Alt+F5',
       addVolumn: 'Alt+Up',
@@ -48,8 +44,6 @@ describe('初始默认值', () => {
       forward: 'Ctrl+Alt+Right',
     });
     expect(store.device).toBe('');
-    expect(store.miniPlayerPosition).toStrictEqual({ x: 0, y: 0 });
-    expect(store.desktopLyricPosition).toStrictEqual({ x: 0, y: 0 });
   });
 });
 
@@ -58,29 +52,17 @@ describe('基础设置', () => {
     const store = useSettingStore();
     await flushAsync();
 
-    store.setMode(Mode.KgMobile);
-    store.toggleAutoLiteVipState();
-    store.toggleMaximizedState(true);
-    store.toggleFullscreenState(true);
-    store.setFontFamily('Arial');
-    store.toggleAutoStartState(true);
+    store.toggleAutoYouthVip();
+    store.toggleAutoStart(true);
     store.setAutoStartMode(AutoStartMode.Background);
-    store.setCloseStatus(CloseStatus.Hide);
+    store.setCloseMode(CloseMode.Hide);
     store.setDevice('device-1');
-    store.setMiniPlayerPosition({ x: 10, y: 20 });
-    store.setdesktopLyricPosition({ x: 30, y: 40 });
 
-    expect(store.mode).toBe(Mode.KgMobile);
-    expect(store.autoLiteVipState).toBe(true);
-    expect(store.isMaximized).toBe(true);
-    expect(store.isFullscreen).toBe(true);
-    expect(store.fontFamily).toBe('Arial');
-    expect(store.autoStartState).toBe(true);
+    expect(store.autoYouthVip).toBe(false);
+    expect(store.autoStart).toBe(true);
     expect(store.autoStartMode).toBe(AutoStartMode.Background);
-    expect(store.closeStatus).toBe(CloseStatus.Hide);
+    expect(store.closeMode).toBe(CloseMode.Hide);
     expect(store.device).toBe('device-1');
-    expect(store.miniPlayerPosition).toStrictEqual({ x: 10, y: 20 });
-    expect(store.desktopLyricPosition).toStrictEqual({ x: 30, y: 40 });
   });
 
   it('setShortcutMap / resetShortcutMap', async () => {
@@ -92,13 +74,6 @@ describe('基础设置', () => {
 
     store.resetShortcutMap();
     expect(store.shortcutMap.playOrPause).toBe('Alt+F5');
-  });
-
-  it('getAvailableFonts 在 canvas 不可用时安全跳过', async () => {
-    const store = useSettingStore();
-    await flushAsync();
-
-    expect(() => store.getAvailableFonts()).not.toThrow();
   });
 });
 
@@ -152,15 +127,15 @@ describe('全局快捷键注册', () => {
     expect(registerMock).not.toHaveBeenCalled();
   });
 
-  it('toggleGlobalShortcutState 关闭时注销全部', async () => {
+  it('toggleGlobalShortcut 关闭时注销全部', async () => {
     const store = useSettingStore();
     await flushAsync();
     unregisterMock.mockClear();
 
-    store.toggleGlobalShortcutState();
+    store.toggleGlobalShortcut();
     await flushAsync();
 
-    expect(store.globalShortcutState).toBe(false);
+    expect(store.globalShortcut).toBe(false);
     const unregistered = unregisterMock.mock.calls.map(([shortcut]) => shortcut);
     for (const s of [
       'Alt+F5',
@@ -176,17 +151,17 @@ describe('全局快捷键注册', () => {
     }
   });
 
-  it('toggleMediaShortcutState 关闭后重新开启会重新监听 media:command', async () => {
+  it('toggleMediaShortcut 关闭后重新开启会重新监听 media:command', async () => {
     const store = useSettingStore();
     await flushAsync();
     listenMock.mockClear();
 
-    store.toggleMediaShortcutState();
-    expect(store.mediaShortcutState).toBe(false);
+    store.toggleMediaShortcut();
+    expect(store.mediaShortcut).toBe(false);
 
-    store.toggleMediaShortcutState();
+    store.toggleMediaShortcut();
     await flushAsync();
-    expect(store.mediaShortcutState).toBe(true);
+    expect(store.mediaShortcut).toBe(true);
 
     expect(listenMock).toHaveBeenCalledWith('media:command', expect.any(Function));
   });
@@ -197,29 +172,24 @@ describe('持久化水合', () => {
     localStorage.setItem(
       'setting-store',
       JSON.stringify({
-        autoLiteVipState: true,
-        fontFamily: 'Consolas',
-        autoStartState: true,
+        autoYouthVip: false,
+        autoStart: true,
         autoStartMode: AutoStartMode.Background,
-        closeStatus: CloseStatus.Exit,
-        globalShortcutState: false,
-        mediaShortcutState: false,
+        closeMode: CloseMode.Exit,
+        globalShortcut: false,
+        mediaShortcut: false,
         shortcutMap: { playOrPause: 'Ctrl+Space' },
         device: 'dev-9',
-        miniPlayerPosition: { x: 5, y: 6 },
-        desktopLyricPosition: { x: 7, y: 8 },
       }),
     );
 
     const store = useSettingStore();
     await flushAsync();
 
-    expect(store.autoLiteVipState).toBe(true);
-    expect(store.fontFamily).toBe('Consolas');
+    expect(store.autoYouthVip).toBe(false);
     expect(store.autoStartMode).toBe(AutoStartMode.Background);
-    expect(store.closeStatus).toBe(CloseStatus.Exit);
+    expect(store.closeMode).toBe(CloseMode.Exit);
     expect(store.device).toBe('dev-9');
-    expect(store.miniPlayerPosition).toStrictEqual({ x: 5, y: 6 });
     // 快捷键被整体水合替换，未持久化的键不存在
     expect(store.shortcutMap.playOrPause).toBe('Ctrl+Space');
   });

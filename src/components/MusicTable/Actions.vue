@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { inject } from 'vue';
 
+import { ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
-import { ListType } from '@/utils/params';
 
 import Add from './Actions/Add/Add.vue';
 import AllCheckBtn from './Actions/AllCheck.vue';

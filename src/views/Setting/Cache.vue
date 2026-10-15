@@ -21,28 +21,24 @@ const clearOption = ref<CacheOption>();
 const clearVisible = ref(false);
 
 const getPaths = async () => {
-  try {
-    const path_all = await invoke('app_dirs_all');
+  const path_all = await invoke('app_dirs_all');
 
-    cacheOptions.value.forEach((option) => {
-      switch (option.label) {
-        case '音频':
-          option.value = path_all.audio;
-          break;
-        case '歌词':
-          option.value = path_all.lyric;
-          break;
-        case '封面':
-          option.value = path_all.cover;
-          break;
-        case '日志':
-          option.value = path_all.app_log;
-          break;
-      }
-    });
-  } catch {
-    notify.error('获取缓存路径失败');
-  }
+  cacheOptions.value.forEach((option) => {
+    switch (option.label) {
+      case '音频':
+        option.value = path_all.audio;
+        break;
+      case '歌词':
+        option.value = path_all.lyric;
+        break;
+      case '封面':
+        option.value = path_all.cover;
+        break;
+      case '日志':
+        option.value = path_all.app_log;
+        break;
+    }
+  });
 };
 
 const setPath = () => {
@@ -84,7 +80,7 @@ onMounted(() => {
     <div class="flex-1 space-y-3">
       <div v-for="(option, index) in cacheOptions" :key="index" class="flex items-center gap-3">
         <div class="w-12">{{ option.label }}</div>
-        <input class="card min-w-0 flex-1 truncate px-2 py-1" :value="option.value" readonly />
+        <input class="card w-0 flex-1 truncate px-2 py-1" :value="option.value" readonly />
         <ActionButton theme="success" @click="setPath()" disabled>设置</ActionButton>
         <ActionButton theme="success" @click="openDir(option.value)"> 打开 </ActionButton>
         <ActionButton theme="error" @click="clearCache(option)">清理</ActionButton>
@@ -93,7 +89,7 @@ onMounted(() => {
   </div>
 
   <Modal
-    v-model="clearVisible"
+    :visible="clearVisible"
     class="w-80"
     title="清空缓存"
     @confirm="handleClearConfirm"

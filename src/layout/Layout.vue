@@ -7,9 +7,9 @@ import LyricPage from '@/layout/LyricPage/LyricPage.vue';
 import Main from '@/layout/Main/Main.vue';
 import Playbar from '@/layout/Playbar/Playbar.vue';
 import { useLyricStore } from '@/stores/lyric';
-import { useSettingStore } from '@/stores/setting';
+import { useStateStore } from '@/stores/state';
 
-const settingStore = useSettingStore();
+const stateStore = useStateStore();
 const lyricStore = useLyricStore();
 </script>
 
@@ -17,7 +17,7 @@ const lyricStore = useLyricStore();
   <div
     class="grid h-screen w-screen"
     :style="{
-      fontFamily: settingStore.fontFamily,
+      fontFamily: stateStore.fontFamily,
       gridTemplateColumns: 'var(--aside-width) 1fr',
       gridTemplateRows: 'var(--header-height) 1fr var(--playbar-height)',
       '--aside-width': '14rem',

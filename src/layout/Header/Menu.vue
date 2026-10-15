@@ -9,9 +9,9 @@ import ActionButton from '@/components/ActionButton.vue';
 import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
+import { MenuAction } from '@/constants';
 import { useUpdaterStore } from '@/stores/updater';
 import { useUserStore } from '@/stores/user';
-import { MenuAction } from '@/utils/params';
 
 const router = useRouter();
 
@@ -101,8 +101,8 @@ const handleUpdateCancel = () => {
   </div>
 
   <Modal
+    :visible="updateModalVisible"
     class="w-80"
-    v-model="updateModalVisible"
     title="版本更新"
     confirm-label="下载更新"
     @confirm="handleUpdateConfirm"

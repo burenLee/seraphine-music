@@ -2,12 +2,12 @@ import { register } from '@tauri-apps/plugin-global-shortcut';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ListType, PlayingOrigin } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
 import { useSettingStore } from '@/stores/setting';
 import { useUpdaterStore } from '@/stores/updater';
-import { ListType, PlayingOrigin } from '@/utils/params';
 
 import { createTestPinia, makeListMusic, makeMusicList } from '../helpers/factories';
 import { invokeMock, mockInvoke, notifyMock } from '../helpers/mocks';

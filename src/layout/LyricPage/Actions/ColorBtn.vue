@@ -3,8 +3,8 @@ import { vOnClickOutside } from '@vueuse/components';
 import { watchThrottled } from '@vueuse/core';
 import { ref } from 'vue';
 
+import { Interval, PresetsColors } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
-import { Interval, PresetsColors } from '@/utils/params';
 
 const lyricStore = useLyricStore();
 
@@ -38,7 +38,7 @@ watchThrottled(
     <Transition name="zoom-fade">
       <div
         v-if="pickerVisible"
-        class="absolute right-full top-0 mr-2 rounded-lg border border-border bg-background p-4 shadow"
+        class="card absolute right-full top-0 mr-2 bg-background p-3 shadow-lg shadow-shadow"
       >
         <div class="font-bold">歌词颜色</div>
 

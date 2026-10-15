@@ -253,7 +253,7 @@ impl Scan {
       let file_stem = path
         .file_stem()
         .map(|n| n.to_string_lossy())
-        .ok_or(anyhow!("无法获取文件名称"))?;
+        .ok_or(anyhow!("获取文件名称失败"))?;
 
       music_info.title = tag.title().unwrap_or(file_stem.clone()).into_owned();
       music_info.artist = tag.artist().map(|a| a.into_owned());

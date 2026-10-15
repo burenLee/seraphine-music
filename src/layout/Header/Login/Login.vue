@@ -8,8 +8,8 @@ import Modal from '@/components/Modal.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { InvokeApiStatus, LoginMode, UserAction, YouthVip } from '@/constants';
 import { useUserStore } from '@/stores/user';
-import { ApiInvokeStatus, LoginMode, UserAction, YouthVip } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 import Form from './Form.vue';
@@ -47,23 +47,23 @@ const handleSelect = async (value: UserAction) => {
         const youth_day_vip = await invoke('api_youth_day_vip');
         // 存在vip等级时无法领取
         if (
-          youth_day_vip.status !== ApiInvokeStatus.Success &&
+          youth_day_vip.status !== InvokeApiStatus.Success &&
           userStore.userinfo.youthVip === YouthVip.Not
         ) {
-          notify.error('领取畅听VIP失败');
+          notify.error('领取会员失败');
           return;
         }
 
         const youth_day_upgrade = await invoke('api_youth_day_upgrade');
-        if (youth_day_upgrade.status !== ApiInvokeStatus.Success) {
-          notify.error('领取VIP失败');
+        if (youth_day_upgrade.status !== InvokeApiStatus.Success) {
+          notify.error('领取会员失败');
           return;
         }
 
         notify.success('已领取会员');
-        userStore.setYouthVip();
+        userStore.setYouthVipState();
       } catch {
-        notify.error('无法领取会员');
+        notify.error('领取会员失败');
       }
       break;
     case UserAction.Info:
@@ -111,30 +111,13 @@ const handleSelect = async (value: UserAction) => {
   </div>
 
   <Modal
+    :visible="modalVisible"
     class="relative h-96 w-[40rem]"
-    v-model="modalVisible"
     hideHeader
     hideFooter
     @close="modalVisible = false"
   >
-    <ActionButton
-      class="absolute right-4 top-4 z-50"
-      mode="text"
-      prefixIcon="Close"
-      iconSize="24"
-      @click="modalVisible = false"
-    />
-
     <Sidebar class="w-56" v-model="mode" />
-    <ActionButton
-      class="absolute bottom-8 left-0 z-10 transition-transform duration-500"
-      :class="mode === LoginMode.Code ? 'translate-x-[12.5rem]' : 'translate-x-[22rem]'"
-      prefixIcon="Left"
-      suffixIcon="Right"
-      @click="mode = mode === LoginMode.Code ? LoginMode.Form : LoginMode.Code"
-    >
-      {{ mode === LoginMode.Code ? '账号' : '扫码' }}
-    </ActionButton>
 
     <Transition name="slide-left-login">
       <QRCode
@@ -151,5 +134,23 @@ const handleSelect = async (value: UserAction) => {
         @close="modalVisible = false"
       />
     </Transition>
+
+    <ActionButton
+      class="absolute bottom-8 left-0 z-10 transition-transform duration-500"
+      :class="mode === LoginMode.Code ? 'translate-x-[12.5rem]' : 'translate-x-[22rem]'"
+      prefixIcon="Left"
+      suffixIcon="Right"
+      @click="mode = mode === LoginMode.Code ? LoginMode.Form : LoginMode.Code"
+    >
+      {{ mode === LoginMode.Code ? '账号' : '扫码' }}
+    </ActionButton>
+
+    <ActionButton
+      class="absolute right-4 top-4 z-50"
+      mode="text"
+      prefixIcon="Close"
+      iconSize="24"
+      @click="modalVisible = false"
+    />
   </Modal>
 </template>

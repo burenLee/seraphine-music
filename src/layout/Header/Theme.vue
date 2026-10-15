@@ -4,8 +4,8 @@ import { computed, ref } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import SelectModal from '@/components/SelectModal.vue';
+import { ThemeMode } from '@/constants';
 import { IconName } from '@/utils/icons';
-import { ThemeMode } from '@/utils/params';
 
 const colorMode = useColorMode({ emitAuto: true });
 

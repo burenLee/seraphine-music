@@ -1,11 +1,11 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { computed } from 'vue';
 
 import Image from '@/components/Image.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { YouthVip } from '@/constants';
 import { useSettingStore } from '@/stores/setting';
 import { useUserStore } from '@/stores/user';
-import { YouthVip } from '@/utils/params';
 
 const settingStore = useSettingStore();
 const userStore = useUserStore();
@@ -19,22 +19,22 @@ const isSvip = computed(() => userStore.userinfo?.youthVip === YouthVip.Svip);
 
     <div class="space-y-3">
       <div v-if="userStore.userinfo" class="relative flex cursor-pointer items-center gap-1">
-        <Image class="size-6 rounded-full" :src="userStore.userinfo.pic" icon="User" />
-        <div class="max-w-24 truncate pl-1 font-bold" :title="userStore.userinfo.nickname">
+        <Image class="size-8 rounded-full" :src="userStore.userinfo.pic" icon="User" />
+        <div class="max-w-24 truncate font-bold" :title="userStore.userinfo.nickname">
           {{ userStore.userinfo.nickname }}
         </div>
         <SvgIcon class="transition-transform" name="Down" />
 
         <div
           v-if="isSvip"
-          class="absolute -bottom-1 left-3 flex size-4 scale-[70%] items-center rounded-full border border-border bg-info pl-1 text-xs font-bold text-background"
+          class="absolute bottom-0 left-5 flex size-4 scale-75 items-center justify-center rounded-full bg-info text-xs font-bold text-neutral-100"
         >
           v
         </div>
       </div>
 
-      <label class="flex cursor-pointer items-center gap-1" :data-disabled="true">
-        <input type="checkbox" v-model="settingStore.autoLiteVipState" />
+      <label class="flex cursor-pointer items-center gap-1">
+        <input type="checkbox" v-model="settingStore.autoYouthVip" />
         自动领取概念版会员
       </label>
     </div>

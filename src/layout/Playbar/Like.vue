@@ -1,19 +1,23 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import ActionButton from '@/components/ActionButton.vue';
 import { notify } from '@/components/Notification.vue';
+import { InvokeApiStatus, ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
+import { useStateStore } from '@/stores/state';
 import { useUserStore } from '@/stores/user';
-import { ApiInvokeStatus } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
+const route = useRoute();
+
+const stateStore = useStateStore();
 const listStore = useListStore();
 const musicStore = useMusicStore();
 const userStore = useUserStore();
 
-const disabled = computed(() => !userStore.userinfo || !musicStore.music);
 const isLike = computed(() => musicStore.music && listStore.like.list.get(+musicStore.music.id));
 
 const handleLike = async () => {
@@ -24,7 +28,7 @@ const handleLike = async () => {
       listId: listStore.like.info.id,
       musicList: [{ name: musicStore.music.title, hash: musicStore.music.hash }],
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('添加失败');
       return;
     }
@@ -47,7 +51,12 @@ const handleLike = async () => {
         fileId: song.fileid,
       };
     });
+
     listStore.addLikeList(musicList);
+
+    if (route.name === 'UserPlaylistTable' && route.params.gid === listStore.like.info.gid) {
+      stateStore.refresh();
+    }
   } catch {
     notify.error('添加失败');
   }
@@ -65,13 +74,18 @@ const handleUnlike = async () => {
       listId: +listStore.like.info.id,
       fileIds: [+fileId],
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('删除失败');
       return;
     }
 
     notify.success('删除成功');
-    listStore.removeLikeList([musicStore.music] as MusicInfo[]);
+
+    listStore.removeLikeList([musicStore.music.id]);
+
+    if (route.name === 'UserPlaylistTable' && route.params.gid === listStore.like.info.gid) {
+      stateStore.refresh();
+    }
   } catch {
     notify.error('删除失败');
   }
@@ -85,7 +99,7 @@ const handleUnlike = async () => {
     mode="text"
     prefix-icon="HeartBold"
     icon-size="18"
-    :disabled="disabled"
+    :disabled="!userStore.userinfo || !musicStore.music"
     @click="handleUnlike"
   />
   <ActionButton
@@ -94,7 +108,7 @@ const handleUnlike = async () => {
     mode="text"
     prefix-icon="Heart"
     icon-size="18"
-    :disabled="disabled || !musicStore.music?.hash"
+    :disabled="!userStore.userinfo || !musicStore.music || !musicStore.music?.hash"
     @click="handleLike"
   />
 </template>

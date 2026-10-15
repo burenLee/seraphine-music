@@ -2,15 +2,16 @@
 import { onMounted, onUnmounted, provide, ref, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
 import MusicActions from '@/components/MusicTable/Actions.vue';
 import MusicTable from '@/components/MusicTable/Table.vue';
 import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import VirtualList from '@/components/VirtualList.vue';
-import { defaultInfo, useListStore } from '@/stores/list';
+import { InvokeApiStatus, ListType, PageSize, SearchType } from '@/constants';
+import { defaultListInfo, useListStore } from '@/stores/list';
 import { getPic, getPrivilegeTags } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PageSize, SearchType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const listType = ListType.Show;
@@ -45,7 +46,7 @@ const isFinishing = ref(false);
 const isFinished = ref(false);
 const page = ref(1);
 const artistList = ref<ArtistInfo[]>([]);
-const playlistList = ref<ListInfo[]>([]);
+const playlistList = ref<PlaylistInfo[]>([]);
 
 const handleLoad = async (query: string, type: SearchType) => {
   if (!query) return;
@@ -59,53 +60,60 @@ const handleLoad = async (query: string, type: SearchType) => {
       page: page.value,
       pageSize: PageSize.More,
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('搜索失败');
-    } else {
-      switch (type) {
-        case SearchType.Song:
-          listStore.isTableLoading = true;
+      return;
+    }
 
-          const info: ListInfo = { ...defaultInfo, id: 'search', title: '搜索', count: data.total };
-          const list: MusicInfo[] = data.lists.map((song, index) => ({
-            id: song.MixSongID,
-            hash: song.FileHash,
-            path: null,
-            cover: song.trans_param.union_cover,
-            title: song.OriSongName,
-            artist: song.SingerName,
-            album: song.AlbumName,
-            duration: song.Duration,
-            sort: index,
-            privilegeTags: getPrivilegeTags(song.AlbumPrivilege, song.PayType),
-          }));
+    switch (type) {
+      case SearchType.Song:
+        listStore.isTableLoading = true;
 
-          listStore.setList(listType, { info, list });
-          listStore.isTableLoading = false;
-          break;
-        case SearchType.Author:
-          artistList.value = data.lists.map((artist) => ({
-            id: artist.AuthorId,
-            cover: artist.Avatar,
-            name: artist.AuthorName,
-            fanscount: artist.FansNum,
-            descibe: '',
-            url: '',
-          }));
-          break;
-        case SearchType.Special:
-          playlistList.value = data.lists.map((playlist) => ({
-            id: playlist.specialid,
-            cover: playlist.img,
-            title: playlist.specialname,
-            artist: playlist.nickname,
-            count: playlist.song_count,
-            playCount: 0,
-            tags: playlist.abtags?.map((tag) => tag.name),
-            gid: playlist.gid,
-          }));
-          break;
-      }
+        const info: ListInfo = {
+          ...defaultListInfo,
+          id: 'search',
+          title: '搜索',
+          count: data.total,
+        };
+        const list: MusicInfo[] = data.lists.map((song, index) => ({
+          id: song.MixSongID,
+          hash: song.FileHash,
+          path: null,
+          cover: song.trans_param.union_cover,
+          title: song.OriSongName,
+          artist: song.SingerName,
+          album: song.AlbumName,
+          duration: song.Duration,
+          sort: index,
+          privilegeTags: getPrivilegeTags(song.AlbumPrivilege, song.PayType),
+        }));
+
+        listStore.setList(listType, { info, list });
+        listStore.isTableLoading = false;
+        break;
+      case SearchType.Author:
+        artistList.value = data.lists.map((artist) => ({
+          id: artist.AuthorId,
+          cover: artist.Avatar,
+          name: artist.AuthorName,
+          fanscount: artist.FansNum,
+          descibe: '',
+          url: '',
+        }));
+        break;
+      case SearchType.Special:
+        playlistList.value = data.lists.map((playlist, index) => ({
+          id: playlist.specialid,
+          cover: playlist.img,
+          title: playlist.specialname,
+          artist: playlist.nickname,
+          count: playlist.song_count,
+          playCount: 0,
+          tags: playlist.abtags?.map((tag) => tag.name),
+          gid: playlist.gid,
+          sort: index,
+        }));
+        break;
     }
   } catch {
     notify.error('搜索失败');
@@ -129,7 +137,7 @@ const handleInfinite = async () => {
       page: ++page.value,
       pageSize: PageSize.More,
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('搜索失败');
     } else {
       switch (type) {
@@ -163,7 +171,7 @@ const handleInfinite = async () => {
           artistList.value.push(...artists);
           break;
         case SearchType.Special:
-          const playlists = data.lists.map((playlist) => ({
+          const playlists = data.lists.map((playlist, index) => ({
             id: playlist.specialid,
             cover: playlist.img,
             title: playlist.specialname,
@@ -172,6 +180,7 @@ const handleInfinite = async () => {
             playCount: 0,
             tags: playlist.abtags?.map((tag) => tag.name),
             gid: playlist.gid,
+            sort: index,
           }));
 
           playlistList.value.push(...playlists);
@@ -207,9 +216,7 @@ const handleArtistClick = (row: ArtistInfo) => {
   router.push(`/artist-list-table/${row.id}`);
 };
 
-const handlePlaylistClick = (row: ListInfo) => {
-  if (!row.gid) return;
-
+const handlePlaylistClick = (row: PlaylistInfo) => {
   router.push(`/top-playlist-table/${row.gid}`);
 };
 
@@ -297,7 +304,7 @@ onUnmounted(() => listStore.resetList(listType));
 
           <div class="w-0 flex-1 overflow-hidden">
             <div class="music-title flex items-center gap-3">
-              <div class="min-w-0 truncate">{{ row.title }}</div>
+              <div class="w-0truncate">{{ row.title }}</div>
               <div class="flex flex-1 gap-3">
                 <div
                   class="card rounded border-info px-1 text-xs font-bold leading-4 text-info"

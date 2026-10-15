@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  LyricAccentColor,
-  LyricBaseColor,
-  LyricFontSize,
-  LyricOffset,
-  LyricTransMode,
-} from '@/utils/params';
+import { LyricAccentColor, LyricBaseColor, LyricFontSize, LyricTransMode } from '@/constants';
 import { useDesktopLyricStore } from '@/windows/desktop-lyric/stores/desktop-lyric';
 
 import { createTestPinia } from '../../../helpers/factories';
@@ -33,11 +27,11 @@ describe('useDesktopLyricStore 桌面歌词局部状态', () => {
   it('setFontSize 加减与重置', () => {
     const store = useDesktopLyricStore();
     store.setFontSize('add');
-    expect(store.fontSize).toBe(LyricFontSize.Default + LyricFontSize.Step);
+    expect(store.fontSize).toBe(LyricFontSize.Default + 2);
     store.setFontSize('sub');
     expect(store.fontSize).toBe(LyricFontSize.Default);
     store.setFontSize('sub');
-    expect(store.fontSize).toBe(LyricFontSize.Default - LyricFontSize.Step);
+    expect(store.fontSize).toBe(LyricFontSize.Default - 2);
     store.setFontSize('restart');
     expect(store.fontSize).toBe(LyricFontSize.Default);
   });
@@ -58,15 +52,15 @@ describe('useDesktopLyricStore 桌面歌词局部状态', () => {
   it('setOffsetMap 按 id 增减偏移并重置，空 id 直接返回', () => {
     const store = useDesktopLyricStore();
     store.setOffsetMap('add', 'lyric-1');
-    expect(store.offsetMap['lyric-1']).toBe(LyricOffset.Default + LyricOffset.Step);
+    expect(store.offsetMap['lyric-1']).toBe(0 + 0.1);
     store.setOffsetMap('sub', 'lyric-1');
-    expect(store.offsetMap['lyric-1']).toBe(LyricOffset.Default);
+    expect(store.offsetMap['lyric-1']).toBe(0);
     store.setOffsetMap('sub', 'lyric-1');
-    expect(store.offsetMap['lyric-1']).toBe(LyricOffset.Default - LyricOffset.Step);
+    expect(store.offsetMap['lyric-1']).toBe(0 - 0.1);
     store.setOffsetMap('restart', 'lyric-1');
-    expect(store.offsetMap['lyric-1']).toBe(LyricOffset.Default);
+    expect(store.offsetMap['lyric-1']).toBe(0);
 
     store.setOffsetMap('add', '');
-    expect(store.offsetMap).toEqual({ 'lyric-1': LyricOffset.Default });
+    expect(store.offsetMap).toEqual({ 'lyric-1': 0 });
   });
 });

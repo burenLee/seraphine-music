@@ -4,9 +4,9 @@ import { computed, inject } from 'vue';
 
 import Image from '@/components/Image.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { ListType, PicSize } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { getPic } from '@/utils/music';
-import { ListType, PicSize } from '@/utils/params';
 
 const listType = inject<ListType>('listType', ListType.Show);
 

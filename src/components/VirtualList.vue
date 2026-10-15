@@ -3,7 +3,7 @@ import { useEventListener, useThrottleFn } from '@vueuse/core';
 import { computed, onMounted, ref, useTemplateRef } from 'vue';
 
 import SvgIcon from '@/components/SvgIcon.vue';
-import { Interval } from '@/utils/params';
+import { Interval } from '@/constants';
 
 type Key = keyof T;
 
@@ -63,6 +63,9 @@ const {
 const emits = defineEmits<IEmits>();
 
 const containerRef = useTemplateRef('containerRef');
+
+// 复选集合缓存, 避免模板中每行 includes 的 O(n) 扫描
+const checkedSet = computed(() => new Set(checkedList));
 
 const preCount = 5; // 预加载条目数量
 let lastScrollTop = 0; // 最后滚动位置
@@ -200,7 +203,7 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop });
     <ul v-else :style="{ transform: `translateY(${`${lineHeight * startIndex}`}px)` }">
       <li
         v-for="(line, lineIndex) in visibleLines"
-        :key="startIndex + lineIndex"
+        :key="line[lineKey]"
         class="group/line card-hover flex h-[var(--line-height)] items-center rounded-lg"
         @click="handleLineClick(line)"
         @dblclick="handleLineDblClick(line)"
@@ -210,7 +213,7 @@ defineExpose({ scrollToTarget, scrollToIndex, scrollToTop });
           v-if="checking"
           class="basis-8"
           type="checkbox"
-          :checked="checkedList?.includes(line[lineKey])"
+          :checked="checkedSet.has(line[lineKey])"
         />
 
         <div

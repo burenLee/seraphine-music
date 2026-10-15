@@ -193,8 +193,8 @@ class IntersectionObserverMock implements IntersectionObserver {
   ) {}
 
   observe(target: Element) {
-    // 微任务异步触发「可见」回调：业务代码通常是先 observe() 再注册回调（如 utils/hooks.ts
-    // 的 ObserverManager），同步触发会丢回调；microtask 保证注册完成后才派发
+    // 微任务异步触发「可见」回调：业务代码通常是先 observe() 再注册回调（如
+    // composables/useObserver.ts 的 ObserverManager），同步触发会丢回调；microtask 保证注册完成后才派发
     queueMicrotask(() => {
       this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this);
     });

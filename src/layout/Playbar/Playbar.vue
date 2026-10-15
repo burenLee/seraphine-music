@@ -1,3 +1,18 @@
+<script lang="ts">
+const excludeNodeType = [
+  'text',
+  'password',
+  'search',
+  'tel',
+  'url',
+  'email',
+  'number',
+  'checkbox',
+  'radio',
+  'color',
+];
+</script>
+
 <script lang="ts" setup>
 import { useEventListener, watchThrottled } from '@vueuse/core';
 import { ref, watch } from 'vue';
@@ -7,10 +22,10 @@ import Carousel from '@/components/Carousel.vue';
 import Image from '@/components/Image.vue';
 import ProgressRange from '@/components/ProgressRange.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { usePlayingCover } from '@/composables/usePlayingCover.ts';
+import { Interval, PicSize } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
-import { useCover } from '@/utils/hooks.ts';
-import { Interval, PicSize } from '@/utils/params';
 import { formatDuration } from '@/utils/tools.ts';
 
 import DesktopLyric from './DesktopLyric.vue';
@@ -23,7 +38,7 @@ import Volume from './Volume.vue';
 const musicStore = useMusicStore();
 const lyricStore = useLyricStore();
 
-const cover = useCover(PicSize.Md);
+const cover = usePlayingCover(PicSize.Md);
 
 const playProgress = ref(musicStore.playProgress);
 
@@ -39,19 +54,6 @@ watch(
   () => musicStore.music?.id,
   () => (playProgress.value = 0),
 );
-
-const excludeNodeType = [
-  'text',
-  'password',
-  'search',
-  'tel',
-  'url',
-  'email',
-  'number',
-  'checkbox',
-  'radio',
-  'color',
-];
 
 // 监听空格来暂停/播放
 useEventListener(document, 'keyup', (e: KeyboardEvent) => {

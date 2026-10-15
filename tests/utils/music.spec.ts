@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { LyricTransMode, PicSize, PlayingOrigin, PlayingQuality } from '@/constants';
 import {
   getFullName,
   getOrigin,
@@ -9,7 +10,6 @@ import {
   parseKrcLyric,
   parseLrcLyric,
 } from '@/utils/music';
-import { LyricTransMode, PicSize, PlayingOrigin, PlayingQuality } from '@/utils/params';
 
 import { makeListMusic, makeMusicDetail, makePlayingMusic } from '../helpers/factories';
 import { notifyMock } from '../helpers/mocks';
@@ -20,7 +20,7 @@ describe('getPic', () => {
   });
 
   it('替换为指定尺寸', () => {
-    expect(getPic('https://img.com/{size}/a.jpg', PicSize.Lg)).toBe('https://img.com/400/a.jpg');
+    expect(getPic('https://img.com/{size}/a.jpg', PicSize.Lg)).toBe('https://img.com/240/a.jpg');
   });
 
   it('URL 无占位符时原样返回', () => {
@@ -175,12 +175,12 @@ describe('parseKrcLyric', () => {
     expect(lines[1].translations[LyricTransMode.Trans]).toBeUndefined();
   });
 
-  it('非法翻译内容触发 notify.error 但不中断解析', () => {
+  it('非法翻译内容静默忽略且不中断解析', () => {
     const content = ['[language:!!!not-base64!!!]', '[0,1000]<0,500,0>line1'].join('\n');
 
     const lines = parseKrcLyric(content);
 
-    expect(notifyMock.error).toHaveBeenCalledWith('解析 KRC 翻译歌词失败');
+    expect(notifyMock.error).not.toHaveBeenCalled();
     expect(lines).toHaveLength(1);
   });
 });
@@ -225,12 +225,12 @@ describe('parseLrcLyric', () => {
     expect(lines[0].translations[LyricTransMode.Trans]).toBe('trans1');
   });
 
-  it('非法翻译内容触发 notify.error 但不中断解析', () => {
+  it('非法翻译内容静默忽略且不中断解析', () => {
     const content = ['[language:!!!not-base64!!!]', '[00:01.00]line1'].join('\n');
 
     const lines = parseLrcLyric(content);
 
-    expect(notifyMock.error).toHaveBeenCalledWith('解析 LRC 翻译歌词失败');
+    expect(notifyMock.error).not.toHaveBeenCalled();
     expect(lines).toHaveLength(1);
   });
 });

@@ -2,8 +2,8 @@
 import { computed, inject } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
+import { ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
-import { ListType } from '@/utils/params';
 
 const listType = inject<ListType>('listType', ListType.Show);
 
@@ -12,7 +12,8 @@ const listStore = useListStore();
 const musicList = computed(() => listStore[listType]);
 const isAllChecked = computed(
   () =>
-    listStore.checkedList.length > 0 && listStore.checkedList.length == musicList.value.list.length,
+    listStore.checkedList.length > 0 &&
+    listStore.checkedList.length === musicList.value.list.length,
 );
 
 const handleClick = () => {

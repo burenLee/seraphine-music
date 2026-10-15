@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { useLyricStore } from '@/stores/lyric';
 import {
   LyricBaseColor,
   LyricFontSize,
   LyricFormat,
-  LyricOffset,
   LyricPageMode,
   LyricTextAlign,
   LyricTransMode,
-} from '@/utils/params';
+} from '@/constants';
+import { useLyricStore } from '@/stores/lyric';
 
 import {
   createTestPinia,
@@ -60,11 +59,11 @@ describe('外观设置', () => {
     const store = useLyricStore();
 
     store.setFontSize('add');
-    expect(store.fontSize).toBe(LyricFontSize.Default + LyricFontSize.Step);
+    expect(store.fontSize).toBe(LyricFontSize.Default + 2);
 
     store.setFontSize('sub');
     store.setFontSize('sub');
-    expect(store.fontSize).toBe(LyricFontSize.Default - LyricFontSize.Step);
+    expect(store.fontSize).toBe(LyricFontSize.Default - 2);
 
     store.setFontSize('restart');
     expect(store.fontSize).toBe(LyricFontSize.Default);
@@ -91,7 +90,7 @@ describe('setOffsetMap 歌词偏移', () => {
 
     store.setOffsetMap('restart');
 
-    expect(store.offsetMap).toStrictEqual({ '': LyricOffset.Default });
+    expect(store.offsetMap).toStrictEqual({ '': 0 });
   });
 
   it('按步进调整并重置', () => {
@@ -100,14 +99,14 @@ describe('setOffsetMap 歌词偏移', () => {
     store.offsetMap = { l1: 0 };
 
     store.setOffsetMap('add');
-    expect(store.offsetMap['l1']).toBeCloseTo(LyricOffset.Step);
+    expect(store.offsetMap['l1']).toBeCloseTo(0.1);
 
     store.setOffsetMap('sub');
     expect(store.offsetMap['l1']).toBeCloseTo(0);
 
     store.setOffsetMap('add');
     store.setOffsetMap('restart');
-    expect(store.offsetMap['l1']).toBe(LyricOffset.Default);
+    expect(store.offsetMap['l1']).toBe(0);
   });
 });
 
@@ -177,7 +176,7 @@ describe('load 歌词加载（核心路径）', () => {
     expect(store.matchedMap[10]).toBeUndefined();
   });
 
-  it('后端异常时提示错误且不中断', async () => {
+  it('后端异常时静默回退且不中断', async () => {
     const store = useLyricStore();
     const music = makePlayingMusic({ id: 11 });
     store.setMatchedLyric(11, 'k1', LyricFormat.Krc);
@@ -191,7 +190,7 @@ describe('load 歌词加载（核心路径）', () => {
     await store.load(music);
     await flushAsync();
 
-    expect(notifyMock.error).toHaveBeenCalledWith('获取本地歌词失败');
+    expect(notifyMock.error).not.toHaveBeenCalled();
     expect(store.lyric).toStrictEqual({ id: '', fmt: LyricFormat.Krc, lines: [] });
     expect(store.isLoading).toBe(false);
   });

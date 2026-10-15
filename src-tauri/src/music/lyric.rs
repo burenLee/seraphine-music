@@ -51,7 +51,7 @@ pub fn music_lyric_get(file_name: &str) -> Option<String> {
 pub fn music_lyric_save(file_name: &str, content: &str) -> Result<(), String> {
   let lyric_path = Dir::lyric().join(gen_valid_path(file_name));
 
-  fs::write(lyric_path, content).log_command("music_lyric_save", "无法保存歌词")
+  fs::write(lyric_path, content).log_command("music_lyric_save", "保存歌词失败")
 }
 
 /// ## 解码歌词内容

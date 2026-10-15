@@ -4,8 +4,8 @@ import { computed, inject, ref, watch } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import SelectModal from '@/components/SelectModal.vue';
+import { ListType, SortOrder, SortType } from '@/constants';
 import { useListStore } from '@/stores/list';
-import { ListType, SortOrder, SortType } from '@/utils/params';
 
 const listType = inject<ListType>('listType', ListType.Show);
 
@@ -35,7 +35,7 @@ const sortListSelect = (newSortType: SortType) => {
     sortInfo.order = listSort.value.order === SortOrder.ASC ? SortOrder.DESC : SortOrder.ASC;
   }
 
-  listStore.sortMap[musicList.value.info.id] = sortInfo;
+  listStore.setSortMap(musicList.value.info.id, sortInfo);
   sortVisible.value = false;
 };
 

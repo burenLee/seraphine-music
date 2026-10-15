@@ -4,8 +4,8 @@ import { computed, ref } from 'vue';
 
 import SelectModal from '@/components/SelectModal.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { LyricPageMode } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
-import { LyricPageMode } from '@/utils/params';
 
 const lyricStore = useLyricStore();
 
@@ -15,7 +15,7 @@ const pageModeOptions: SelectOption[] = [
   { label: '歌手写真', value: LyricPageMode.Photo, prefixIcon: 'User', disabled: true },
 ];
 
-const pageVisible = ref(false);
+const pageModeVisible = ref(false);
 
 const pageModeSelection = computed(
   () =>
@@ -23,23 +23,30 @@ const pageModeSelection = computed(
 );
 
 const pageModeSelect = (mode: LyricPageMode) => {
-  pageVisible.value = false;
+  pageModeVisible.value = false;
 
   lyricStore.setPageMode(mode);
 };
 </script>
 
 <template>
-  <div class="relative" v-on-click-outside="() => (pageVisible = false)">
-    <div class="flex cursor-pointer items-center gap-1 px-2" @click="pageVisible = !pageVisible">
+  <div class="relative" v-on-click-outside="() => (pageModeVisible = false)">
+    <div
+      class="flex cursor-pointer items-center gap-1 px-2"
+      @click="pageModeVisible = !pageModeVisible"
+    >
       <SvgIcon :name="pageModeSelection.prefixIcon || 'Picture'" />
       {{ pageModeSelection.label }}
-      <SvgIcon class="transition-transform" :class="pageVisible ? 'rotate-180' : ''" name="Down" />
+      <SvgIcon
+        class="transition-transform"
+        :class="pageModeVisible ? 'rotate-180' : ''"
+        name="Down"
+      />
     </div>
 
     <SelectModal
       class="absolute left-1/2 top-full -translate-x-1/2"
-      :visible="pageVisible"
+      :visible="pageModeVisible"
       :options="pageModeOptions"
       :selection="pageModeSelection"
       @select="pageModeSelect"

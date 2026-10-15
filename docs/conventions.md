@@ -2,7 +2,7 @@
 
 ## 共享层与业务层
 
-- 共享基础层代码放在 `src/components/`、`src/utils/`、`src/types/`、`src/styles/`，三窗口通用
+- 共享基础层代码放在 `src/components/`、`src/constants/`、`src/utils/`、`src/types/`、`src/styles/`，三窗口通用
 - 各窗口业务代码放在 `src/windows/[window-name]/`
 
 ## Commit 规范

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { IconMap } from '@/utils/icons';
 
 describe('IconMap', () => {
-  it('包含全部 79 个图标映射', () => {
-    expect(Object.keys(IconMap)).toHaveLength(79);
+  it('包含全部 80 个图标映射', () => {
+    expect(Object.keys(IconMap)).toHaveLength(80);
   });
 
   it('每个映射的值都是已定义的组件', () => {

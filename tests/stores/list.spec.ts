@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { defaultInfo, useListStore } from '@/stores/list';
+import { ListType, SortOrder, SortType } from '@/constants';
+import { defaultListInfo, useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
-import { ListType, SortOrder, SortType } from '@/utils/params';
 
 import { createTestPinia, makeListMusic, makeMusicList, makeSortInfo } from '../helpers/factories';
 
@@ -14,8 +14,8 @@ describe('初始默认值', () => {
   it('四个列表与状态字段均为初始值', () => {
     const store = useListStore();
 
-    expect(store.local.info).toStrictEqual({ ...defaultInfo, id: 'local', title: '本地歌曲' });
-    expect(store.like.info).toStrictEqual({ ...defaultInfo });
+    expect(store.local.info).toStrictEqual({ ...defaultListInfo, id: 'local', title: '本地歌曲' });
+    expect(store.like.info).toStrictEqual({ ...defaultListInfo, gid: '', sort: 0 });
     expect(store.play.list).toStrictEqual([]);
     expect(store.isHeaderLoading).toBe(true);
     expect(store.isTableLoading).toBe(true);
@@ -94,7 +94,7 @@ describe('列表增删', () => {
 
     store.resetList(ListType.Show);
 
-    expect(store.show.info).toStrictEqual(defaultInfo);
+    expect(store.show.info).toStrictEqual(defaultListInfo);
     expect(store.isChecking).toBe(false);
   });
 });
@@ -110,7 +110,7 @@ describe('我喜欢列表', () => {
     expect(store.like.list.get(2)).toBe('f2');
     expect(store.like.list.size).toBe(2);
 
-    store.removeLikeList([m1]);
+    store.removeLikeList([m1.id]);
     expect(store.like.list.has(1)).toBe(false);
     expect(store.like.list.size).toBe(1);
 

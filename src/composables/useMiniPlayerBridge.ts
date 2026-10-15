@@ -1,28 +1,46 @@
 import { emitTo, listen } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { PhysicalPosition } from '@tauri-apps/api/window';
-import { watchThrottled } from '@vueuse/core';
 import { computed, watch } from 'vue';
 
+import { MiniPlayerEmit, WindowEvent, WindowTarget } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
-import { useSettingStore } from '@/stores/setting';
+import { useStateStore } from '@/stores/state';
 import { getOrigin } from '@/utils/music';
-import { Interval, MiniPlayerEmit, WindowEvent, WindowTarget } from '@/utils/params';
-
-const FORWARD_DURATION = 150; // 歌词提前滚动时间 (ms)
 
 export function useMiniPlayerBridge() {
+  const stateStore = useStateStore();
   const listStore = useListStore();
   const musicStore = useMusicStore();
   const lyricStore = useLyricStore();
-  const settingStore = useSettingStore();
 
   const stopFns: (() => void)[] = [];
 
-  // 当前歌词的偏移量
-  const lyricOffset = computed(() => lyricStore.offsetMap[lyricStore.lyric.id] || 0);
+  // 当前高亮歌词行索引
+  const currentIndex = computed(() => {
+    const { id, lines } = lyricStore.lyric;
+    if (!id || !lines.length) return -1;
+
+    const progress =
+      (musicStore.playProgress + (lyricStore.offsetMap[lyricStore.lyric.id] || 0)) * 1000 + 100;
+
+    let index = -1;
+    let low = 0;
+    let high = lines.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >>> 1;
+      if (lines[mid].offset <= progress) {
+        index = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    return index;
+  });
 
   const syncAudio = () => {
     emitTo(WindowTarget.MiniPlayer, WindowEvent.MiniPlayer, {
@@ -31,7 +49,6 @@ export function useMiniPlayerBridge() {
         isLoading: musicStore.isLoading,
         isPlaying: musicStore.isPlaying,
         music: musicStore.music,
-        origin: musicStore.origin,
       },
     });
   };
@@ -47,19 +64,9 @@ export function useMiniPlayerBridge() {
     const { id, lines } = lyricStore.lyric;
     if (!id) return;
 
-    const pg = (musicStore.playProgress + lyricOffset.value) * 1000 + FORWARD_DURATION;
-
-    let text = '';
-    for (let i = 0; i < lines.length; i++) {
-      if (pg < lines[i].offset || pg > (lines[i + 1]?.offset || Infinity)) continue;
-
-      text = lines[i].words.map((word) => word.text).join('');
-      break;
-    }
-
     emitTo(WindowTarget.MiniPlayer, WindowEvent.MiniPlayer, {
       type: MiniPlayerEmit.Lyric,
-      data: text,
+      data: lines[currentIndex.value].words.map((item) => item.text).join(''),
     });
   };
 
@@ -70,11 +77,8 @@ export function useMiniPlayerBridge() {
       syncAudio,
     );
     const unwatchPlaylist = watch(() => listStore.play.list, syncPlaylist);
-    const unwatchLyric = watchThrottled(
-      [() => musicStore.playProgress, () => lyricStore.lyric, lyricOffset],
-      syncLyric,
-      { throttle: Interval.Long },
-    );
+    const unwatchLyric = watch(currentIndex, syncLyric);
+
     const unlistenAction = await listen<{ type: MiniPlayerEmit; data: unknown }>(
       WindowEvent.MiniPlayer,
       async (e) => {
@@ -85,7 +89,8 @@ export function useMiniPlayerBridge() {
             syncLyric();
             break;
           case MiniPlayerEmit.Pos:
-            settingStore.setMiniPlayerPosition(e.payload.data as PhysicalPosition);
+            const { x, y } = e.payload.data as PhysicalPosition;
+            stateStore.setMiniPlayerPosition({ x, y });
             break;
           case MiniPlayerEmit.Play:
             musicStore.play();

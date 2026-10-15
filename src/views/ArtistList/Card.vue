@@ -3,14 +3,14 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import ColList from '@/components/MusicList/ColList.vue';
-import { defaultInfo } from '@/stores/list';
-import { ApiInvokeStatus, AreaTypes, PageSize } from '@/utils/params';
+import { InvokeApiStatus, AreaTypes, PageSize } from '@/constants';
+import { defaultListInfo } from '@/stores/list';
 import { invoke } from '@/utils/tools';
 
 const router = useRouter();
 
 const isLoading = ref(true);
-const colData = ref<ColList>({ info: { ...defaultInfo, title: '推荐歌手' }, list: [] });
+const colData = ref<ColList>({ info: { ...defaultListInfo, title: '歌手排行榜' }, list: [] });
 
 const handleLoad = async () => {
   isLoading.value = true;
@@ -24,9 +24,9 @@ const handleLoad = async () => {
           pageSize: PageSize.Min,
         });
 
-        const info: ListInfo = { ...defaultInfo, title: areaType.title };
+        const info: ListInfo = { ...defaultListInfo, title: areaType.title };
         let list: CardInfo[] = [];
-        if (status === ApiInvokeStatus.Success) {
+        if (status === InvokeApiStatus.Success) {
           list = data.info.map((singer) => ({
             id: singer.singerid,
             cover: singer.imgurl,

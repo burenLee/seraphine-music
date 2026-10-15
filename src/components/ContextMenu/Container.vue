@@ -1,77 +1,43 @@
 <script lang="ts" setup>
 import { vOnClickOutside } from '@vueuse/components';
-import { useWindowSize } from '@vueuse/core';
-import { computed, watch } from 'vue';
+import { watchEffect } from 'vue';
 
-import { CONTAINER_WIDTH, calcContainerHeight, useContextMenuStore } from '@/stores/context-menu';
-import { useSettingStore } from '@/stores/setting';
+import { useContextMenuStore } from '@/stores/context-menu';
+import { useStateStore } from '@/stores/state.ts';
 
 import ContextMenu from './ContextMenu.vue';
 
-const settingStore = useSettingStore();
+const stateStore = useStateStore();
 const contextMenuStore = useContextMenuStore();
 
-const { width: windowWidth, height: windowHeight } = useWindowSize();
+// 仅在弹窗可见时监听 Esc, 组件卸载时自动清理
+watchEffect((onCleanup) => {
+  if (!contextMenuStore.visible) return;
 
-/** 根容器在视口中的位置（避免溢出窗口） */
-const containerPosition = computed(() => {
-  const {
-    position: { x, y },
-    options,
-  } = contextMenuStore;
-
-  const containerHeight = calcContainerHeight(options);
-
-  const top = y + containerHeight > windowHeight.value ? y - containerHeight : y;
-  const left = x + CONTAINER_WIDTH > windowWidth.value ? x - CONTAINER_WIDTH : x;
-
-  return { top, left };
+  window.addEventListener('resize', contextMenuStore.hide);
+  window.addEventListener('wheel', contextMenuStore.hide);
+  onCleanup(() => {
+    window.removeEventListener('resize', contextMenuStore.hide);
+    window.removeEventListener('wheel', contextMenuStore.hide);
+  });
 });
-
-/** 接收任意层级子项冒泡上来的 select 事件 */
-const handleSelect = (option: ContextMenuOption) => {
-  if (!option.onClick) return;
-
-  option.onClick();
-  contextMenuStore.hide();
-};
-
-watch(
-  () => contextMenuStore.visible,
-  (visible, _, onCleanup) => {
-    if (!visible) return;
-
-    window.addEventListener('resize', contextMenuStore.hide);
-    window.addEventListener('wheel', contextMenuStore.hide);
-
-    onCleanup(() => {
-      window.removeEventListener('resize', contextMenuStore.hide);
-      window.removeEventListener('wheel', contextMenuStore.hide);
-    });
-  },
-);
 </script>
 
 <template>
   <Teleport :to="contextMenuStore.teleport">
-    <Transition name="zoom-fade">
-      <div
-        v-if="contextMenuStore.visible"
-        class="fixed z-50"
-        :style="{
-          fontFamily: settingStore.fontFamily,
-          top: `${containerPosition.top}px`,
-          left: `${containerPosition.left}px`,
-        }"
-        v-on-click-outside="contextMenuStore.hide"
-        @contextmenu.stop.prevent
-      >
+    <div
+      class="pointer-events-none fixed inset-0 z-50 overflow-hidden"
+      :style="{ fontFamily: stateStore.fontFamily }"
+      v-on-click-outside="contextMenuStore.hide"
+    >
+      <Transition name="fade">
         <ContextMenu
+          v-if="contextMenuStore.visible"
           :options="contextMenuStore.options"
-          :container-position="containerPosition"
-          @select="handleSelect"
+          :position="contextMenuStore.position"
+          :level="1"
         />
-      </div>
-    </Transition>
+      </Transition>
+    </div>
   </Teleport>
 </template>

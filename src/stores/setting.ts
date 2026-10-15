@@ -9,11 +9,11 @@ import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 
 import { notify } from '@/components/Notification.vue';
-import { AutoStartMode, CloseStatus, DefaultSystemFonts, Mode, ShortcutKey } from '@/utils/params';
+import { AutoStartMode, CloseMode, ShortcutKey } from '@/constants';
 
 import { useMusicStore } from './music';
 
-const Default_Shortcut: Record<ShortcutKey, string> = {
+const DefaultShortcut: Record<ShortcutKey, string> = {
   playOrPause: 'Alt+F5',
   addVolumn: 'Alt+Up',
   subVolumn: 'Alt+Down',
@@ -24,28 +24,20 @@ const Default_Shortcut: Record<ShortcutKey, string> = {
   forward: 'Ctrl+Alt+Right',
 };
 
-/** 全局配置 */
+/** 全局设置 */
 export const useSettingStore = defineStore(
   'setting',
   () => {
     const isHydrated = ref(false); // store 持久化的水合状态
-    const isMaximized = ref(false); // 最大化
-    const isFullscreen = ref(false); // 全屏
 
-    const mode = ref<Mode>(Mode.KgLite); // Mode
-
-    const autoLiteVipState = ref(false); // 自动领取概念版会员
-    const availableFonts = ref<FontItem[]>([]); // 可用字体列表
-    const fontFamily = ref<FontValue>('system-ui'); // 字体
-    const autoStartState = ref(false); // 开机自启状态
+    const autoYouthVip = ref(true); // 自动领取概念版会员
+    const autoStart = ref(false); // 开机自启状态
     const autoStartMode = ref(AutoStartMode.Foreground); // 开机自启模式
-    const closeStatus = ref<CloseStatus>(); // 关闭按钮状态
-    const globalShortcutState = ref(true); // 全局快捷键状态
-    const mediaShortcutState = ref(true); // 媒体快捷键状态
-    const shortcutMap = ref({ ...Default_Shortcut }); // 快捷键映射
+    const closeMode = ref<CloseMode>(); // 关闭按钮状态
+    const globalShortcut = ref(true); // 全局快捷键状态
+    const mediaShortcut = ref(true); // 媒体快捷键状态
+    const shortcutMap = ref({ ...DefaultShortcut }); // 快捷键映射
     const device = ref(''); // 设备ID
-    const miniPlayerPosition = ref({ x: 0, y: 0 }); // mini播放器坐标
-    const desktopLyricPosition = ref({ x: 0, y: 0 }); //桌面歌词坐标
 
     const musicStore = useMusicStore();
 
@@ -54,76 +46,46 @@ export const useSettingStore = defineStore(
       async () => {
         await unregisterAll();
 
-        if (globalShortcutState.value) await registerAllGlobalShortcut();
-        if (mediaShortcutState.value) await registerMediaCommandListener();
+        if (globalShortcut.value) registerAllGlobalShortcut();
+        if (mediaShortcut.value) registerMediaCommandListener();
       },
       { once: true },
     );
 
-    const setMode = (newMode: Mode) => {
-      mode.value = newMode;
+    const toggleAutoYouthVip = () => {
+      autoYouthVip.value = !autoYouthVip.value;
     };
-    const toggleAutoLiteVipState = () => {
-      autoLiteVipState.value = !autoLiteVipState.value;
-    };
-    const toggleMaximizedState = (state: boolean) => {
-      isMaximized.value = state;
-    };
-    const toggleFullscreenState = (state: boolean) => {
-      isFullscreen.value = state;
-    };
-    const getAvailableFonts = () => {
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) return;
 
-      const testString = '天地玄黄 AWayonmw01 宇宙洪荒';
-      const baseFont = 'monospace';
-      const fontSize = 100;
-
-      context.font = `${fontSize}px ${baseFont}`;
-      const baseWidth = context.measureText(testString).width;
-      const fonts: FontItem[] = [];
-
-      DefaultSystemFonts.forEach(([name, value]) => {
-        context.font = `${fontSize}px "${value}", ${baseFont}`;
-        const testWidth = context.measureText(testString).width;
-
-        if (Math.abs(baseWidth - testWidth) > 0.1) fonts.push([name, value]);
-      });
-
-      availableFonts.value = fonts;
+    const toggleAutoStart = (state: boolean) => {
+      autoStart.value = state;
     };
-    const setFontFamily = (font: FontValue) => {
-      fontFamily.value = font;
-    };
-    const toggleAutoStartState = (state: boolean) => {
-      autoStartState.value = state;
-    };
+
     const setAutoStartMode = (mode: AutoStartMode) => {
       autoStartMode.value = mode;
     };
-    const setCloseStatus = (status: CloseStatus) => {
-      closeStatus.value = status;
-    };
-    const toggleGlobalShortcutState = async () => {
-      globalShortcutState.value = !globalShortcutState.value;
 
-      if (globalShortcutState.value) {
-        await registerAllGlobalShortcut();
+    const setCloseMode = (status: CloseMode) => {
+      closeMode.value = status;
+    };
+
+    const toggleGlobalShortcut = () => {
+      globalShortcut.value = !globalShortcut.value;
+
+      if (globalShortcut.value) {
+        registerAllGlobalShortcut();
       } else {
-        await unregisterAllGlobalShortcut();
+        unregisterAllGlobalShortcut();
       }
     };
-    const toggleMediaShortcutState = () => {
-      mediaShortcutState.value = !mediaShortcutState.value;
+
+    const toggleMediaShortcut = () => {
+      mediaShortcut.value = !mediaShortcut.value;
 
       // 媒体键由系统原生通道接管（SMTC / MPRIS / MPRemoteCommandCenter），
       // 仅需在开启时监听 media:command 事件，关闭时监听器内部的守卫自动忽略。
-      if (mediaShortcutState.value) {
-        registerMediaCommandListener();
-      }
+      if (mediaShortcut.value) registerMediaCommandListener();
     };
+
     const setDevice = (id: string) => {
       device.value = id;
     };
@@ -131,8 +93,9 @@ export const useSettingStore = defineStore(
     const setShortcutMap = (key: ShortcutKey, value: string) => {
       shortcutMap.value[key] = value;
     };
+
     const resetShortcutMap = () => {
-      shortcutMap.value = { ...Default_Shortcut };
+      shortcutMap.value = { ...DefaultShortcut };
     };
 
     // 注册全局快捷键
@@ -209,8 +172,14 @@ export const useSettingStore = defineStore(
             break;
         }
       } catch {
-        mediaShortcutState.value = false;
+        mediaShortcut.value = false;
         notify.error('全局快捷键注册失败, 可能被占用');
+      }
+    };
+
+    const registerAllGlobalShortcut = async () => {
+      for (const key of Object.keys(shortcutMap.value)) {
+        await registerGlobalShortcut(key as ShortcutKey);
       }
     };
 
@@ -222,12 +191,6 @@ export const useSettingStore = defineStore(
       await unregister(shortcut);
     };
 
-    const registerAllGlobalShortcut = async () => {
-      for (const key of Object.keys(shortcutMap.value)) {
-        await registerGlobalShortcut(key as ShortcutKey);
-      }
-    };
-
     const unregisterAllGlobalShortcut = async () => {
       for (const key of Object.keys(shortcutMap.value)) {
         await unregisterGlobalShortcut(key as ShortcutKey);
@@ -235,8 +198,14 @@ export const useSettingStore = defineStore(
     };
 
     // 监听系统媒体键（SMTC / MPRIS / MPRemoteCommandCenter）转发来的命令
+    let mediaUnlisten: (() => void) | undefined = undefined;
+
     const registerMediaCommandListener = async () => {
-      await listen<string>('media:command', (event) => {
+      // 防止重复注册叠加监听器
+      mediaUnlisten?.();
+      mediaUnlisten = undefined;
+
+      mediaUnlisten = await listen<string>('media:command', (event) => {
         switch (event.payload) {
           case 'Play':
             musicStore.play();
@@ -256,43 +225,23 @@ export const useSettingStore = defineStore(
       });
     };
 
-    const setMiniPlayerPosition = (pos: { x: number; y: number }) => {
-      miniPlayerPosition.value = pos;
-    };
-
-    const setdesktopLyricPosition = (pos: { x: number; y: number }) => {
-      desktopLyricPosition.value = pos;
-    };
-
     return {
       isHydrated,
-      isMaximized,
-      isFullscreen,
-      mode,
-      autoLiteVipState,
-      availableFonts,
-      fontFamily,
-      autoStartState,
+      autoYouthVip,
+      autoStart,
       autoStartMode,
-      closeStatus,
-      globalShortcutState,
-      mediaShortcutState,
+      closeMode,
+      globalShortcut,
+      mediaShortcut,
       shortcutMap,
       device,
-      miniPlayerPosition,
-      desktopLyricPosition,
 
-      setMode,
-      toggleAutoLiteVipState,
-      toggleMaximizedState,
-      toggleFullscreenState,
-      getAvailableFonts,
-      setFontFamily,
-      toggleAutoStartState,
+      toggleAutoYouthVip,
+      toggleAutoStart,
       setAutoStartMode,
-      setCloseStatus,
-      toggleGlobalShortcutState,
-      toggleMediaShortcutState,
+      setCloseMode,
+      toggleGlobalShortcut,
+      toggleMediaShortcut,
       setShortcutMap,
       resetShortcutMap,
       setDevice,
@@ -300,21 +249,19 @@ export const useSettingStore = defineStore(
       unregisterGlobalShortcut,
       registerAllGlobalShortcut,
       unregisterAllGlobalShortcut,
-      setMiniPlayerPosition,
-      setdesktopLyricPosition,
     };
   },
   {
     persist: {
       key: 'setting-store',
       pick: [
-        'autoLiteVipState',
+        'autoYouthVip',
         'fontFamily',
-        'autoStartState',
+        'autoStart',
         'autoStartMode',
-        'closeStatus',
-        'globalShortcutState',
-        'mediaShortcutState',
+        'closeMode',
+        'globalShortcut',
+        'mediaShortcut',
         'shortcutMap',
         'device',
         'miniPlayerPosition',

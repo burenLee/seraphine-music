@@ -2,8 +2,8 @@
   "compilerOptions": {
     // 输出 ES Module 语法，交给 Vite 处理
     "module": "ESNext",
-    // 可用的内置类型声明：ES2020 语法 + 浏览器 DOM API
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    // 可用的内置类型声明：ES2022 语法（Error.cause 等）+ 浏览器 DOM API
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // 跳过 .d.ts 类型检查，加快编译（node_modules 类型错误不阻断）
     "skipLibCheck": true,
     // 类字段使用 Object.defineProperty 语义，与 ES 标准一致（配合 target >= ES2022 才默认开启）

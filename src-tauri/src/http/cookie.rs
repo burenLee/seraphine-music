@@ -210,8 +210,44 @@ impl Cookie {
     Ok(())
   }
 
-  /// ## 清除当前模式的 cookie
+  /// ## 清除当前模式的 cookie (不清除dfid数据)
   pub fn clear_cookies() -> anyhow::Result<()> {
+    let url = gen_url(KG_BASE_URL);
+
+    let cookies = match Mode::get_mode() {
+      AppMode::KgMobile => {
+        let mut new_cookies = KgCookie::default();
+
+        if let Some(old_cookies) = COOKIE_JAR
+          .cookies(&url)
+          .map(|header| KgCookie::from(header))
+        {
+          new_cookies.dfid = old_cookies.dfid
+        }
+
+        ModeCookies::KgMobile(new_cookies)
+      }
+      AppMode::KgLite => {
+        let mut new_cookies = KgCookie::default();
+
+        if let Some(old_cookies) = COOKIE_JAR
+          .cookies(&url)
+          .map(|header| KgCookie::from(header))
+        {
+          new_cookies.dfid = old_cookies.dfid
+        }
+
+        ModeCookies::KgLite(new_cookies)
+      }
+    };
+
+    Self::set_cookies(cookies)?;
+
+    Ok(())
+  }
+
+  /// ## 重置当前模式的 cookie (清除dfid数据)
+  pub fn reset_cookies() -> anyhow::Result<()> {
     let cookies = match Mode::get_mode() {
       AppMode::KgMobile => ModeCookies::KgMobile(KgCookie::default()),
       AppMode::KgLite => ModeCookies::KgLite(KgCookie::default()),

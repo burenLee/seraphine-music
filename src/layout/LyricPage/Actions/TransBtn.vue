@@ -1,6 +1,6 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
+import { LyricTransMode } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
-import { LyricTransMode } from '@/utils/params';
 
 const lyricStore = useLyricStore();
 

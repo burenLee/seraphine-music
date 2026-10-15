@@ -76,8 +76,8 @@ export const useUpdaterStore = defineStore(
           notify.success(`发现新版本 ${update.version}`);
         }
       } catch {
-        updater = undefined;
         notify.error('无法获取新版本');
+        updater = undefined;
 
         const currentVersion = await getVersion();
         updateInfo.value = {
@@ -129,7 +129,7 @@ export const useUpdaterStore = defineStore(
           }
         });
       } catch {
-        notify.error('无法下载新版本');
+        notify.error('下载新版本失败');
       } finally {
         isDownloading.value = false;
       }
@@ -142,7 +142,7 @@ export const useUpdaterStore = defineStore(
         await updater.install();
         await relaunch();
       } catch {
-        notify.error('无法安装并重启应用');
+        notify.error('无法安装应用');
       }
     };
 

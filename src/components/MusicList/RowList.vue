@@ -3,8 +3,8 @@ import { useThrottleFn, useWindowSize } from '@vueuse/core';
 import { computed, ref, useTemplateRef } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
-import { useObserver } from '@/utils/hooks';
-import { BreakPoint, ColCount, Interval } from '@/utils/params';
+import { useObserver } from '@/composables/useObserver';
+import { BreakPoint, ColCount, Interval } from '@/constants';
 
 import Card from './Card.vue';
 
@@ -70,7 +70,7 @@ const { unobserve } = useObserver(listRef, (entry) => {
 
   <!-- 加载状态 -->
   <div v-else-if="loading">
-    <div class="flex justify-between">
+    <div class="flex items-center justify-between">
       <div class="flex h-6 flex-1 items-center gap-3">
         <div class="h-full w-1 rounded bg-minor"></div>
         <div class="h-full w-24 rounded bg-card"></div>

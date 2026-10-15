@@ -11,7 +11,7 @@ const { setOffsetMap } = useLyricStore();
       class="h-8 w-full"
       mode="text"
       prefix-icon="ForwardRight"
-      title="歌词进度 + 0.2 秒"
+      title="歌词进度 + 0.1 秒"
       @click="setOffsetMap('add')"
     />
 
@@ -31,7 +31,7 @@ const { setOffsetMap } = useLyricStore();
       class="h-8 w-full"
       mode="text"
       prefix-icon="ForwardLeft"
-      title="歌词进度 - 0.2 秒"
+      title="歌词进度 - 0.1 秒"
       @click="setOffsetMap('sub')"
     />
   </div>

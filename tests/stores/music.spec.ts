@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Interval, ListType, PlayingMode, PlayingOrigin, PlayingQuality } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
-import { Interval, ListType, PlayingMode, PlayingOrigin, PlayingQuality } from '@/utils/params';
 
 import {
   createTestPinia,
@@ -482,7 +482,7 @@ describe('进度拖拽', () => {
   });
 });
 
-describe('加载失败自动重试（MAX_RETRY_COUNT）', () => {
+describe('加载失败自动重试（MaxRetryCount）', () => {
   it('连续失败重试切歌，达到上限后停止并提示', async () => {
     const { store, listStore } = await setupStore();
     const bad1 = makeListMusic({ id: 'bad-1', title: 'Bad1', hash: null, path: null });
@@ -501,7 +501,7 @@ describe('加载失败自动重试（MAX_RETRY_COUNT）', () => {
     await vi.advanceTimersByTimeAsync(Interval.PoN);
     expect(notifyMock.error).not.toHaveBeenCalledWith('重试次数过多, 停止重试');
 
-    // 第 3 次：达到 MAX_RETRY_COUNT，停止重试
+    // 第 3 次：达到 MaxRetryCount，停止重试
     notifyMock.error.mockClear();
     await vi.advanceTimersByTimeAsync(Interval.PoN);
     expect(notifyMock.error).toHaveBeenCalledWith('重试次数过多, 停止重试');

@@ -4,11 +4,10 @@ import { useRouter } from 'vue-router';
 
 import ActionButton from '@/components/ActionButton.vue';
 import Image from '@/components/Image.vue';
-import { notify } from '@/components/Notification.vue';
 import SlideBar from '@/components/SlideBar.vue';
 import VirtualList from '@/components/VirtualList.vue';
+import { InvokeApiStatus, AreaTypes, PageSize, SexTypes } from '@/constants';
 import { getPic } from '@/utils/music';
-import { ApiInvokeStatus, AreaTypes, PageSize, SexTypes } from '@/utils/params';
 import { formatCount, invoke } from '@/utils/tools';
 
 const router = useRouter();
@@ -75,27 +74,23 @@ const handleLoad = async () => {
       page: page.value,
       pageSize: PageSize.More,
     });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌手列表失败');
-    } else {
-      artistList.value = data.info.map((artist) => ({
-        id: artist.singerid,
-        cover: artist.imgurl,
-        name: artist.singername,
-        fanscount: artist.fanscount,
-        descibe: artist.descibe,
-        url: artist.url,
-      }));
-    }
-  } catch {
-    notify.error('获取歌手列表失败');
+    if (status !== InvokeApiStatus.Success) return;
+
+    artistList.value = data.info.map((artist) => ({
+      id: artist.singerid,
+      cover: artist.imgurl,
+      name: artist.singername,
+      fanscount: artist.fanscount,
+      descibe: artist.descibe,
+      url: artist.url,
+    }));
   } finally {
     isLoading.value = false;
   }
 };
 
 const handleInfinite = async () => {
-  if (isFinishing.value || isFinished.value || !areaSelection.value || !sexSelection.value) return;
+  if (!areaSelection.value || !sexSelection.value || isFinishing.value || isFinished.value) return;
 
   isFinishing.value = true;
 
@@ -107,24 +102,20 @@ const handleInfinite = async () => {
       page: ++page.value,
       pageSize: PageSize.More,
     });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('获取歌手列表失败');
-    } else {
-      data.info.forEach((artist) => {
-        artistList.value.push({
-          id: artist.singerid,
-          cover: artist.imgurl,
-          name: artist.singername,
-          fanscount: artist.fanscount,
-          descibe: artist.descibe,
-          url: artist.url,
-        });
-      });
+    if (status !== InvokeApiStatus.Success) return;
 
-      if (data.info.length < PageSize.More) isFinished.value = true;
-    }
-  } catch {
-    notify.error('获取歌手列表失败');
+    data.info.forEach((artist) => {
+      artistList.value.push({
+        id: artist.singerid,
+        cover: artist.imgurl,
+        name: artist.singername,
+        fanscount: artist.fanscount,
+        descibe: artist.descibe,
+        url: artist.url,
+      });
+    });
+
+    if (data.info.length < PageSize.More) isFinished.value = true;
   } finally {
     isFinishing.value = false;
   }

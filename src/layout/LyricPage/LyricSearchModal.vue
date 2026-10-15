@@ -3,12 +3,11 @@ import { ref, watch } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
 import Modal from '@/components/Modal.vue';
-import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
+import { LyricFormat } from '@/constants';
 import { useLyricStore } from '@/stores/lyric';
 import { useMusicStore } from '@/stores/music';
 import { getFullName } from '@/utils/music';
-import { LyricFormat } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const visible = defineModel({ required: true, default: false });
@@ -31,13 +30,10 @@ const handleSearch = async () => {
       hash: musicStore.music.hash,
     });
     if (status !== 200) {
-      notify.error('获取歌词列表失败');
       searchList.value.length = 0;
     } else {
       searchList.value = candidates;
     }
-  } catch {
-    notify.error('获取歌词列表失败');
   } finally {
     searchLoading.value = false;
   }
@@ -47,8 +43,8 @@ const handleReset = (refresh = false) => {
   if (!musicStore.music) return;
 
   searchQuery.value = getFullName(musicStore.music, 'at');
-  searchList.value.length = 0;
   selectLyric.value = searchList.value.find((item) => item.id === lyricStore.lyric.id);
+  searchList.value.length = 0;
 
   if (refresh) handleSearch();
 };
@@ -72,7 +68,7 @@ watch(visible, (visible) => visible && handleReset(true));
 
 <template>
   <Modal
-    v-model="visible"
+    :visible="visible"
     class="w-[40rem]"
     title="歌词搜索"
     :maskClosed="false"

@@ -3,20 +3,19 @@ import { onMounted, ref } from 'vue';
 
 import Carousel from '@/components/Carousel.vue';
 import Image from '@/components/Image.vue';
-import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
-import { defaultInfo, useListStore } from '@/stores/list';
+import { InvokeApiStatus, ListType, PicSize } from '@/constants';
+import { defaultListInfo, useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
 import { getFullName, getOrigin, getPic } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PicSize } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 const musciStore = useMusicStore();
 const listStore = useListStore();
 
-const likeMusicList = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
+const likeMusicList = ref<MusicList>({ info: { ...defaultListInfo }, list: [] });
 const currentLikeMusic = ref<MusicInfo>();
-const recommendMusicList = ref<MusicList>({ info: { ...defaultInfo }, list: [] });
+const recommendMusicList = ref<MusicList>({ info: { ...defaultListInfo }, list: [] });
 const currentRecommendMusic = ref<MusicInfo>();
 const bannerList = ref([
   {
@@ -60,71 +59,63 @@ const bannerList = ref([
 ]);
 
 const getLikeList = async () => {
-  try {
-    const { status, data } = await invoke('api_personal_fm');
-    if (status !== ApiInvokeStatus.Success) return;
+  const { status, data } = await invoke('api_personal_fm');
+  if (status !== InvokeApiStatus.Success) return;
 
-    const info: ListInfo = {
-      ...defaultInfo,
-      id: 'like',
-      title: '猜你喜欢',
-      count: data.song_list.length,
-    };
-    const list: MusicInfo[] = data.song_list.map((song, index) => ({
-      id: song.songid,
-      path: null,
-      hash: song.hash,
-      cover: song.trans_param.union_cover,
-      title: song.songname,
-      artist: song.author_name,
-      album: '',
-      duration: song.time_length,
-      sort: index,
-    }));
+  const info: ListInfo = {
+    ...defaultListInfo,
+    id: 'like',
+    title: '猜你喜欢',
+    count: data.song_list.length,
+  };
+  const list: MusicInfo[] = data.song_list.map((song, index) => ({
+    id: song.songid,
+    path: null,
+    hash: song.hash,
+    cover: song.trans_param.union_cover,
+    title: song.songname,
+    artist: song.author_name,
+    album: '',
+    duration: song.time_length,
+    sort: index,
+  }));
 
-    likeMusicList.value = { info, list };
-    currentLikeMusic.value = list[0];
-    bannerList.value[0].intro = getFullName(currentLikeMusic.value);
-    bannerList.value[0].img = currentLikeMusic.value.cover
-      ? getPic(currentLikeMusic.value.cover, PicSize.Md)
-      : '';
-  } catch {
-    notify.error('获取 猜你喜欢 失败');
-  }
+  likeMusicList.value = { info, list };
+  currentLikeMusic.value = list[0];
+  bannerList.value[0].intro = getFullName(currentLikeMusic.value);
+  bannerList.value[0].img = currentLikeMusic.value.cover
+    ? getPic(currentLikeMusic.value.cover, PicSize.Md)
+    : '';
 };
 
 const getRecommendLisd = async () => {
-  try {
-    const { status, data } = await invoke('api_music_everyday_recommend');
-    if (status !== ApiInvokeStatus.Success) return;
+  const { status, data } = await invoke('api_music_everyday_recommend');
+  if (status !== InvokeApiStatus.Success) return;
 
-    const info: ListInfo = {
-      ...defaultInfo,
-      id: 'recommend',
-      title: '每日推荐',
-      count: data.song_list_size,
-    };
-    const list: MusicInfo[] = data.song_list.map((song, index) => ({
-      id: song.songid,
-      path: null,
-      hash: song.hash,
-      cover: song.trans_param.union_cover,
-      title: song.songname,
-      artist: song.author_name,
-      album: '',
-      duration: song.time_length,
-      sort: index,
-    }));
+  const info: ListInfo = {
+    ...defaultListInfo,
+    id: 'recommend',
+    title: '每日推荐',
+    count: data.song_list_size,
+  };
+  const list: MusicInfo[] = data.song_list.map((song, index) => ({
+    id: song.songid,
+    path: null,
+    hash: song.hash,
+    cover: song.trans_param.union_cover,
+    title: song.songname,
+    artist: song.author_name,
+    album: '',
+    duration: song.time_length,
+    sort: index,
+  }));
 
-    recommendMusicList.value = { info, list };
-    currentRecommendMusic.value = list[0];
-    bannerList.value[1].intro = getFullName(currentRecommendMusic.value);
-    bannerList.value[1].img = currentRecommendMusic.value.cover
-      ? getPic(currentRecommendMusic.value.cover, PicSize.Md)
-      : '';
-  } catch {
-    notify.error('获取 每日推荐 失败');
-  }
+  recommendMusicList.value = { info, list };
+  currentRecommendMusic.value = list[0];
+  bannerList.value[1].intro = getFullName(currentRecommendMusic.value);
+  bannerList.value[1].img = currentRecommendMusic.value.cover
+    ? getPic(currentRecommendMusic.value.cover, PicSize.Md)
+    : '';
 };
 
 onMounted(() => {

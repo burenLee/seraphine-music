@@ -6,8 +6,8 @@ import { computed, inject, onMounted, ref } from 'vue';
 import ActionButton from '@/components/ActionButton.vue';
 import { notify } from '@/components/Notification.vue';
 import SelectModal from '@/components/SelectModal.vue';
+import { AddMusicType, ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
-import { AddMusicType, ListType } from '@/utils/params';
 import { invoke } from '@/utils/tools';
 
 import AddModal from './AddModal.vue';
@@ -63,11 +63,7 @@ const addList = async () => {
 
 // 获取可扫描文件类型
 const getScanTypes = async () => {
-  try {
-    scanTypes.value = await invoke('music_scan_types');
-  } catch {
-    notify.error('获取可扫描文件类型失败');
-  }
+  scanTypes.value = await invoke('music_scan_types');
 };
 
 onMounted(getScanTypes);

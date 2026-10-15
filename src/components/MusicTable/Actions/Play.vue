@@ -1,11 +1,11 @@
-﻿<script lang="ts" setup>
+<script lang="ts" setup>
 import { computed, inject } from 'vue';
 
 import ActionButton from '@/components/ActionButton.vue';
+import { ListType } from '@/constants';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
 import { getOrigin } from '@/utils/music';
-import { ListType } from '@/utils/params';
 
 const listType = inject<ListType>('listType', ListType.Show);
 

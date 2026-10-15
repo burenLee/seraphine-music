@@ -5,9 +5,9 @@ import {
   LyricAccentColor,
   LyricBaseColor,
   LyricFontSize,
-  LyricOffset,
+  LyricOffsetStep,
   LyricTransMode,
-} from '@/utils/params';
+} from '@/constants';
 
 export const useDesktopLyricStore = defineStore(
   'desktop-lyric',
@@ -48,17 +48,17 @@ export const useDesktopLyricStore = defineStore(
     const setOffsetMap = (mode: 'add' | 'sub' | 'restart', id: ID) => {
       if (!id) return;
 
-      let offset = offsetMap.value[id] || LyricOffset.Default;
+      let offset = offsetMap.value[id] || 0;
 
       switch (mode) {
         case 'add':
-          offset += LyricOffset.Step;
+          offset += LyricOffsetStep;
           break;
         case 'sub':
-          offset -= LyricOffset.Step;
+          offset -= LyricOffsetStep;
           break;
         case 'restart':
-          offset = LyricOffset.Default;
+          offset = 0;
           break;
       }
 

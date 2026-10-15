@@ -10,12 +10,13 @@ import MusicDetail from '@/components/MusicTable/Detail.vue';
 import { notify } from '@/components/Notification.vue';
 import SvgIcon from '@/components/SvgIcon.vue';
 import VirtualList from '@/components/VirtualList.vue';
+import { InvokeApiStatus, ListType } from '@/constants';
 import { useContextMenuStore } from '@/stores/context-menu';
 import { useListStore } from '@/stores/list';
 import { useMusicStore } from '@/stores/music';
+import { useStateStore } from '@/stores/state';
 import { useUserStore } from '@/stores/user';
 import { getOrigin, getPic } from '@/utils/music';
-import { ApiInvokeStatus, ListType, PlaylistType } from '@/utils/params';
 import { cn, formatDuration, invoke, revealPath } from '@/utils/tools';
 
 interface Emits {
@@ -42,10 +43,10 @@ const tableColumns: TableColumn[] = [
   { key: 'duration', slot: true, width: '10%' },
 ];
 
+const stateStore = useStateStore();
 const contextMenuMusic = ref<MusicInfo>();
 const musicDetailVisible = ref(false);
 const removeVisible = ref(false);
-const removeMode = ref<'user' | 'local'>('local');
 
 const musicList = computed(() => listStore[listType]);
 const getCover = computed(() =>
@@ -55,16 +56,8 @@ const getCover = computed(() =>
     : (cover: string) => getPic(cover),
 );
 
-const isPlaying = (id: ID) => musicStore.music?.id == id;
+const isPlaying = (id: ID) => id === musicStore.music?.id;
 const isLike = (id: ID) => listStore.like.list.get(+id);
-
-const handleInfinite = () => {
-  emits('infinite');
-};
-
-const handleCheck = <T>(value: T) => {
-  listStore.handleChecked(value);
-};
 
 const handlePlay = (music: MusicInfo) => {
   musicStore.setMusic(music, { origin: getOrigin(music) });
@@ -78,22 +71,22 @@ const handlePlay = (music: MusicInfo) => {
   }
 };
 
-const addUserPlaylist = async (music: MusicInfo, playlist: ApiPlaylist) => {
+const addUserPlaylist = async (music: MusicInfo, playlist: PlaylistInfo) => {
   try {
     const { status, data } = await invoke('api_playlist_tracks_add', {
-      listId: playlist.list_create_listid,
+      listId: +playlist.id,
       musicList: [{ name: music.title, hash: music.hash }],
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('添加失败');
       return;
     }
 
     notify.success('添加成功');
 
-    // 如果是 我喜欢, 同步列表
-    if (playlist.is_def === 2) {
-      const musicList: MusicInfo[] = data.info.map((song) => {
+    // 如果是我喜欢, 同步喜欢列表
+    if (playlist.id === listStore.like.info.id) {
+      const likeList: MusicInfo[] = data.info.map((song) => {
         const [artist, title] = song.name.split(' - ');
 
         return {
@@ -109,67 +102,56 @@ const addUserPlaylist = async (music: MusicInfo, playlist: ApiPlaylist) => {
           fileId: song.fileid,
         };
       });
-      listStore.addLikeList(musicList);
+
+      listStore.addLikeList(likeList);
+    }
+
+    if (route.name === 'UserPlaylistTable' && route.params.gid === playlist.gid) {
+      stateStore.refresh();
     }
   } catch {
     notify.error('添加失败');
   }
 };
 
-const removeUserPlaylist = async (music: MusicInfo) => {
-  if (!music.fileId) return;
+const removeUserPlaylist = async (music: MusicInfo, playlist: PlaylistInfo) => {
+  const isLike = playlist.id === listStore.like.info.id;
+  const fileId = isLike ? listStore.like.list.get(+music.id) : music.fileId;
+
+  if (!fileId) {
+    notify.warning('未知歌曲');
+    return;
+  }
 
   try {
     const { status } = await invoke('api_playlist_tracks_del', {
-      listId: +musicList.value.info.id,
-      fileIds: [+music.fileId],
+      listId: +playlist.id,
+      fileIds: [+fileId],
     });
-    if (status !== ApiInvokeStatus.Success) {
+    if (status !== InvokeApiStatus.Success) {
       notify.error('删除失败');
       return;
     }
 
     notify.success('删除成功');
-    if (route.name === 'UserPlaylistTable' && musicList.value.info.gid === route.params.gid) {
-      removeLocalPlaylist(music);
-    }
+
     // 如果是 我喜欢, 同步列表
-    if (musicList.value.info.id === listStore.like.info.id) listStore.removeLikeList([music]);
+    if (isLike) listStore.removeLikeList([music.id]);
+
+    if (route.name === 'UserPlaylistTable' && route.params.gid === playlist.gid) {
+      stateStore.refresh();
+    }
   } catch {
     notify.error('删除失败');
   }
-};
-
-const removeLocalPlaylist = (music: MusicInfo) => {
-  listStore.removeList(listType, [music.id]);
-};
-
-const handleDownload = () => {
-  // TODO: 下载
-};
-
-// 打开音频详情弹窗
-const showMusicDetailModal = () => {
-  musicDetailVisible.value = true;
-};
-
-// 打开音频属性修改弹窗
-const showMusicSettingModal = () => {
-  // TODO: 歌曲设置
-};
-
-// 打开删除确认弹窗
-const showRemoveModal = (mode: 'user' | 'local') => {
-  removeVisible.value = true;
-  removeMode.value = mode;
 };
 
 const handleContextMenu = (e: MouseEvent, music: MusicInfo) => {
   contextMenuMusic.value = music;
 
   contextMenuStore.show({
-    x: e.clientX,
-    y: e.clientY,
+    top: e.clientY,
+    left: e.clientX,
     options: [
       { label: '播放', prefixIcon: 'Play', onClick: () => handlePlay(music) },
       { label: '下一首播放', prefixIcon: 'Playlist', onClick: () => listStore.addNextPlay(music) },
@@ -177,24 +159,21 @@ const handleContextMenu = (e: MouseEvent, music: MusicInfo) => {
       {
         label: '添加到',
         prefixIcon: 'Add',
-        suffixIcon: 'Right',
         disabled: !userStore.userinfo || !music.hash,
-        children: userStore.userPlaylist
-          .filter((playlist) => playlist.type === PlaylistType.User)
-          .map((playlist) => ({
-            label: playlist.name,
-            onClick: () => addUserPlaylist(music, playlist),
-          })),
+        children: userStore.userPlaylist.map((playlist) => ({
+          label: playlist.title,
+          onClick: () => addUserPlaylist(music, playlist),
+        })),
       },
-      { label: '下载', prefixIcon: 'Download', disabled: true, onClick: handleDownload },
+      { label: '下载', prefixIcon: 'Download', disabled: true, onClick: () => 'TODO: 下载' },
       { divider: true },
       {
         label: '歌曲详情',
         prefixIcon: 'Info',
         disabled: !!music.hash,
-        onClick: showMusicDetailModal,
+        onClick: () => (musicDetailVisible.value = true),
       },
-      { label: '歌曲设置', prefixIcon: 'Setting', disabled: true, onClick: showMusicSettingModal },
+      { label: '歌曲修改', prefixIcon: 'Pen', disabled: true, onClick: () => 'TODO: 歌曲设置' },
       {
         label: '打开文件目录',
         prefixIcon: 'Folder',
@@ -202,95 +181,37 @@ const handleContextMenu = (e: MouseEvent, music: MusicInfo) => {
         onClick: () => music.path && revealPath(music.path),
       },
       { divider: true },
-      {
-        label: '从歌单删除',
-        prefixIcon: 'Bin',
-        disabled: route.name !== 'UserPlaylistTable',
-        onClick: () => showRemoveModal('user'),
-      },
-      { label: '从列表删除', prefixIcon: 'Bin', onClick: () => showRemoveModal('local') },
+      { label: '删除', prefixIcon: 'Bin', onClick: () => (removeVisible.value = true) },
     ],
   });
 };
 
-const handleLike = async (music: MusicInfo) => {
-  try {
-    const { status, data } = await invoke('api_playlist_tracks_add', {
-      listId: listStore.like.info.id,
-      musicList: [{ name: music.title, hash: music.hash }],
-    });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('添加失败');
-      return;
-    }
-
-    notify.success('添加成功');
-
-    const musicList: MusicInfo[] = data.info.map((song) => {
-      const [artist, title] = song.name.split(' - ');
-
-      return {
-        id: song.mixsongid,
-        path: null,
-        hash: song.hash,
-        cover: song.cover,
-        title: title,
-        artist: artist,
-        album: '',
-        duration: 0,
-        sort: song.sort,
-        fileId: song.fileid,
-      };
-    });
-    listStore.addLikeList(musicList);
-  } catch {
-    notify.error('添加失败');
-  }
-};
-
-const handleUnlike = async (music: MusicInfo) => {
-  // 同一首歌的每个歌单的fileid是不同的, 获取我喜欢歌单的fileid
-  const fileId = listStore.like.list.get(+music.id)?.toString();
-  if (!fileId) return;
-
-  try {
-    const { status } = await invoke('api_playlist_tracks_del', {
-      listId: +listStore.like.info.id,
-      fileIds: [+fileId],
-    });
-    if (status !== ApiInvokeStatus.Success) {
-      notify.error('删除失败');
-      return;
-    }
-
-    notify.success('删除成功');
-    listStore.removeLikeList([music]);
-  } catch {
-    notify.error('删除失败');
-  }
-};
-
 const handleRemoveConfirm = async () => {
   if (!contextMenuMusic.value) {
-    notify.error('未知歌曲');
+    notify.warning('未知歌曲');
     return;
   }
 
-  switch (removeMode.value) {
-    case 'user':
-      removeUserPlaylist(contextMenuMusic.value);
-      break;
-    case 'local':
-      removeLocalPlaylist(contextMenuMusic.value);
-      break;
+  if (route.name === 'UserPlaylistTable') {
+    const playlist = userStore.userPlaylist.find(
+      (playlist) => playlist.id === musicList.value.info.id,
+    );
+    if (!playlist) {
+      notify.error('未知歌单');
+      return;
+    }
+
+    removeUserPlaylist(contextMenuMusic.value, playlist);
+  } else {
+    listStore.removeList(listType, [contextMenuMusic.value.id]);
   }
 
   handleRemoveCancel();
 };
 
 const handleRemoveCancel = () => {
-  contextMenuMusic.value = undefined;
   removeVisible.value = false;
+  contextMenuMusic.value = undefined;
 };
 
 const handleToTarget = () => {
@@ -316,8 +237,8 @@ defineExpose({ handleToTarget, handleToTop });
     :list="listStore.searchList || musicList.list"
     :checking="listStore.isChecking"
     :checkedList="listStore.checkedList"
-    @infinite="handleInfinite"
-    @check="handleCheck"
+    @infinite="emits('infinite')"
+    @check="listStore.handleChecked"
     @contextmenu="handleContextMenu"
     @lineDblClick="handlePlay"
   >
@@ -354,7 +275,6 @@ defineExpose({ handleToTarget, handleToTop });
           v-if="!listStore.isChecking"
           class="hidden items-center pl-2 group-hover/line:flex"
           @dblclick.stop
-          @contextmenu.stop
         >
           <ActionButton class="p-2" mode="text" prefixIcon="Play" @click="handlePlay(row)" />
 
@@ -364,7 +284,7 @@ defineExpose({ handleToTarget, handleToTop });
             mode="text"
             prefixIcon="Heart"
             :disabled="!userStore.userinfo || !row.hash"
-            @click="handleLike(row)"
+            @click="addUserPlaylist(row, listStore.like.info)"
           />
           <ActionButton
             v-else
@@ -372,7 +292,7 @@ defineExpose({ handleToTarget, handleToTop });
             class="p-2 text-error"
             prefixIcon="HeartBold"
             :disabled="!userStore.userinfo"
-            @click="handleUnlike(row)"
+            @click="removeUserPlaylist(row, listStore.like.info)"
           />
 
           <ActionButton
@@ -404,15 +324,16 @@ defineExpose({ handleToTarget, handleToTop });
   <MusicDetail v-model="musicDetailVisible" :path="contextMenuMusic?.path || ''" />
 
   <Modal
-    v-model="removeVisible"
+    :visible="removeVisible"
     class="w-80"
     title="删除"
     @confirm="handleRemoveConfirm"
     @cancel="handleRemoveCancel"
   >
     <div class="px-6">
-      确认 {{ removeMode === 'user' ? '从歌单' : '从列表' }} 删除
-      <span class="font-bold">{{ contextMenuMusic?.title }}</span> ?
+      确认删除
+      <span class="font-bold">{{ contextMenuMusic?.title }}</span>
+      ?
     </div>
   </Modal>
 </template>
